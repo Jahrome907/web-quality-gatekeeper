@@ -7,7 +7,7 @@ import { runLighthouseAudit } from "./runner/lighthouse.js";
 import { runVisualDiff } from "./runner/visualDiff.js";
 import { buildSummary } from "./report/summary.js";
 import { buildHtmlReport } from "./report/html.js";
-import { ensureDir, writeJson, writeText } from "./utils/fs.js";
+import { ensureDir, writeJson, writeText, validateOutputDirectory } from "./utils/fs.js";
 import { createLogger } from "./utils/logger.js";
 import { durationMs, nowIso } from "./utils/timing.js";
 import type { AxeSummary } from "./runner/axe.js";
@@ -18,13 +18,30 @@ class UsageError extends Error {
   exitCode = 2;
 }
 
-function validateUrl(raw: string): string {
+// Security: Patterns that may indicate internal network access (SSRF risk)
+const INTERNAL_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^127\.\d+\.\d+\.\d+$/,
+  /^10\.\d+\.\d+\.\d+$/,
+  /^192\.168\.\d+\.\d+$/,
+  /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
+  /^169\.254\.\d+\.\d+$/, // Link-local / AWS metadata
+  /^\[?::1\]?$/, // IPv6 localhost
+  /^0\.0\.0\.0$/
+];
+
+function isInternalHost(hostname: string): boolean {
+  return INTERNAL_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+}
+
+function validateUrl(raw: string): { url: string; isInternal: boolean } {
   try {
     const url = new URL(raw);
     if (!url.protocol.startsWith("http")) {
       throw new Error("URL must start with http or https");
     }
-    return url.toString();
+    const isInternal = isInternalHost(url.hostname);
+    return { url: url.toString(), isInternal };
   } catch {
     throw new UsageError(`Invalid URL: ${raw}`);
   }
@@ -48,14 +65,30 @@ async function runAudit(
     verbose: boolean;
   }
 ): Promise<number> {
-  const url = validateUrl(rawUrl);
+  const { url, isInternal } = validateUrl(rawUrl);
   const configPath = path.resolve(process.cwd(), options.config);
   const outDir = path.resolve(process.cwd(), options.out);
   const baselineDir = path.resolve(process.cwd(), options.baselineDir);
   const screenshotsDir = path.join(outDir, "screenshots");
   const diffsDir = path.join(outDir, "diffs");
 
+  // Security: Validate output directories are within working directory
+  try {
+    validateOutputDirectory(outDir);
+    validateOutputDirectory(baselineDir);
+  } catch (error) {
+    throw new UsageError((error as Error).message);
+  }
+
   const logger = createLogger(options.verbose);
+
+  // Security: Warn when auditing internal/private network addresses
+  if (isInternal) {
+    logger.warn(
+      `Auditing internal network address (${new URL(url).hostname}). ` +
+        `Ensure this is intentional. See SECURITY.md for SSRF guidance.`
+    );
+  }
   logger.info("Starting audit");
 
   let config;

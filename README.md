@@ -2,19 +2,34 @@
 
 [![CI](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-A serious quality gate CLI + GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual diffs on every PR. Outputs a clean HTML report plus a machine-readable summary.
+A production-ready quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs on every PR. Outputs a clean HTML report plus a machine-readable JSON summary.
 
 ![Report sample](assets/report-sample.svg)
 
+## Table of Contents
+
+- [Features](#features)
+- [Quickstart](#quickstart)
+- [CLI Usage](#cli-usage)
+- [Baseline Workflow](#baseline-workflow)
+- [Configuration](#config)
+- [CI Integration](#ci-github-action)
+- [Output](#output)
+- [Development](#development)
+- [Tech Stack](#tech-stack)
+- [License](#license)
+
 ## Features
 
-- Playwright smoke runner with deterministic screenshots
-- axe-core accessibility scan with severity counts
-- Lighthouse performance budgets (score, LCP, CLS, TBT)
-- Visual regression with baseline management and pixel diffs
-- HTML report and JSON summary artifacts
-- GitHub Action that uploads artifacts and comments a PR summary
+- **Playwright Smoke Runner** — Deterministic screenshots with configurable viewports
+- **axe-core Accessibility** — WCAG compliance scanning with severity counts
+- **Lighthouse Performance** — Budget enforcement for score, LCP, CLS, and TBT
+- **Visual Regression** — Baseline management with pixel-level diff detection
+- **HTML & JSON Reports** — Human-readable reports plus machine-readable summaries
+- **GitHub Action** — Automated PR comments with results and artifact uploads
 
 ## Quickstart
 
@@ -128,6 +143,21 @@ npm run build
 npm run audit -- https://example.com
 ```
 
+## Tech Stack
+
+| Technology | Purpose |
+|------------|---------|
+| [Playwright](https://playwright.dev/) | Browser automation & screenshots |
+| [axe-core](https://github.com/dequelabs/axe-core) | Accessibility testing |
+| [Lighthouse](https://developer.chrome.com/docs/lighthouse/) | Performance auditing |
+| [pixelmatch](https://github.com/mapbox/pixelmatch) | Visual diff comparison |
+| [Zod](https://zod.dev/) | Configuration validation |
+| [Commander](https://github.com/tj/commander.js) | CLI framework |
+
+## Author
+
+**Jerome O'Donnell** — [GitHub](https://github.com/Jahrome907)
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.

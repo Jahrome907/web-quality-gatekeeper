@@ -2,7 +2,10 @@ name: Quality Gate
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
 
+# Security: Require explicit approval for first-time contributors
+# The workflow runs with read-only permissions on PR code
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
@@ -12,6 +15,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Security: Don't persist credentials to prevent token theft
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -20,7 +26,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # Security: Use --ignore-scripts to prevent malicious postinstall scripts
+        run: npm ci --ignore-scripts
 
       - name: Run checks
         run: npm run check
@@ -40,7 +47,19 @@ jobs:
           const output = process.env.GITHUB_OUTPUT;
           const override = process.env.WQG_URL;
           if (override) {
-            fs.appendFileSync(output, `mode=remote\nurl=${override}\n`);
+            // Security: Validate URL format to prevent injection
+            try {
+              const url = new URL(override);
+              if (!url.protocol.startsWith('http')) {
+                console.error('WQG_URL must use http or https protocol');
+                process.exit(1);
+              }
+              // Sanitize: only output the validated URL string
+              fs.appendFileSync(output, `mode=remote\nurl=${url.href}\n`);
+            } catch (e) {
+              console.error('Invalid WQG_URL format:', e.message);
+              process.exit(1);
+            }
             process.exit(0);
           }
           if (hasDemo) {
@@ -57,12 +76,14 @@ jobs:
           npx wait-on http://localhost:4173
 
       - name: Run audit
+        env:
+          AUDIT_URL: ${{ steps.target.outputs.url }}
         run: |
           EXTRA=""
-          if [ "${{ steps.target.outputs.url }}" != "https://example.com" ]; then
+          if [ "$AUDIT_URL" != "https://example.com" ]; then
             EXTRA="--fail-on-a11y"
           fi
-          npm run audit:ci -- ${{ steps.target.outputs.url }} $EXTRA
+          npm run audit:ci -- "$AUDIT_URL" $EXTRA
 
       - name: Upload artifacts
         if: always()
