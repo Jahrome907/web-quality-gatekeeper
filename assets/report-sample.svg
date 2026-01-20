@@ -1,0 +1,24 @@
+<svg width="960" height="540" viewBox="0 0 960 540" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="960" height="540" fill="#F6F7FB" />
+  <rect x="40" y="36" width="880" height="468" rx="20" fill="#FFFFFF" stroke="#E4E7EC" />
+  <text x="80" y="90" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="24" fill="#1F2933">
+    Web Quality Gatekeeper Report
+  </text>
+  <text x="80" y="120" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">
+    https://example.com • Duration 8.7s
+  </text>
+  <rect x="80" y="150" width="200" height="80" rx="12" fill="#EEF3FF" />
+  <rect x="300" y="150" width="200" height="80" rx="12" fill="#F1F9F4" />
+  <rect x="520" y="150" width="200" height="80" rx="12" fill="#FFF4E5" />
+  <rect x="740" y="150" width="140" height="80" rx="12" fill="#FDECEC" />
+  <text x="100" y="190" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">Overall</text>
+  <text x="320" y="190" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">A11y</text>
+  <text x="540" y="190" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">Performance</text>
+  <text x="760" y="190" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">Visual</text>
+  <rect x="80" y="260" width="800" height="200" rx="16" fill="#FFFFFF" stroke="#E4E7EC" />
+  <text x="100" y="300" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="16" fill="#1F2933">Key metrics and diffs</text>
+  <rect x="100" y="320" width="760" height="20" rx="6" fill="#EEF3FF" />
+  <rect x="100" y="350" width="760" height="20" rx="6" fill="#F1F9F4" />
+  <rect x="100" y="380" width="760" height="20" rx="6" fill="#FFF4E5" />
+  <rect x="100" y="410" width="760" height="20" rx="6" fill="#FDECEC" />
+</svg>
