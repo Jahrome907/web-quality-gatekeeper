@@ -52,7 +52,7 @@ function toRelative(outDir: string, filePath: string): string {
   return rel.split(path.sep).join("/");
 }
 
-async function runAudit(
+export async function runAudit(
   rawUrl: string,
   options: {
     config: string;

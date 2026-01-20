@@ -1,0 +1,56 @@
+name: Web Quality Gatekeeper
+description: Quality gate for Playwright, axe accessibility, Lighthouse, and visual diffs
+author: Jahrome907
+
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  url:
+    description: URL to audit
+    required: true
+  config:
+    description: Path to config file (JSON)
+    required: false
+    default: configs/default.json
+  baseline-dir:
+    description: Directory for baseline screenshots
+    required: false
+    default: baselines
+  out-dir:
+    description: Output directory for artifacts
+    required: false
+    default: artifacts
+  set-baseline:
+    description: Overwrite baseline screenshots
+    required: false
+    default: 'false'
+  fail-on-a11y:
+    description: Fail on accessibility violations
+    required: false
+    default: 'true'
+  fail-on-perf:
+    description: Fail on performance budget violations
+    required: false
+    default: 'true'
+  fail-on-visual:
+    description: Fail on visual regression
+    required: false
+    default: 'true'
+  verbose:
+    description: Enable verbose logging
+    required: false
+    default: 'false'
+
+outputs:
+  summary-json:
+    description: Path to summary.json
+  report-html:
+    description: Path to report.html
+  status:
+    description: Overall status (pass/fail)
+
+runs:
+  using: node20
+  main: dist/index.js
