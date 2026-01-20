@@ -12,12 +12,15 @@ A production-ready quality gate CLI and GitHub Action that runs Playwright smoke
 ## Table of Contents
 
 - [Features](#features)
-- [Quickstart](#quickstart)
-- [CLI Usage](#cli-usage)
+- [Quick Start](#quick-start)
+  - [GitHub Action](#github-action)
+  - [CLI](#cli)
 - [Baseline Workflow](#baseline-workflow)
-- [Configuration](#config)
-- [CI Integration](#ci-github-action)
+- [Configuration](#configuration)
 - [Output](#output)
+- [Baseline Storage](#baseline-storage)
+- [Versioning](#versioning)
+- [Security](#security)
 - [Development](#development)
 - [Tech Stack](#tech-stack)
 - [License](#license)
@@ -31,39 +34,81 @@ A production-ready quality gate CLI and GitHub Action that runs Playwright smoke
 - **HTML & JSON Reports** — Human-readable reports plus machine-readable summaries
 - **GitHub Action** — Automated PR comments with results and artifact uploads
 
-## Quickstart
+## Quick Start
 
-```bash
-npm ci
-npx playwright install
-npm run build
-npm run audit -- https://example.com
+### GitHub Action
+
+Add this workflow to your repository at `.github/workflows/quality.yml`:
+
+```yaml
+name: Quality Gate
+on:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - uses: Jahrome907/web-quality-gatekeeper@v1
+        with:
+          url: https://example.com
+          config: configs/default.json
+          baseline-dir: baselines
+          fail-on-a11y: 'true'
+          fail-on-perf: 'true'
+          fail-on-visual: 'true'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: quality-reports
+          path: artifacts
 ```
 
-Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` for the summary data.
+Outputs are written to `artifacts/` (generated, not committed).
 
-## CLI Usage
+### CLI
 
-```bash
-wqg audit <url> [options]
-```
-
-Common options:
+Install and run locally:
 
 ```bash
+# Install globally
+npm install -g web-quality-gatekeeper
+
+# Or use npx
+npx web-quality-gatekeeper audit https://example.com
+
+# With options
 wqg audit https://example.com \
   --config configs/default.json \
   --out artifacts \
   --baseline-dir baselines
 ```
 
-Flags:
+**Options:**
 
-- `--set-baseline` overwrites baseline images
-- `--no-fail-on-a11y` disables a11y failure gate
-- `--no-fail-on-perf` disables performance budget gate
-- `--no-fail-on-visual` disables visual diff gate
-- `--verbose` for debug logging
+- `--set-baseline` — Overwrite baseline images
+- `--no-fail-on-a11y` — Disable a11y failure gate
+- `--no-fail-on-perf` — Disable performance budget gate
+- `--no-fail-on-visual` — Disable visual diff gate
+- `--verbose` — Enable debug logging
+
+**Outputs:**
+
+Generated artifacts are written to `artifacts/` (not committed to source control):
+- `summary.json` — Machine-readable results
+- `report.html` — Human-readable report
+- `screenshots/*.png` — Current screenshots
+- `diffs/*.png` — Visual diff images (when baselines exist)
+- `axe.json` — Raw accessibility results
+- `lighthouse.json` — Raw performance results
 
 ## Baseline Workflow
 
@@ -75,7 +120,7 @@ npm run audit -- https://example.com --set-baseline
 
 2. Commit `baselines/` to track visual regression.
 
-## Config
+## Configuration
 
 Default config lives at `configs/default.json`.
 
@@ -102,28 +147,9 @@ Default config lives at `configs/default.json`.
 }
 ```
 
-## CI (GitHub Action)
-
-The workflow runs on `pull_request`, installs dependencies, runs `npm run check`, and audits a URL.
-
-- If a `demo` script exists in `package.json`, the Action will start it and audit `http://localhost:4173` (with a11y failures enabled).
-- Otherwise, it defaults to `https://example.com` and disables a11y failure to keep the fallback green.
-- You can override with `WQG_URL` in the workflow env to re-enable strict a11y gating.
-
-Artifacts are uploaded from `artifacts/` and a concise PR comment is posted with results.
-
 ## Output
 
-Artifacts written to the output directory:
-
-- `summary.json`
-- `report.html`
-- `screenshots/*.png`
-- `diffs/*.png` (when baselines exist)
-- `axe.json`
-- `lighthouse.json`
-
-Example summary snippet:
+Example summary from `artifacts/summary.json`:
 
 ```json
 {
@@ -132,6 +158,37 @@ Example summary snippet:
   "performance": { "metrics": { "performanceScore": 0.92, "lcpMs": 1800 } }
 }
 ```
+
+## Baseline Storage
+
+Screenshot baselines are stored in `baselines/` and tracked in Git for visual regression detection. Keep the scope small to avoid repo bloat:
+
+- Only commit baseline images for critical pages
+- Prune outdated baselines when pages change significantly
+- Consider [Git LFS](https://git-lfs.github.com/) if baselines exceed 10MB
+
+Artifacts (`artifacts/`) are generated during runs and excluded from Git via `.gitignore`.
+
+## Versioning
+
+Pin to a stable release tag for production use:
+
+```yaml
+uses: Jahrome907/web-quality-gatekeeper@v1
+```
+
+Use `@main` only for testing unreleased features. Major version tags (`v1`, `v2`) are updated to point to the latest minor/patch release.
+
+## Security
+
+This action runs quality checks with minimal privileges:
+
+- No secrets required
+- Uses `contents: read` and `pull-requests: write` permissions
+- Validates URLs to prevent SSRF (see [SECURITY.md](SECURITY.md))
+- Runs with `--ignore-scripts` in CI to block malicious postinstall hooks
+
+Review third-party actions and keep dependencies updated via Dependabot.
 
 ## Development
 
