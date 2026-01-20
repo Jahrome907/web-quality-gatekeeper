@@ -1,0 +1,124 @@
+name: Quality Gate
+
+on:
+  pull_request:
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run checks
+        run: npm run check
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Resolve audit target
+        id: target
+        env:
+          WQG_URL: ${{ vars.WQG_URL }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const hasDemo = Boolean(pkg.scripts && pkg.scripts.demo);
+          const output = process.env.GITHUB_OUTPUT;
+          const override = process.env.WQG_URL;
+          if (override) {
+            fs.appendFileSync(output, `mode=remote\nurl=${override}\n`);
+            process.exit(0);
+          }
+          if (hasDemo) {
+            fs.appendFileSync(output, 'mode=demo\nurl=http://localhost:4173\n');
+          } else {
+            fs.appendFileSync(output, 'mode=remote\nurl=https://example.com\n');
+          }
+          NODE
+
+      - name: Start demo server
+        if: steps.target.outputs.mode == 'demo'
+        run: |
+          npm run demo -- --port 4173 &
+          npx wait-on http://localhost:4173
+
+      - name: Run audit
+        run: |
+          EXTRA=""
+          if [ "${{ steps.target.outputs.url }}" != "https://example.com" ]; then
+            EXTRA="--fail-on-a11y"
+          fi
+          npm run audit:ci -- ${{ steps.target.outputs.url }} $EXTRA
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wqg-artifacts
+          path: artifacts
+
+      - name: Comment PR summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'artifacts/summary.json';
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            let body = '## Web Quality Gatekeeper\n';
+
+            if (fs.existsSync(summaryPath)) {
+              const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+              const status = summary.overallStatus?.toUpperCase() ?? 'UNKNOWN';
+              const perf = summary.performance?.metrics || {};
+              const budgets = summary.performance?.budgets || {};
+              const a11y = summary.a11y?.countsByImpact || {};
+              const visual = summary.visual;
+
+              body += `- Status: **${status}**\n`;
+              if (summary.performance) {
+                body += `- Performance: score ${perf.performanceScore ?? 'n/a'} (min ${budgets.performance ?? 'n/a'}), `;
+                body += `LCP ${perf.lcpMs ?? 'n/a'}ms (max ${budgets.lcpMs ?? 'n/a'}), `;
+                body += `CLS ${perf.cls ?? 'n/a'} (max ${budgets.cls ?? 'n/a'}), `;
+                body += `TBT ${perf.tbtMs ?? 'n/a'}ms (max ${budgets.tbtMs ?? 'n/a'})\n`;
+              } else {
+                body += '- Performance: skipped\n';
+              }
+
+              if (summary.a11y) {
+                body += `- A11y: critical ${a11y.critical ?? 0}, serious ${a11y.serious ?? 0}, moderate ${a11y.moderate ?? 0}, minor ${a11y.minor ?? 0}\n`;
+              } else {
+                body += '- A11y: skipped\n';
+              }
+
+              if (visual) {
+                body += `- Visual: max mismatch ${visual.maxMismatchRatio?.toFixed(4) ?? 'n/a'} (threshold ${visual.threshold})\n`;
+              } else {
+                body += '- Visual: skipped\n';
+              }
+            } else {
+              body += '- Summary: `artifacts/summary.json` not found\n';
+            }
+
+            body += `- Artifacts: ${runUrl}\n`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
