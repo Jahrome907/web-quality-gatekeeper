@@ -1,0 +1,54 @@
+{
+  "name": "web-quality-gatekeeper",
+  "version": "0.1.0",
+  "description": "Quality gate CLI and GitHub Action for Playwright, axe-core, Lighthouse, and visual diffs.",
+  "type": "module",
+  "bin": {
+    "wqg": "dist/cli.js"
+  },
+  "main": "dist/cli.js",
+  "files": [
+    "dist",
+    "configs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsup",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier . --write",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "audit": "tsx src/cli.ts audit",
+    "audit:ci": "tsx src/cli.ts audit --config configs/default.json --out artifacts --baseline-dir baselines --no-fail-on-a11y"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.9.0",
+    "chrome-launcher": "^1.1.0",
+    "commander": "^12.1.0",
+    "lighthouse": "^12.2.1",
+    "pixelmatch": "^5.3.0",
+    "playwright": "^1.47.2",
+    "pngjs": "^7.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.8.0",
+    "@types/node": "^20.14.12",
+    "@types/pixelmatch": "^5.2.6",
+    "@types/pngjs": "^6.0.5",
+    "eslint": "^9.8.0",
+    "prettier": "^3.3.3",
+    "tsup": "^8.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "typescript-eslint": "^8.0.1",
+    "vitest": "^2.0.5",
+    "wait-on": "^7.2.0"
+  }
+}
