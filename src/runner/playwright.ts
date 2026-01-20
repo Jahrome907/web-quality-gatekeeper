@@ -15,7 +15,19 @@ function sanitizeName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9-_]/g, "-");
 }
 
+function validateScreenshotPath(shotPath: string): void {
+  // Prevent SSRF: screenshot paths must be relative paths, not absolute URLs
+  if (shotPath.includes("://")) {
+    throw new Error(`Screenshot path must be a relative path, not a URL: ${shotPath}`);
+  }
+  // Must start with / to be a valid relative path from base URL
+  if (!shotPath.startsWith("/")) {
+    throw new Error(`Screenshot path must start with /: ${shotPath}`);
+  }
+}
+
 function resolveUrl(baseUrl: string, shotPath: string): string {
+  validateScreenshotPath(shotPath);
   return new URL(shotPath, baseUrl).toString();
 }
 

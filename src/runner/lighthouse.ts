@@ -52,6 +52,20 @@ function toFixedScore(score: number | null | undefined): number {
   return Number(score.toFixed(2));
 }
 
+// Security: Determine if we can use sandbox (not in CI containers typically)
+function getChromeFlags(): string[] {
+  const flags = ["--headless", "--disable-gpu"];
+  
+  // In CI environments (containers), sandbox often doesn't work
+  // Only disable sandbox when necessary
+  const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
+  if (isCI) {
+    flags.push("--no-sandbox", "--disable-setuid-sandbox");
+  }
+  
+  return flags;
+}
+
 export async function runLighthouseAudit(
   url: string,
   outDir: string,
@@ -60,7 +74,7 @@ export async function runLighthouseAudit(
 ): Promise<LighthouseSummary> {
   logger.debug("Running Lighthouse audit");
   const chrome = await launch({
-    chromeFlags: ["--headless", "--no-sandbox", "--disable-gpu"]
+    chromeFlags: getChromeFlags()
   });
 
   try {

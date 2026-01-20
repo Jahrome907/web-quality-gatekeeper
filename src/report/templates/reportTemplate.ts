@@ -64,7 +64,7 @@ export function renderReportTemplate(summary: Summary): string {
           return `
             <tr>
               <th>${escapeHtml(result.name)}</th>
-              <td>${result.status}</td>
+              <td>${escapeHtml(result.status)}</td>
               <td>${formatRatio(result.mismatchRatio)}</td>
               <td><a href="${escapeHtml(result.currentPath)}">current</a></td>
               <td><a href="${escapeHtml(result.baselinePath)}">baseline</a></td>
