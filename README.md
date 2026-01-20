@@ -156,7 +156,7 @@ npm run audit -- https://example.com
 
 ## Author
 
-** ** — [GitHub](https://github.com/Jahrome907)
+**Jahrome** — [GitHub](https://github.com/Jahrome907)
 
 ## License
 
