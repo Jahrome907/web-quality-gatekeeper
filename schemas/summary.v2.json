@@ -1,0 +1,651 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+  "title": "Web Quality Gatekeeper Summary v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "toolVersion",
+    "mode",
+    "overallStatus",
+    "startedAt",
+    "durationMs",
+    "primaryUrl",
+    "schemaPointers",
+    "schemaVersions",
+    "compatibility",
+    "rollup",
+    "pages",
+    "trend"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "toolVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["single", "multi"]
+    },
+    "overallStatus": {
+      "$ref": "#/$defs/overallStatus"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "durationMs": {
+      "type": "number",
+      "minimum": 0
+    },
+    "primaryUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "schemaPointers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v1", "v2"],
+      "properties": {
+        "v1": { "type": "string", "format": "uri" },
+        "v2": { "type": "string", "format": "uri" }
+      }
+    },
+    "schemaVersions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v1", "v2"],
+      "properties": {
+        "v1": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
+        "v2": { "type": "string", "pattern": "^2\\.[0-9]+\\.[0-9]+$" }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v1SummaryPath", "v1Schema", "v1SchemaVersion", "note"],
+      "properties": {
+        "v1SummaryPath": { "type": "string" },
+        "v1Schema": { "type": "string", "format": "uri" },
+        "v1SchemaVersion": { "type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$" },
+        "note": { "type": "string" }
+      }
+    },
+    "rollup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pageCount",
+        "failedPages",
+        "a11yViolations",
+        "performanceBudgetFailures",
+        "visualFailures"
+      ],
+      "properties": {
+        "pageCount": { "type": "number", "minimum": 0 },
+        "failedPages": { "type": "number", "minimum": 0 },
+        "a11yViolations": { "type": "number", "minimum": 0 },
+        "performanceBudgetFailures": { "type": "number", "minimum": 0 },
+        "visualFailures": { "type": "number", "minimum": 0 }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "$ref": "#/$defs/pageEntry"
+      }
+    },
+    "trend": {
+      "$ref": "#/$defs/trendSummary"
+    }
+  },
+  "$defs": {
+    "overallStatus": {
+      "type": "string",
+      "enum": ["pass", "fail"]
+    },
+    "stepStatus": {
+      "type": "string",
+      "enum": ["pass", "fail", "skipped"]
+    },
+    "steps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["playwright", "a11y", "perf", "visual"],
+      "properties": {
+        "playwright": { "$ref": "#/$defs/stepStatus" },
+        "a11y": { "$ref": "#/$defs/stepStatus" },
+        "perf": { "$ref": "#/$defs/stepStatus" },
+        "visual": { "$ref": "#/$defs/stepStatus" }
+      }
+    },
+    "artifactsV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "summaryV2",
+        "report",
+        "axe",
+        "lighthouse",
+        "screenshotsDir",
+        "diffsDir",
+        "baselineDir"
+      ],
+      "properties": {
+        "summary": { "type": "string" },
+        "summaryV2": { "type": "string" },
+        "report": { "type": "string" },
+        "axe": { "type": ["string", "null"] },
+        "lighthouse": { "type": ["string", "null"] },
+        "screenshotsDir": { "type": "string" },
+        "diffsDir": { "type": "string" },
+        "baselineDir": { "type": "string" }
+      }
+    },
+    "screenshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "path", "url", "fullPage"],
+      "properties": {
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "fullPage": { "type": "boolean" }
+      }
+    },
+    "a11yImpactCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["critical", "serious", "moderate", "minor"],
+      "properties": {
+        "critical": { "type": "number", "minimum": 0 },
+        "serious": { "type": "number", "minimum": 0 },
+        "moderate": { "type": "number", "minimum": 0 },
+        "minor": { "type": "number", "minimum": 0 }
+      }
+    },
+    "a11yNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "htmlSnippet", "failureSummary"],
+      "properties": {
+        "target": {
+          "type": "array",
+          "maxItems": 10,
+          "items": { "type": "string" }
+        },
+        "htmlSnippet": { "type": "string", "maxLength": 501 },
+        "failureSummary": { "type": ["string", "null"], "maxLength": 1001 }
+      }
+    },
+    "a11yViolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description",
+        "help",
+        "helpUrl",
+        "impact",
+        "wcagTags",
+        "tags",
+        "nodes"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "description": { "type": "string" },
+        "help": { "type": "string" },
+        "helpUrl": { "type": "string" },
+        "impact": { "type": ["string", "null"] },
+        "wcagTags": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "type": "string" }
+        },
+        "tags": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "type": "string" }
+        },
+        "nodes": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/a11yNode" }
+        }
+      }
+    },
+    "a11yMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalViolations", "keptViolations", "droppedViolations", "droppedNodes"],
+      "properties": {
+        "totalViolations": { "type": "number", "minimum": 0 },
+        "keptViolations": { "type": "number", "minimum": 0 },
+        "droppedViolations": { "type": "number", "minimum": 0 },
+        "droppedNodes": { "type": "number", "minimum": 0 }
+      }
+    },
+    "a11y": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["violations", "countsByImpact", "reportPath", "details", "metadata"],
+          "properties": {
+            "violations": { "type": "number", "minimum": 0 },
+            "countsByImpact": { "$ref": "#/$defs/a11yImpactCounts" },
+            "reportPath": { "type": "string" },
+            "details": {
+              "type": "array",
+              "maxItems": 100,
+              "items": { "$ref": "#/$defs/a11yViolation" }
+            },
+            "metadata": { "$ref": "#/$defs/a11yMetadata" }
+          }
+        }
+      ]
+    },
+    "performanceMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performanceScore", "lcpMs", "cls", "tbtMs"],
+      "properties": {
+        "performanceScore": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lcpMs": { "type": "number", "minimum": 0 },
+        "cls": { "type": "number", "minimum": 0 },
+        "tbtMs": { "type": "number", "minimum": 0 }
+      }
+    },
+    "performanceBudgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performance", "lcpMs", "cls", "tbtMs"],
+      "properties": {
+        "performance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "lcpMs": { "type": "number", "minimum": 0 },
+        "cls": { "type": "number", "minimum": 0 },
+        "tbtMs": { "type": "number", "minimum": 0 }
+      }
+    },
+    "performanceBudgetResults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performance", "lcp", "cls", "tbt"],
+      "properties": {
+        "performance": { "type": "boolean" },
+        "lcp": { "type": "boolean" },
+        "cls": { "type": "boolean" },
+        "tbt": { "type": "boolean" }
+      }
+    },
+    "performanceCategoryScores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["performance", "accessibility", "bestPractices", "seo"],
+      "properties": {
+        "performance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "accessibility": { "type": "number", "minimum": 0, "maximum": 1 },
+        "bestPractices": { "type": "number", "minimum": 0, "maximum": 1 },
+        "seo": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "performanceExtendedMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fcpMs", "speedIndexMs", "ttiMs", "ttfbMs"],
+      "properties": {
+        "fcpMs": { "type": "number", "minimum": 0 },
+        "speedIndexMs": { "type": "number", "minimum": 0 },
+        "ttiMs": { "type": "number", "minimum": 0 },
+        "ttfbMs": { "type": "number", "minimum": 0 }
+      }
+    },
+    "performanceOpportunity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "score",
+        "displayValue",
+        "estimatedSavingsMs",
+        "estimatedSavingsBytes"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "displayValue": { "type": "string" },
+        "estimatedSavingsMs": { "type": ["number", "null"], "minimum": 0 },
+        "estimatedSavingsBytes": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+    "performance": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "metrics",
+            "budgets",
+            "budgetResults",
+            "reportPath",
+            "categoryScores",
+            "extendedMetrics",
+            "opportunities"
+          ],
+          "properties": {
+            "metrics": { "$ref": "#/$defs/performanceMetrics" },
+            "budgets": { "$ref": "#/$defs/performanceBudgets" },
+            "budgetResults": { "$ref": "#/$defs/performanceBudgetResults" },
+            "reportPath": { "type": "string" },
+            "categoryScores": { "$ref": "#/$defs/performanceCategoryScores" },
+            "extendedMetrics": { "$ref": "#/$defs/performanceExtendedMetrics" },
+            "opportunities": {
+              "type": "array",
+              "maxItems": 10,
+              "items": { "$ref": "#/$defs/performanceOpportunity" }
+            }
+          }
+        }
+      ]
+    },
+    "visualResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "currentPath", "baselinePath", "diffPath", "mismatchRatio", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "currentPath": { "type": "string" },
+        "baselinePath": { "type": "string" },
+        "diffPath": { "type": ["string", "null"] },
+        "mismatchRatio": { "type": ["number", "null"], "minimum": 0 },
+        "status": { "type": "string", "enum": ["baseline_created", "baseline_updated", "diffed"] }
+      }
+    },
+    "visual": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["results", "threshold", "failed", "maxMismatchRatio"],
+          "properties": {
+            "results": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/visualResult" }
+            },
+            "threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+            "failed": { "type": "boolean" },
+            "maxMismatchRatio": { "type": "number", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "consoleMessage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "text", "location"],
+      "properties": {
+        "type": { "type": "string" },
+        "text": { "type": "string", "maxLength": 1001 },
+        "location": { "type": ["string", "null"] }
+      }
+    },
+    "consoleSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "errorCount", "warningCount", "dropped", "messages"],
+      "properties": {
+        "total": { "type": "number", "minimum": 0 },
+        "errorCount": { "type": "number", "minimum": 0 },
+        "warningCount": { "type": "number", "minimum": 0 },
+        "dropped": { "type": "number", "minimum": 0 },
+        "messages": {
+          "type": "array",
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/consoleMessage" }
+        }
+      }
+    },
+    "jsError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message", "stack"],
+      "properties": {
+        "message": { "type": "string", "maxLength": 1001 },
+        "stack": { "type": ["string", "null"], "maxLength": 2001 }
+      }
+    },
+    "jsErrorSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "dropped", "errors"],
+      "properties": {
+        "total": { "type": "number", "minimum": 0 },
+        "dropped": { "type": "number", "minimum": 0 },
+        "errors": {
+          "type": "array",
+          "maxItems": 100,
+          "items": { "$ref": "#/$defs/jsError" }
+        }
+      }
+    },
+    "networkSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalRequests", "failedRequests", "transferSizeBytes", "resourceTypeBreakdown"],
+      "properties": {
+        "totalRequests": { "type": "number", "minimum": 0 },
+        "failedRequests": { "type": "number", "minimum": 0 },
+        "transferSizeBytes": { "type": "number", "minimum": 0 },
+        "resourceTypeBreakdown": {
+          "type": "object",
+          "additionalProperties": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "runtimeSignals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["console", "jsErrors", "network"],
+      "properties": {
+        "console": { "$ref": "#/$defs/consoleSummary" },
+        "jsErrors": { "$ref": "#/$defs/jsErrorSummary" },
+        "network": { "$ref": "#/$defs/networkSummary" }
+      }
+    },
+    "detailsSummaryV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "$schema",
+        "schemaVersion",
+        "toolVersion",
+        "overallStatus",
+        "url",
+        "startedAt",
+        "durationMs",
+        "steps",
+        "artifacts",
+        "screenshots",
+        "a11y",
+        "performance",
+        "visual",
+        "runtimeSignals"
+      ],
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "const": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
+        },
+        "schemaVersion": {
+          "type": "string",
+          "const": "2.0.0"
+        },
+        "toolVersion": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "overallStatus": { "$ref": "#/$defs/overallStatus" },
+        "url": { "type": "string", "format": "uri" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "steps": { "$ref": "#/$defs/steps" },
+        "artifacts": { "$ref": "#/$defs/artifactsV2" },
+        "screenshots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/screenshot" }
+        },
+        "a11y": { "$ref": "#/$defs/a11y" },
+        "performance": { "$ref": "#/$defs/performance" },
+        "visual": { "$ref": "#/$defs/visual" },
+        "runtimeSignals": { "$ref": "#/$defs/runtimeSignals" }
+      }
+    },
+    "trendNumericDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "previous", "delta"],
+      "properties": {
+        "current": { "type": "number" },
+        "previous": { "type": ["number", "null"] },
+        "delta": { "type": ["number", "null"] }
+      }
+    },
+    "trendPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "url", "statusChanged", "a11yViolations", "performanceScore", "maxMismatchRatio"],
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "statusChanged": { "type": "boolean" },
+        "a11yViolations": { "$ref": "#/$defs/trendNumericDelta" },
+        "performanceScore": { "$ref": "#/$defs/trendNumericDelta" },
+        "maxMismatchRatio": { "$ref": "#/$defs/trendNumericDelta" }
+      }
+    },
+    "trendMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overallStatusChanged",
+        "durationMs",
+        "failedPages",
+        "a11yViolations",
+        "performanceBudgetFailures",
+        "visualFailures"
+      ],
+      "properties": {
+        "overallStatusChanged": { "type": "boolean" },
+        "durationMs": { "$ref": "#/$defs/trendNumericDelta" },
+        "failedPages": { "$ref": "#/$defs/trendNumericDelta" },
+        "a11yViolations": { "$ref": "#/$defs/trendNumericDelta" },
+        "performanceBudgetFailures": { "$ref": "#/$defs/trendNumericDelta" },
+        "visualFailures": { "$ref": "#/$defs/trendNumericDelta" }
+      }
+    },
+    "trendSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "historyDir", "previousSnapshotPath", "message", "metrics", "pages"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "disabled",
+            "no_previous",
+            "incompatible_previous",
+            "corrupt_previous",
+            "ready"
+          ]
+        },
+        "historyDir": { "type": ["string", "null"] },
+        "previousSnapshotPath": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] },
+        "metrics": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/trendMetrics" }
+          ]
+        },
+        "pages": {
+          "type": "array",
+          "maxItems": 25,
+          "items": { "$ref": "#/$defs/trendPage" }
+        }
+      }
+    },
+    "pageEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "name",
+        "url",
+        "overallStatus",
+        "startedAt",
+        "durationMs",
+        "steps",
+        "artifacts",
+        "metrics",
+        "details"
+      ],
+      "properties": {
+        "index": { "type": "number", "minimum": 0 },
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "overallStatus": { "$ref": "#/$defs/overallStatus" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "steps": { "$ref": "#/$defs/steps" },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["summary", "summaryV2", "report"],
+          "properties": {
+            "summary": { "type": "string" },
+            "summaryV2": { "type": "string" },
+            "report": { "type": "string" }
+          }
+        },
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "a11yViolations",
+            "performanceScore",
+            "maxMismatchRatio",
+            "consoleErrors",
+            "jsErrors",
+            "failedRequests"
+          ],
+          "properties": {
+            "a11yViolations": { "type": "number", "minimum": 0 },
+            "performanceScore": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+            "maxMismatchRatio": { "type": ["number", "null"], "minimum": 0 },
+            "consoleErrors": { "type": "number", "minimum": 0 },
+            "jsErrors": { "type": "number", "minimum": 0 },
+            "failedRequests": { "type": "number", "minimum": 0 }
+          }
+        },
+        "details": { "$ref": "#/$defs/detailsSummaryV2" }
+      }
+    }
+  }
+}
