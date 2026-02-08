@@ -1,4 +1,5 @@
 import path from "node:path";
+import { createRequire } from "node:module";
 import { loadConfig } from "./config/loadConfig.js";
 import { openPage, captureScreenshots } from "./runner/playwright.js";
 import { runAxeScan } from "./runner/axe.js";
@@ -14,7 +15,11 @@ import type { LighthouseSummary } from "./runner/lighthouse.js";
 import type { VisualDiffSummary } from "./runner/visualDiff.js";
 import type { Summary } from "./report/summary.js";
 
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json") as { version: string };
+
 export type { Summary } from "./report/summary.js";
+export { SCHEMA_VERSION } from "./report/summary.js";
 export type { Config } from "./config/schema.js";
 
 export interface AuditOptions {
@@ -26,6 +31,7 @@ export interface AuditOptions {
   failOnPerf: boolean;
   failOnVisual: boolean;
   verbose: boolean;
+  format?: string;
 }
 
 function toRelative(outDir: string, filePath: string): string {
@@ -123,6 +129,7 @@ export async function runAudit(
       url,
       startedAt,
       durationMs: durationMs(startTime),
+      toolVersion: pkg.version,
       screenshots: relativeScreenshots,
       a11y: relativeA11y,
       performance: relativePerf,

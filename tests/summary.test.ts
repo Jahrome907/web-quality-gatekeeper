@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSummary } from "../src/report/summary.js";
+import { buildSummary, SCHEMA_VERSION } from "../src/report/summary.js";
 import type { AxeSummary } from "../src/runner/axe.js";
 import type { LighthouseSummary } from "../src/runner/lighthouse.js";
 import type { VisualDiffSummary } from "../src/runner/visualDiff.js";
@@ -8,6 +8,7 @@ const baseParams = {
   url: "https://example.com",
   startedAt: "2025-01-01T00:00:00.000Z",
   durationMs: 5000,
+  toolVersion: "0.2.0",
   screenshots: [{ name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }],
   artifacts: {
     summary: "summary.json",
@@ -174,5 +175,17 @@ describe("buildSummary", () => {
     expect(summary.url).toBe("https://example.com");
     expect(summary.startedAt).toBe("2025-01-01T00:00:00.000Z");
     expect(summary.durationMs).toBe(5000);
+  });
+
+  it("includes schemaVersion and toolVersion", () => {
+    const summary = buildSummary({
+      ...baseParams,
+      a11y: null,
+      performance: null,
+      visual: null,
+      options: { failOnA11y: true, failOnPerf: true, failOnVisual: true }
+    });
+    expect(summary.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(summary.toolVersion).toMatch(/^\d+\.\d+\.\d+/);
   });
 });

@@ -29,6 +29,14 @@ inputs:
     required: false
     default: "true"
 
+outputs:
+  status:
+    description: "Overall audit status: pass or fail"
+    value: ${{ steps.audit.outputs.status }}
+  summary-path:
+    description: "Path to the JSON summary file"
+    value: ${{ steps.audit.outputs.summary-path }}
+
 runs:
   using: "composite"
   steps:
@@ -54,18 +62,21 @@ runs:
       run: npm run build
 
     - name: Run audit
+      id: audit
       shell: bash
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_CONFIG: ${{ inputs.config-path }}
+        INPUT_BASELINE: ${{ inputs.baseline-dir }}
+        INPUT_A11Y: ${{ inputs.fail-on-a11y }}
+        INPUT_PERF: ${{ inputs.fail-on-perf }}
+        INPUT_VISUAL: ${{ inputs.fail-on-visual }}
       run: |
-        ARGS="${{ inputs.url }}"
-        ARGS="$ARGS --config ${{ inputs.config-path }}"
-        ARGS="$ARGS --baseline-dir ${{ inputs.baseline-dir }}"
-        if [ "${{ inputs.fail-on-a11y }}" != "true" ]; then
-          ARGS="$ARGS --no-fail-on-a11y"
-        fi
-        if [ "${{ inputs.fail-on-perf }}" != "true" ]; then
-          ARGS="$ARGS --no-fail-on-perf"
-        fi
-        if [ "${{ inputs.fail-on-visual }}" != "true" ]; then
-          ARGS="$ARGS --no-fail-on-visual"
-        fi
-        node dist/cli.js audit $ARGS
+        ARGS=("$INPUT_URL" "--config" "$INPUT_CONFIG" "--baseline-dir" "$INPUT_BASELINE")
+        [[ "$INPUT_A11Y" != "true" ]] && ARGS+=("--no-fail-on-a11y")
+        [[ "$INPUT_PERF" != "true" ]] && ARGS+=("--no-fail-on-perf")
+        [[ "$INPUT_VISUAL" != "true" ]] && ARGS+=("--no-fail-on-visual")
+        node dist/cli.js audit "${ARGS[@]}"
+        STATUS=$(node -e "const s=require('./artifacts/summary.json');console.log(s.overallStatus)")
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+        echo "summary-path=artifacts/summary.json" >> "$GITHUB_OUTPUT"

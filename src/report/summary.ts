@@ -3,6 +3,8 @@ import type { LighthouseSummary } from "../runner/lighthouse.js";
 import type { VisualDiffSummary } from "../runner/visualDiff.js";
 import type { ScreenshotResult } from "../runner/playwright.js";
 
+export const SCHEMA_VERSION = "1.0.0";
+
 export type StepStatus = "pass" | "fail" | "skipped";
 
 export interface ArtifactPaths {
@@ -16,6 +18,8 @@ export interface ArtifactPaths {
 }
 
 export interface Summary {
+  schemaVersion: string;
+  toolVersion: string;
   overallStatus: "pass" | "fail";
   url: string;
   startedAt: string;
@@ -43,6 +47,7 @@ export function buildSummary(params: {
   url: string;
   startedAt: string;
   durationMs: number;
+  toolVersion: string;
   screenshots: ScreenshotResult[];
   a11y: AxeSummary | null;
   performance: LighthouseSummary | null;
@@ -70,6 +75,8 @@ export function buildSummary(params: {
   const overallStatus = a11yFail || perfFail || visualFail ? "fail" : "pass";
 
   return {
+    schemaVersion: SCHEMA_VERSION,
+    toolVersion: params.toolVersion,
     overallStatus,
     url: params.url,
     startedAt: params.startedAt,
