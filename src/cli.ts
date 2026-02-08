@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { createRequire } from "node:module";
 import { runAudit } from "./index.js";
-import { validateUrl, UsageError } from "./utils/url.js";
+import { UsageError } from "./utils/url.js";
 import { formatSummaryAsMarkdown } from "./report/markdown.js";
 import { parseAuditAuth } from "./utils/auth.js";
 
@@ -18,7 +18,7 @@ function collectOption(value: string, previous: string[]): string[] {
 
 program
   .command("audit")
-  .argument("<url>", "URL to audit")
+  .argument("[url]", "URL to audit when config.urls is not set")
   .option("--config <path>", "Config file path", "configs/default.json")
   .option("--out <dir>", "Output directory", "artifacts")
   .option("--baseline-dir <dir>", "Baseline directory", "baselines")
@@ -40,17 +40,8 @@ program
     [] as string[]
   )
   .option("--verbose", "Verbose logging", false)
-  .action(async (url: string, options) => {
+  .action(async (url: string | undefined, options) => {
     try {
-      const { isInternal } = validateUrl(url);
-      if (isInternal) {
-        const hostname = new URL(url).hostname;
-        console.warn(
-          `Auditing internal network address (${hostname}). ` +
-            `Ensure this is intentional. See SECURITY.md for SSRF guidance.`
-        );
-      }
-
       const format = options.format as string;
       if (!["json", "html", "md"].includes(format)) {
         throw new UsageError(`Invalid format: ${format}. Use json, html, or md`);
@@ -63,7 +54,7 @@ program
         throw new UsageError((error as Error).message);
       }
 
-      const { exitCode, summary } = await runAudit(url, {
+      const { exitCode, summary, summaryV2 } = await runAudit(url, {
         config: options.config,
         out: options.out,
         baselineDir: options.baselineDir,
@@ -76,11 +67,11 @@ program
         auth
       });
 
-      // Write summary to stdout when json or md is requested
+      // Preserve v1 JSON stdout compatibility while allowing richer markdown output.
       if (format === "json") {
         console.log(JSON.stringify(summary, null, 2));
       } else if (format === "md") {
-        console.log(formatSummaryAsMarkdown(summary));
+        console.log(formatSummaryAsMarkdown(summaryV2));
       }
 
       process.exitCode = exitCode;

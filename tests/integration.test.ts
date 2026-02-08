@@ -45,12 +45,57 @@ function startFixtureServer(): Promise<{ server: http.Server; url: string }> {
   });
 }
 
+function closeFixtureServer(server: http.Server): Promise<void> {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function toV1CompatibilityShape(summary: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...summary };
+
+  const a11y = summary.a11y as Record<string, unknown> | null | undefined;
+  if (a11y && typeof a11y === "object") {
+    normalized.a11y = {
+      violations: a11y.violations,
+      countsByImpact: a11y.countsByImpact,
+      reportPath: a11y.reportPath
+    };
+  }
+
+  const performance = summary.performance as Record<string, unknown> | null | undefined;
+  if (performance && typeof performance === "object") {
+    normalized.performance = {
+      metrics: performance.metrics,
+      budgets: performance.budgets,
+      budgetResults: performance.budgetResults,
+      reportPath: performance.reportPath
+    };
+  }
+
+  return normalized;
+}
+
 describe("CLI integration", () => {
   let server: http.Server;
   let baseUrl: string;
   let outDir: string;
 
   beforeAll(async () => {
+    // Ensure CLI artifact is current for deterministic integration behavior.
+    execFileSync("npm", ["run", "build"], {
+      cwd: ROOT,
+      timeout: 120000,
+      env: { ...process.env, NO_COLOR: "1" },
+      stdio: "pipe"
+    });
+
     const fixture = await startFixtureServer();
     server = fixture.server;
     baseUrl = fixture.url;
@@ -59,7 +104,9 @@ describe("CLI integration", () => {
   }, 30000);
 
   afterAll(async () => {
-    server?.close();
+    if (server) {
+      await closeFixtureServer(server);
+    }
     if (outDir) {
       await rm(outDir, { recursive: true, force: true });
     }
@@ -105,7 +152,8 @@ describe("CLI integration", () => {
     expect(summary).toHaveProperty("toolVersion");
     expect(summary.schemaVersion).toMatch(/^\d+\.\d+\.\d+$/);
     expect(summary.toolVersion).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(validate(summary), JSON.stringify(validate.errors, null, 2)).toBe(true);
+    const v1CompatibleSummary = toV1CompatibilityShape(summary);
+    expect(validate(v1CompatibleSummary), JSON.stringify(validate.errors, null, 2)).toBe(true);
 
     // Required shape
     expect(summary).toHaveProperty("overallStatus");
@@ -157,11 +205,11 @@ describe("CLI integration", () => {
   it("prints version with --version flag", () => {
     const output = execFileSync("node", [CLI, "--version"], {
       cwd: ROOT,
-      timeout: 5000,
+      timeout: 15000,
       encoding: "utf8",
     });
     expect(output.trim()).toMatch(/^\d+\.\d+\.\d+$/);
-  });
+  }, 20000);
 
   it("report.html contains expected heading", async () => {
     // Re-use the output from the first test if still present

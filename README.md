@@ -66,7 +66,9 @@ Lighthouse CI, Pa11y, and similar tools each cover a single concern. Teams end u
 - **axe-core Accessibility** — WCAG compliance scanning with severity counts
 - **Lighthouse Performance** — Budget enforcement for score, LCP, CLS, and TBT
 - **Visual Regression** — Baseline management with pixel-level diff detection
-- **HTML & JSON Reports** — Human-readable reports plus machine-readable summaries
+- **Multi-Page Audit** — Audit one URL from CLI or multiple named URLs from config
+- **Trend Tracking** — Optional snapshot history with automatic run-over-run deltas
+- **HTML, JSON, and Markdown Reports** — Human-readable output plus machine contracts
 - **Authenticated Audits** — Pass auth headers/cookies via CLI flags or env vars
 - **GitHub Action** — Automated PR comments with results and artifact uploads
 
@@ -79,13 +81,15 @@ npm run build
 npm run audit -- https://example.com
 ```
 
-Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` for the summary data.
+Open `artifacts/report.html` for the HTML report, `artifacts/summary.json` for v1-compatible output, and `artifacts/summary.v2.json` for multi-page/trend output.
 
 ## CLI Usage
 
 ```bash
-wqg audit <url> [options]
+wqg audit [url] [options]
 ```
+
+`url` is optional when `config.urls` is set.
 
 Common options:
 
@@ -138,6 +142,8 @@ console.log(summary.overallStatus); // "pass" or "fail"
 console.log(summary.schemaVersion); // "1.x.x"
 ```
 
+`runAudit()` also returns `summaryV2` with multi-page rollup and trend deltas.
+
 ## Baseline Workflow
 
 1. Run once to create baselines:
@@ -171,9 +177,25 @@ Default config lives at `configs/default.json`.
     "formFactor": "desktop"
   },
   "visual": { "threshold": 0.01 },
-  "toggles": { "a11y": true, "perf": true, "visual": true }
+  "toggles": { "a11y": true, "perf": true, "visual": true },
+  "urls": [
+    { "name": "marketing-home", "url": "https://example.com/" },
+    { "name": "pricing", "url": "https://example.com/pricing" }
+  ],
+  "trends": {
+    "enabled": true,
+    "historyDir": ".wqg-history",
+    "maxSnapshots": 90
+  }
 }
 ```
+
+`urls` preserves array order in report and summary output.  
+When `trends.enabled` is `true`, each run compares to the latest valid snapshot and emits deltas in `summary.v2.json` and Markdown output.
+
+Trend page-to-page matching strategy:
+- each current page is matched to a previous page by `name::url`
+- if no prior match exists, page deltas use `previous: null` and `delta: null`
 
 ## CI (GitHub Action)
 
@@ -186,6 +208,8 @@ Add to your workflow:
   with:
     url: https://my-site.com
 ```
+
+Use a stable major tag (`@v1`) for compatibility, or pin an exact release tag (for example `@v1.3.2`) for fully reproducible pipelines.
 
 Inputs:
 
@@ -222,18 +246,21 @@ Artifacts are uploaded from `artifacts/` and a concise PR comment is posted with
 Artifacts written to the output directory:
 
 - `summary.json`
+- `summary.v2.json`
 - `report.html`
 - `screenshots/*.png`
 - `diffs/*.png` (when baselines exist)
 - `axe.json`
 - `lighthouse.json`
+- `pages/*/summary.json` and `pages/*/summary.v2.json` (multi-page mode)
+- `.wqg-history/*.summary.v2.json` (when trend tracking is enabled)
 
 Example summary snippet:
 
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "toolVersion": "0.3.0",
   "overallStatus": "pass",
   "steps": { "a11y": "pass", "perf": "pass", "visual": "pass" },
@@ -241,15 +268,29 @@ Example summary snippet:
 }
 ```
 
-For machine consumption, use `--format json` to print the summary to stdout, or `--format md` for a Markdown table.
+`--format json` prints `summary.json` (v1-compatible). `--format md` renders multi-page sections and trend deltas from v2 output when available.
 
 ## Schema Contract
 
-Versioned summary schema:
+Versioned summary contracts:
 
 - File: `schemas/summary.v1.json`
 - URI: `https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json`
-- Summary pointer: `$schema` field in every `summary.json`
+- v1 pointer: `$schema` in `summary.json`
+- v2 pointer: `$schema` in `summary.v2.json`
+- Migration reference: `docs/migrations/summary-v2.md`
+
+Compatibility policy:
+
+- `summary.json` remains the v1 compatibility artifact.
+- `summary.v2.json` carries multi-page rollup, per-page details, and trend deltas.
+- Existing CLI/API consumers that parse `summary.json` continue to work unchanged.
+- Trend statuses:
+  - `disabled`: trend tracking is not enabled
+  - `no_previous`: no prior snapshot found
+  - `incompatible_previous`: prior snapshots exist but none are compatible with v2
+  - `corrupt_previous`: prior snapshots exist but are unreadable or invalid JSON
+  - `ready`: deltas are computed
 
 Schema migration policy:
 

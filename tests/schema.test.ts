@@ -22,7 +22,7 @@ const baseParams = {
   url: "https://example.com",
   startedAt: "2025-01-01T00:00:00.000Z",
   durationMs: 5000,
-  toolVersion: "0.2.0",
+  toolVersion: "0.3.0",
   screenshots: [{ name: "home", path: "screenshots/home.png", url: "https://example.com/", fullPage: true }],
   artifacts: {
     summary: "summary.json",
@@ -202,7 +202,7 @@ describe("summary JSON schema contract", () => {
   it("schemaVersion is semver and stable", () => {
     expect(SCHEMA_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     // Bump this expectation deliberately when changing the schema
-    expect(SCHEMA_VERSION).toBe("1.0.0");
+    expect(SCHEMA_VERSION).toBe("1.1.0");
   });
 });
 
@@ -219,7 +219,7 @@ describe("markdown output", () => {
     const md = formatSummaryAsMarkdown(summary);
 
     expect(md).toContain("# Web Quality Gatekeeper Report");
-    expect(md).toContain("**Status**");
+    expect(md).toContain("![Overall:");
     expect(md).toContain("## Steps");
     expect(md).toContain("| Playwright |");
     expect(md).toContain("## Accessibility");
