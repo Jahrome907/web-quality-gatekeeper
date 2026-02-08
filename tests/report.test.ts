@@ -3,6 +3,8 @@ import { buildHtmlReport } from "../src/report/html.js";
 import type { Summary } from "../src/report/summary.js";
 
 const summary: Summary = {
+  schemaVersion: "1.0.0",
+  toolVersion: "0.2.0",
   overallStatus: "pass",
   url: "https://example.com",
   startedAt: "2024-01-01T00:00:00.000Z",

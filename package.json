@@ -1,6 +1,6 @@
 {
   "name": "web-quality-gatekeeper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Quality gate CLI and GitHub Action for Playwright, axe-core, Lighthouse, and visual diffs.",
   "type": "module",
   "bin": {

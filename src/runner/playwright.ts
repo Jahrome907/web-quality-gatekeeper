@@ -57,7 +57,7 @@ export async function openPage(
   page.setDefaultTimeout(config.timeouts.actionMs);
 
   logger.debug(`Navigating to ${url}`);
-  await retry(() => page.goto(url, { waitUntil: "networkidle" }), {
+  await retry(() => page.goto(url, { waitUntil: "load" }), {
     retries: 1,
     delayMs: 2000,
     logger
@@ -77,7 +77,7 @@ async function captureScreenshot(
 ): Promise<ScreenshotResult> {
   const url = resolveUrl(baseUrl, shot.path);
   logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
-  await retry(() => page.goto(url, { waitUntil: "networkidle" }), {
+  await retry(() => page.goto(url, { waitUntil: "load" }), {
     retries: 1,
     delayMs: 2000,
     logger

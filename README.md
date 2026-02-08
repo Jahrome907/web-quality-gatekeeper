@@ -10,11 +10,46 @@ A production-ready quality gate CLI and GitHub Action that runs Playwright smoke
 
 ![Report sample](assets/report-sample.svg)
 
+## Why This Exists
+
+Lighthouse CI, Pa11y, and similar tools each cover a single concern. Teams end up stitching together three or four actions, juggling separate configs, and parsing multiple output formats. **Web Quality Gatekeeper** runs all four checks (smoke, a11y, perf, visual) in one pass, with a single config file, unified summary output, and a composite GitHub Action that works out-of-the-box in any repo.
+
+| Capability | Lighthouse CI | Pa11y CI | WQG |
+|------------|:---:|:---:|:---:|
+| Performance budgets | Yes | — | Yes |
+| Accessibility scanning | — | Yes | Yes |
+| Visual regression | — | — | Yes |
+| Deterministic screenshots | — | — | Yes |
+| Single config + action | — | — | Yes |
+| Machine-readable summary | Partial | — | Yes |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                   CLI / API                      │
+│         src/cli.ts  ·  src/index.ts              │
+├──────────┬──────────┬──────────┬────────────────┤
+│ Playwright│  axe-core │Lighthouse│ Visual Diff   │
+│  runner   │  runner   │  runner  │  runner       │
+│  (smoke)  │  (a11y)   │  (perf)  │ (pixelmatch)  │
+├──────────┴──────────┴──────────┴────────────────┤
+│              Config (Zod schema)                 │
+├─────────────────────────────────────────────────┤
+│        Report (HTML · JSON · Markdown)           │
+├─────────────────────────────────────────────────┤
+│        Utils (retry · logger · fs · url)         │
+└─────────────────────────────────────────────────┘
+```
+
 ## Table of Contents
 
+- [Why This Exists](#why-this-exists)
+- [Architecture](#architecture)
 - [Features](#features)
 - [Quickstart](#quickstart)
 - [CLI Usage](#cli-usage)
+- [Programmatic API](#programmatic-api)
 - [Baseline Workflow](#baseline-workflow)
 - [Configuration](#config)
 - [CI Integration](#ci-github-action)
@@ -64,7 +99,28 @@ Flags:
 - `--no-fail-on-a11y` disables a11y failure gate
 - `--no-fail-on-perf` disables performance budget gate
 - `--no-fail-on-visual` disables visual diff gate
+- `--format <type>` output format: `json`, `html`, or `md` (default: `html`)
 - `--verbose` for debug logging
+
+## Programmatic API
+
+```typescript
+import { runAudit } from "web-quality-gatekeeper";
+
+const { exitCode, summary } = await runAudit("https://example.com", {
+  config: "configs/default.json",
+  out: "artifacts",
+  baselineDir: "baselines",
+  setBaseline: false,
+  failOnA11y: true,
+  failOnPerf: true,
+  failOnVisual: true,
+  verbose: false
+});
+
+console.log(summary.overallStatus); // "pass" or "fail"
+console.log(summary.schemaVersion); // "1.0.0"
+```
 
 ## Baseline Workflow
 
@@ -110,7 +166,7 @@ Default config lives at `configs/default.json`.
 Add to your workflow:
 
 ```yaml
-- uses: Jahrome907/web-quality-gatekeeper@v1
+- uses: Jahrome907/web-quality-gatekeeper@main
   with:
     url: https://my-site.com
 ```
@@ -125,6 +181,13 @@ Inputs:
 | `fail-on-a11y` | No | `true` | Fail if accessibility violations are found |
 | `fail-on-perf` | No | `true` | Fail if performance budgets are exceeded |
 | `fail-on-visual` | No | `true` | Fail if visual diffs exceed threshold |
+
+Outputs:
+
+| Output | Description |
+|--------|-------------|
+| `status` | Overall audit status: `pass` or `fail` |
+| `summary-path` | Path to the JSON summary file |
 
 ### CI Workflow
 
@@ -151,11 +214,15 @@ Example summary snippet:
 
 ```json
 {
+  "schemaVersion": "1.0.0",
+  "toolVersion": "0.2.0",
   "overallStatus": "pass",
   "steps": { "a11y": "pass", "perf": "pass", "visual": "pass" },
   "performance": { "metrics": { "performanceScore": 0.92, "lcpMs": 1800 } }
 }
 ```
+
+For machine consumption, use `--format json` to print the summary to stdout, or `--format md` for a Markdown table.
 
 ## Development
 

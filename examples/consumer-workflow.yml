@@ -1,0 +1,32 @@
+# Example: Using Web Quality Gatekeeper in your own repo.
+# Copy this file to .github/workflows/quality-gate.yml in your project.
+#
+# Prerequisites:
+#   - A deployed URL or a `demo` npm script that serves your site.
+
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Run the quality gate against your deployed site
+      - uses: Jahrome907/web-quality-gatekeeper@main
+        with:
+          url: https://your-site.example.com
+          # Optional: customize thresholds via config
+          # config-path: .quality-gate.json
+          # Optional: control which gates fail the build
+          # fail-on-a11y: "true"
+          # fail-on-perf: "true"
+          # fail-on-visual: "false"
+
+      # Artifacts are uploaded automatically.
+      # Access summary.json, report.html, screenshots, and diffs
+      # in the Actions run artifacts tab.
