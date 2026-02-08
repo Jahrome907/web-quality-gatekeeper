@@ -94,10 +94,14 @@ jobs:
           AUDIT_URL: ${{ steps.target.outputs.url }}
         run: |
           EXTRA=""
-          if [ "$AUDIT_URL" != "https://example.com" ]; then
-            EXTRA="--fail-on-a11y"
+          if [ "$AUDIT_URL" == "https://example.com" ]; then
+            EXTRA="--no-fail-on-a11y"
           fi
-          npm run audit:ci -- "$AUDIT_URL" $EXTRA
+          npm run audit -- "$AUDIT_URL" \
+            --config configs/default.json \
+            --out artifacts \
+            --baseline-dir baselines \
+            $EXTRA
 
       - name: Upload artifacts
         if: always()
@@ -107,7 +111,7 @@ jobs:
           path: artifacts
 
       - name: Comment PR summary
-        if: always() && github.actor != 'dependabot[bot]'
+        if: always() && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
         uses: actions/github-script@v7
         with:
           script: |
