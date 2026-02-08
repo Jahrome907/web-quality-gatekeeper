@@ -1,0 +1,71 @@
+name: "Web Quality Gatekeeper"
+description: "Run Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs"
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  url:
+    description: "URL to audit"
+    required: true
+  config-path:
+    description: "Path to config JSON file"
+    required: false
+    default: "configs/default.json"
+  baseline-dir:
+    description: "Directory for visual regression baselines"
+    required: false
+    default: "baselines"
+  fail-on-a11y:
+    description: "Fail if accessibility violations are found"
+    required: false
+    default: "true"
+  fail-on-perf:
+    description: "Fail if performance budgets are exceeded"
+    required: false
+    default: "true"
+  fail-on-visual:
+    description: "Fail if visual diffs exceed threshold"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: npm
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci --ignore-scripts
+
+    - name: Install Playwright browsers
+      shell: bash
+      run: npx playwright install --with-deps chromium
+
+    - name: Build
+      shell: bash
+      run: npm run build
+
+    - name: Run audit
+      shell: bash
+      run: |
+        ARGS="${{ inputs.url }}"
+        ARGS="$ARGS --config ${{ inputs.config-path }}"
+        ARGS="$ARGS --baseline-dir ${{ inputs.baseline-dir }}"
+        if [ "${{ inputs.fail-on-a11y }}" != "true" ]; then
+          ARGS="$ARGS --no-fail-on-a11y"
+        fi
+        if [ "${{ inputs.fail-on-perf }}" != "true" ]; then
+          ARGS="$ARGS --no-fail-on-perf"
+        fi
+        if [ "${{ inputs.fail-on-visual }}" != "true" ]; then
+          ARGS="$ARGS --no-fail-on-visual"
+        fi
+        node dist/cli.js audit $ARGS

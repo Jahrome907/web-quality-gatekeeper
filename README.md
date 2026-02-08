@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Coverage](https://img.shields.io/codecov/c/github/Jahrome907/web-quality-gatekeeper?logo=codecov)](https://codecov.io/gh/Jahrome907/web-quality-gatekeeper)
 
 A production-ready quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs on every PR. Outputs a clean HTML report plus a machine-readable JSON summary.
 
@@ -103,6 +104,29 @@ Default config lives at `configs/default.json`.
 ```
 
 ## CI (GitHub Action)
+
+### Usage as GitHub Action
+
+Add to your workflow:
+
+```yaml
+- uses: Jahrome907/web-quality-gatekeeper@v1
+  with:
+    url: https://my-site.com
+```
+
+Inputs:
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `url` | Yes | — | URL to audit |
+| `config-path` | No | `configs/default.json` | Path to config JSON file |
+| `baseline-dir` | No | `baselines` | Directory for visual regression baselines |
+| `fail-on-a11y` | No | `true` | Fail if accessibility violations are found |
+| `fail-on-perf` | No | `true` | Fail if performance budgets are exceeded |
+| `fail-on-visual` | No | `true` | Fail if visual diffs exceed threshold |
+
+### CI Workflow
 
 The workflow runs on `pull_request`, installs dependencies, runs `npm run check`, and audits a URL.
 
