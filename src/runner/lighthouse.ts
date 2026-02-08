@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Config } from "../config/schema.js";
 import { writeJson } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
+import { retry } from "../utils/retry.js";
 
 export interface LighthouseBudgets {
   performance: number;
@@ -45,7 +46,7 @@ export function evaluateBudgets(
   };
 }
 
-function toFixedScore(score: number | null | undefined): number {
+export function toFixedScore(score: number | null | undefined): number {
   if (typeof score !== "number") {
     return 0;
   }
@@ -93,21 +94,25 @@ export async function runLighthouseAudit(
           deviceScaleFactor: 1
         };
 
-    const runnerResult = await lighthouse(
-      url,
-      {
-        port: chrome.port,
-        output: "json",
-        logLevel: "error",
-        onlyCategories: ["performance"]
-      },
-      {
-        extends: "lighthouse:default",
-        settings: {
-          formFactor: config.lighthouse.formFactor,
-          screenEmulation
-        }
-      }
+    const runnerResult = await retry(
+      () =>
+        lighthouse(
+          url,
+          {
+            port: chrome.port,
+            output: "json",
+            logLevel: "error",
+            onlyCategories: ["performance"]
+          },
+          {
+            extends: "lighthouse:default",
+            settings: {
+              formFactor: config.lighthouse.formFactor,
+              screenEmulation
+            }
+          }
+        ),
+      { retries: 1, delayMs: 2000, logger }
     );
 
     if (!runnerResult?.lhr) {

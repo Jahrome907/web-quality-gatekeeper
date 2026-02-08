@@ -6,7 +6,11 @@
   "bin": {
     "wqg": "dist/cli.js"
   },
-  "main": "dist/cli.js",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./cli": "./dist/cli.js"
+  },
   "files": [
     "dist",
     "configs",
@@ -17,6 +21,7 @@
     "dev": "tsx src/cli.ts",
     "build": "tsup",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier . --write",
     "typecheck": "tsc --noEmit",
@@ -42,6 +47,7 @@
     "@types/node": "^20.14.12",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.8.0",
     "prettier": "^3.3.3",
     "tsup": "^8.1.0",

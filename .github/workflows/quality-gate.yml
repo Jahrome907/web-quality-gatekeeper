@@ -32,6 +32,18 @@ jobs:
       - name: Run checks
         run: npm run check
 
+      - name: Run coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
@@ -39,6 +51,7 @@ jobs:
         id: target
         env:
           WQG_URL: ${{ vars.WQG_URL }}
+          PAGES_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -46,15 +59,14 @@ jobs:
           const hasDemo = Boolean(pkg.scripts && pkg.scripts.demo);
           const output = process.env.GITHUB_OUTPUT;
           const override = process.env.WQG_URL;
+          const pagesUrl = process.env.PAGES_URL;
           if (override) {
-            // Security: Validate URL format to prevent injection
             try {
               const url = new URL(override);
               if (!url.protocol.startsWith('http')) {
                 console.error('WQG_URL must use http or https protocol');
                 process.exit(1);
               }
-              // Sanitize: only output the validated URL string
               fs.appendFileSync(output, `mode=remote\nurl=${url.href}\n`);
             } catch (e) {
               console.error('Invalid WQG_URL format:', e.message);
@@ -64,6 +76,8 @@ jobs:
           }
           if (hasDemo) {
             fs.appendFileSync(output, 'mode=demo\nurl=http://localhost:4173\n');
+          } else if (pagesUrl) {
+            fs.appendFileSync(output, `mode=remote\nurl=${pagesUrl}\n`);
           } else {
             fs.appendFileSync(output, 'mode=remote\nurl=https://example.com\n');
           }
@@ -137,9 +151,40 @@ jobs:
 
             body += `- Artifacts: ${runUrl}\n`;
 
-            await github.rest.issues.createComment({
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body
+              per_page: 100
             });
+            let existing = comments.find(c => c.body?.startsWith('## Web Quality Gatekeeper'));
+            if (!existing) {
+              let page = 2;
+              while (comments.length === 100) {
+                const { data: more } = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  per_page: 100,
+                  page
+                });
+                existing = more.find(c => c.body?.startsWith('## Web Quality Gatekeeper'));
+                if (existing || more.length < 100) break;
+                page++;
+              }
+            }
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }

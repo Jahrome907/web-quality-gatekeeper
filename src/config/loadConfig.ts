@@ -16,15 +16,15 @@ export async function loadConfig(path: string): Promise<Config> {
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
-  } catch {
-    throw new Error(`Unable to read config file at ${path}`);
+  } catch (error) {
+    throw new Error(`Unable to read config file at ${path}`, { cause: error });
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch {
-    throw new Error(`Invalid JSON in config file at ${path}`);
+  } catch (error) {
+    throw new Error(`Invalid JSON in config file at ${path}`, { cause: error });
   }
 
   const result = ConfigSchema.safeParse(parsed);

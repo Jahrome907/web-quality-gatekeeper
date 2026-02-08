@@ -1,6 +1,6 @@
 import type { Summary } from "../summary.js";
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -9,14 +9,14 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function formatMs(value: number | null | undefined): string {
+export function formatMs(value: number | null | undefined): string {
   if (typeof value !== "number") {
     return "n/a";
   }
   return `${Math.round(value)} ms`;
 }
 
-function formatRatio(value: number | null | undefined): string {
+export function formatRatio(value: number | null | undefined): string {
   if (typeof value !== "number") {
     return "n/a";
   }

@@ -1,4 +1,8 @@
+import { createRequire } from "node:module";
 import type { Config } from "./schema.js";
+
+const require = createRequire(import.meta.url);
+const pkg = require("../../package.json") as { version: string };
 
 export const defaultConfig: Config = {
   timeouts: {
@@ -11,7 +15,7 @@ export const defaultConfig: Config = {
       width: 1280,
       height: 720
     },
-    userAgent: "wqg/0.1.0",
+    userAgent: `wqg/${pkg.version}`,
     locale: "en-US",
     colorScheme: "light"
   },

@@ -3,6 +3,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import type { Config, ScreenshotDefinition } from "../config/schema.js";
 import { ensureDir } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
+import { retry } from "../utils/retry.js";
 
 export interface ScreenshotResult {
   name: string;
@@ -11,11 +12,11 @@ export interface ScreenshotResult {
   fullPage: boolean;
 }
 
-function sanitizeName(name: string): string {
+export function sanitizeName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9-_]/g, "-");
 }
 
-function validateScreenshotPath(shotPath: string): void {
+export function validateScreenshotPath(shotPath: string): void {
   // Prevent SSRF: screenshot paths must be relative paths, not absolute URLs
   if (shotPath.includes("://")) {
     throw new Error(`Screenshot path must be a relative path, not a URL: ${shotPath}`);
@@ -26,7 +27,7 @@ function validateScreenshotPath(shotPath: string): void {
   }
 }
 
-function resolveUrl(baseUrl: string, shotPath: string): string {
+export function resolveUrl(baseUrl: string, shotPath: string): string {
   validateScreenshotPath(shotPath);
   return new URL(shotPath, baseUrl).toString();
 }
@@ -56,7 +57,11 @@ export async function openPage(
   page.setDefaultTimeout(config.timeouts.actionMs);
 
   logger.debug(`Navigating to ${url}`);
-  await page.goto(url, { waitUntil: "networkidle" });
+  await retry(() => page.goto(url, { waitUntil: "networkidle" }), {
+    retries: 1,
+    delayMs: 2000,
+    logger
+  });
   await applyStabilityOverrides(page);
   await page.waitForTimeout(config.timeouts.waitAfterLoadMs);
 
@@ -72,7 +77,11 @@ async function captureScreenshot(
 ): Promise<ScreenshotResult> {
   const url = resolveUrl(baseUrl, shot.path);
   logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
-  await page.goto(url, { waitUntil: "networkidle" });
+  await retry(() => page.goto(url, { waitUntil: "networkidle" }), {
+    retries: 1,
+    delayMs: 2000,
+    logger
+  });
   await applyStabilityOverrides(page);
 
   if (shot.waitForSelector) {
