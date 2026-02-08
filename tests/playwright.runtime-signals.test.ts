@@ -46,7 +46,7 @@ function createConfig() {
     timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
     playwright: {
       viewport: { width: 1280, height: 720 },
-      userAgent: "wqg/0.3.0",
+      userAgent: "wqg/3.0.0",
       locale: "en-US",
       colorScheme: "light"
     },

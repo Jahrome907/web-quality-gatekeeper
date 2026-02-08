@@ -1,6 +1,9 @@
 import lighthouse from "lighthouse";
 import { launch } from "chrome-launcher";
 import path from "node:path";
+import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
+import { createRequire } from "node:module";
 import type { Config } from "../config/schema.js";
 import { writeJson } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
@@ -8,7 +11,10 @@ import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
 import { toCookieHeader } from "../utils/auth.js";
 
+const requireSync = createRequire(import.meta.url);
+
 const MAX_OPPORTUNITIES = 10;
+const WINDOWS_DRIVE_PATH = /^[A-Za-z]:\\/;
 
 export interface LighthouseBudgets {
   performance: number;
@@ -141,7 +147,12 @@ function extractOpportunities(lhr: LighthouseLhrLike): LighthouseOpportunity[] {
       estimatedSavingsMs: toNullableNumeric(audit.details?.overallSavingsMs),
       estimatedSavingsBytes: toNullableNumeric(audit.details?.overallSavingsBytes)
     }))
-    .filter((audit) => audit.estimatedSavingsMs !== null || audit.estimatedSavingsBytes !== null)
+    .filter((audit) => {
+      return (
+        (audit.estimatedSavingsMs !== null && audit.estimatedSavingsMs > 0) ||
+        (audit.estimatedSavingsBytes !== null && audit.estimatedSavingsBytes > 0)
+      );
+    })
     .sort((left, right) => {
       const savingsDelta = combinedSavings(right) - combinedSavings(left);
       if (savingsDelta !== 0) {
@@ -170,6 +181,56 @@ function getChromeFlags(): string[] {
   return flags;
 }
 
+async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promise<() => void> {
+  const previousLocalAppData = process.env.LOCALAPPDATA;
+
+  if (process.platform === "win32") {
+    return () => {};
+  }
+
+  if (typeof previousLocalAppData === "string" && WINDOWS_DRIVE_PATH.test(previousLocalAppData)) {
+    const portableLocalAppData = path.join(outDir, ".lighthouse-localappdata");
+    await mkdir(portableLocalAppData, { recursive: true });
+    process.env.LOCALAPPDATA = portableLocalAppData;
+    logger.debug(`Remapped LOCALAPPDATA to ${portableLocalAppData} for portable Lighthouse execution`);
+  }
+
+  return () => {
+    if (previousLocalAppData === undefined) {
+      delete process.env.LOCALAPPDATA;
+      return;
+    }
+    process.env.LOCALAPPDATA = previousLocalAppData;
+  };
+}
+
+/**
+ * Resolve a Chrome/Chromium executable path for Lighthouse.
+ *
+ * Priority:
+ *  1. $CHROME_PATH environment variable (user override)
+ *  2. Playwright's bundled Chromium (detected via playwright module)
+ *  3. undefined — let chrome-launcher search system defaults
+ */
+function resolveChromePath(): string | undefined {
+  if (process.env.CHROME_PATH) {
+    return process.env.CHROME_PATH;
+  }
+
+  // Try Playwright's bundled Chromium
+  try {
+    const pw = requireSync("playwright") as { chromium: { executablePath: () => string } };
+    const execPath = pw.chromium.executablePath();
+    if (execPath && existsSync(execPath)) {
+      return execPath;
+    }
+  } catch {
+    // Playwright not installed — fall through
+  }
+
+  return undefined;
+}
+
 function buildLighthouseHeaders(auth: AuditAuth | null): Record<string, string> | null {
   if (!auth) {
     return null;
@@ -194,91 +255,99 @@ export async function runLighthouseAudit(
   auth: AuditAuth | null = null
 ): Promise<LighthouseSummary> {
   logger.debug("Running Lighthouse audit");
-  const chrome = await launch({
-    chromeFlags: getChromeFlags()
-  });
-
-  const retryCount = config.retries?.count ?? 1;
-  const retryDelayMs = config.retries?.delayMs ?? 2000;
-
+  const restoreEnv = await applyPortableLighthouseEnv(outDir, logger);
+  const chromePath = resolveChromePath();
+  if (chromePath) {
+    logger.debug(`Using Chrome at: ${chromePath}`);
+  }
   try {
-    const isMobile = config.lighthouse.formFactor === "mobile";
-    const screenEmulation = isMobile
-      ? {
-          mobile: true,
-          width: 412,
-          height: 823,
-          deviceScaleFactor: 2
-        }
-      : {
-          mobile: false,
-          width: 1350,
-          height: 940,
-          deviceScaleFactor: 1
-        };
-
-    const lhHeaders = buildLighthouseHeaders(auth);
-    const runnerResult = await retry(
-      () =>
-        lighthouse(
-          url,
-          {
-            port: chrome.port,
-            output: "json",
-            logLevel: "error",
-            onlyCategories: ["performance", "accessibility", "best-practices", "seo"],
-            ...(lhHeaders ? { extraHeaders: lhHeaders } : {})
-          },
-          {
-            extends: "lighthouse:default",
-            settings: {
-              formFactor: config.lighthouse.formFactor,
-              screenEmulation
-            }
+    const chrome = await launch({
+      chromeFlags: getChromeFlags(),
+      ...(chromePath ? { chromePath } : {})
+    });
+    try {
+      const retryCount = config.retries?.count ?? 1;
+      const retryDelayMs = config.retries?.delayMs ?? 2000;
+      const isMobile = config.lighthouse.formFactor === "mobile";
+      const screenEmulation = isMobile
+        ? {
+            mobile: true,
+            width: 412,
+            height: 823,
+            deviceScaleFactor: 2
           }
-        ),
-      { retries: retryCount, delayMs: retryDelayMs, logger }
-    );
+        : {
+            mobile: false,
+            width: 1350,
+            height: 940,
+            deviceScaleFactor: 1
+          };
 
-    if (!runnerResult?.lhr) {
-      throw new Error("Lighthouse did not return a result");
+      const lhHeaders = buildLighthouseHeaders(auth);
+      const runnerResult = await retry(
+        () =>
+          lighthouse(
+            url,
+            {
+              port: chrome.port,
+              output: "json",
+              logLevel: "error",
+              onlyCategories: ["performance", "accessibility", "best-practices", "seo"],
+              ...(lhHeaders ? { extraHeaders: lhHeaders } : {})
+            },
+            {
+              extends: "lighthouse:default",
+              settings: {
+                formFactor: config.lighthouse.formFactor,
+                screenEmulation
+              }
+            }
+          ),
+        { retries: retryCount, delayMs: retryDelayMs, logger }
+      );
+
+      if (!runnerResult?.lhr) {
+        throw new Error("Lighthouse did not return a result");
+      }
+
+      const lhr = runnerResult.lhr as LighthouseLhrLike;
+      const lcpAudit = lhr.audits["largest-contentful-paint"];
+      const clsAudit = lhr.audits["cumulative-layout-shift"];
+      const tbtAudit = lhr.audits["total-blocking-time"];
+
+      const metrics: LighthouseMetrics = {
+        performanceScore: categoryScore(lhr, "performance"),
+        lcpMs: toNumericValue(lcpAudit?.numericValue),
+        cls: toNumericValue(clsAudit?.numericValue),
+        tbtMs: toNumericValue(tbtAudit?.numericValue)
+      };
+
+      const budgets = config.lighthouse.budgets;
+      const budgetResults = evaluateBudgets(metrics, budgets);
+
+      const categoryScores: LighthouseCategoryScores = {
+        performance: categoryScore(lhr, "performance"),
+        accessibility: categoryScore(lhr, "accessibility"),
+        bestPractices: categoryScore(lhr, "best-practices"),
+        seo: categoryScore(lhr, "seo")
+      };
+
+      const reportPath = path.join(outDir, "lighthouse.json");
+      await writeJson(reportPath, runnerResult.lhr);
+
+      return {
+        metrics,
+        budgets,
+        budgetResults,
+        reportPath,
+        categoryScores,
+        extendedMetrics: extractExtendedMetrics(lhr),
+        opportunities: extractOpportunities(lhr)
+      };
+    } finally {
+      await chrome.kill();
     }
-
-    const lhr = runnerResult.lhr as LighthouseLhrLike;
-    const lcpAudit = lhr.audits["largest-contentful-paint"];
-    const clsAudit = lhr.audits["cumulative-layout-shift"];
-    const tbtAudit = lhr.audits["total-blocking-time"];
-
-    const metrics: LighthouseMetrics = {
-      performanceScore: categoryScore(lhr, "performance"),
-      lcpMs: toNumericValue(lcpAudit?.numericValue),
-      cls: toNumericValue(clsAudit?.numericValue),
-      tbtMs: toNumericValue(tbtAudit?.numericValue)
-    };
-
-    const budgets = config.lighthouse.budgets;
-    const budgetResults = evaluateBudgets(metrics, budgets);
-
-    const categoryScores: LighthouseCategoryScores = {
-      performance: categoryScore(lhr, "performance"),
-      accessibility: categoryScore(lhr, "accessibility"),
-      bestPractices: categoryScore(lhr, "best-practices"),
-      seo: categoryScore(lhr, "seo")
-    };
-
-    const reportPath = path.join(outDir, "lighthouse.json");
-    await writeJson(reportPath, runnerResult.lhr);
-
-    return {
-      metrics,
-      budgets,
-      budgetResults,
-      reportPath,
-      categoryScores,
-      extendedMetrics: extractExtendedMetrics(lhr),
-      opportunities: extractOpportunities(lhr)
-    };
   } finally {
-    await chrome.kill();
+    restoreEnv();
   }
 }

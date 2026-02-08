@@ -9,7 +9,7 @@
       "width": 1280,
       "height": 720
     },
-    "userAgent": "wqg/0.2.0",
+    "userAgent": "wqg/3.0.0",
     "locale": "en-US",
     "colorScheme": "light"
   },
@@ -20,6 +20,10 @@
       "fullPage": true
     }
   ],
+  "screenshotGallery": {
+    "enabled": true,
+    "maxScreenshotsPerPath": 20
+  },
   "lighthouse": {
     "budgets": {
       "performance": 0.8,

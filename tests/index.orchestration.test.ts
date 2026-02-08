@@ -95,7 +95,7 @@ function createSummary(overallStatus: "pass" | "fail"): Summary {
     $schema:
       "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
     schemaVersion: "1.1.0",
-    toolVersion: "0.3.0",
+    toolVersion: "3.0.0",
     overallStatus,
     url: "https://example.com",
     startedAt: "2026-02-08T00:00:00.000Z",
@@ -208,6 +208,12 @@ describe("runAudit orchestration", () => {
       failed: false,
       maxMismatchRatio: 0
     });
+    mockBuildSummaryV2.mockImplementation((params) => ({
+      ...createSummaryV2("pass"),
+      performance: params.performance,
+      runtimeSignals: params.runtimeSignals,
+      artifacts: params.artifacts
+    }));
 
     const { runAudit } = await import("../src/index.js");
     const result = await runAudit("https://example.com", {
@@ -231,7 +237,15 @@ describe("runAudit orchestration", () => {
     expect(close).toHaveBeenCalledTimes(1);
 
     expect(mockWriteJson).toHaveBeenCalledWith(path.join(outDir, "summary.json"), result.summary);
-    expect(mockWriteJson).toHaveBeenCalledWith(path.join(outDir, "summary.v2.json"), createSummaryV2("pass"));
+    expect(mockWriteJson).toHaveBeenCalledWith(
+      path.join(outDir, "summary.v2.json"),
+      expect.objectContaining({
+        schemaVersion: "2.0.0",
+        mode: "single",
+        overallStatus: "pass",
+        pages: expect.any(Array)
+      })
+    );
     expect(mockWriteText).toHaveBeenCalledWith(path.join(outDir, "report.html"), "<html>report</html>");
 
     const summaryArgs = mockBuildSummary.mock.calls[0]![0];
@@ -246,6 +260,11 @@ describe("runAudit orchestration", () => {
     const summaryV2Args = mockBuildSummaryV2.mock.calls[0]![0];
     expect(summaryV2Args.runtimeSignals).toEqual(createRuntimeSignals());
     expect(summaryV2Args.artifacts.summaryV2).toBe("summary.v2.json");
+
+    const reportSummaryArg = mockBuildHtmlReport.mock.calls.at(-1)?.[0] as SummaryV2;
+    expect(reportSummaryArg.performance?.extendedMetrics?.fcpMs).toBe(900);
+    expect(reportSummaryArg.performance?.categoryScores?.performance).toBe(0.95);
+    expect(reportSummaryArg.runtimeSignals).toEqual(createRuntimeSignals());
   });
 
   it("skips disabled checks and passes null summaries", async () => {

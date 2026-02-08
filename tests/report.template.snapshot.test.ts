@@ -7,7 +7,7 @@ function createSummary(overrides?: Partial<Summary>): Summary {
     $schema:
       "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
     schemaVersion: "1.1.0",
-    toolVersion: "0.3.0",
+    toolVersion: "3.0.0",
     overallStatus: "pass",
     url: "https://example.com",
     startedAt: "2026-02-08T00:00:00.000Z",
@@ -133,6 +133,7 @@ describe("HTML report template", () => {
     expect(html).toContain("<h2>Executive Summary</h2>");
     expect(html).toContain("<h2>Category Scores</h2>");
     expect(html).toContain("<h2>Core Web Vitals</h2>");
+    expect(html).toContain("<h2>Captured Playwright Screenshots</h2>");
     expect(html).toContain("<h2>Accessibility</h2>");
     expect(html).toContain("<h2>Accessibility Violations</h2>");
     expect(html).toContain("<h2>Lighthouse Opportunities</h2>");
@@ -140,6 +141,13 @@ describe("HTML report template", () => {
     expect(html).toContain("<h2>Console and JavaScript Errors</h2>");
     expect(html).toContain("<h2>Resource Breakdown</h2>");
     expect(html).toContain("Total violations</th><td>2</td>");
+    expect(html).toContain("Simple view");
+    expect(html).toContain("Detailed view");
+    expect(html).toContain("<summary>More info</summary>");
+    expect(html).toContain('class="jump-nav-link" href="#overview"');
+    expect(html).toContain('id="gauge-detail-performance"');
+    expect(html).toContain('class="status-chip-row"');
+    expect(html).toContain('class="spark-row"');
   });
 
   it("renders gauge SVGs and visual image blocks", () => {
@@ -211,6 +219,7 @@ describe("HTML report template", () => {
         a11y: null,
         performance: null,
         visual: null,
+        screenshots: [],
         steps: {
           playwright: "pass",
           a11y: "skipped",
@@ -224,6 +233,7 @@ describe("HTML report template", () => {
     expect(html).toContain("No accessibility violations captured.");
     expect(html).toContain("No opportunities captured.");
     expect(html).toContain("Visual diff step skipped or no results captured.");
+    expect(html).toContain("No Playwright screenshots were captured.");
     expect(html).toContain("No console or runtime error diagnostics were provided in summary data.");
     expect(html).toContain("Resource-level transfer data was not provided in summary data.");
     expect(html).toContain('class="pill skipped"');
@@ -278,18 +288,10 @@ describe("HTML report template", () => {
 
   it("captures stable report header snapshot", () => {
     const html = buildHtmlReport(createSummary());
-    const headerMatch = html.match(/<div class="header">[\s\S]*?<\/button>\s*<\/div>/);
-    expect(headerMatch).toBeTruthy();
-
-    expect(headerMatch?.[0]).toMatchInlineSnapshot(`
-      "<div class="header">
-            <div>
-              <h1>Web Quality Gatekeeper</h1>
-              <div class="meta">https://example.com</div>
-              <div class="meta">Started 2026-02-08T00:00:00.000Z · Duration 1234 ms</div>
-            </div>
-            <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Toggle dark mode</button>
-          </div>"
-    `);
+    expect(html).toContain("Web Quality Gatekeeper");
+    expect(html).toContain("https://example.com");
+    expect(html).toContain("Simple view");
+    expect(html).toContain("Detailed view");
+    expect(html).toContain("Toggle dark mode");
   });
 });

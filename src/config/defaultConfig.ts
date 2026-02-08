@@ -26,6 +26,10 @@ export const defaultConfig: Config = {
       fullPage: true
     }
   ],
+  screenshotGallery: {
+    enabled: true,
+    maxScreenshotsPerPath: 20
+  },
   lighthouse: {
     budgets: {
       performance: 0.8,

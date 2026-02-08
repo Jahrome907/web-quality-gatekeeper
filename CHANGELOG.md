@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-02-08
+
+### Added
+
+- Rich interactive HTML report UX:
+  - simple/detailed view toggle
+  - sticky section jump navigation
+  - clickable score gauges with per-category drilldowns
+  - expandable screenshot galleries (8 visible by default, "View all" for overflow)
+  - click-to-enlarge lightbox for screenshots and visual diffs
+  - hover/focus tooltips and legend for resource breakdown
+- High-volume screenshot gallery capture controls in config:
+  - `screenshotGallery.enabled`
+  - `screenshotGallery.maxScreenshotsPerPath`
+- Focused UI and runner test coverage for interactive report behavior and screenshot gallery capture paths.
+
+### Changed
+
+- Root `report.html` generation now uses the richer v2 summary payload so extended Lighthouse vitals (including FCP, Speed Index, TTI, TTFB) render without dropping to `n/a` in normal runs.
+- Runtime orchestration internals were split into `src/audit/orchestration.ts` and Phase 4 tests were decomposed into smaller deterministic suites for maintainability and public-repo readability.
+- Release docs now target stable major-tag usage for v3 examples.
+
 ## [0.3.0] - 2026-02-08
 
 ### Added
@@ -82,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI workflow with PR comment posting
 - Dependabot configuration for automated dependency updates
 
+[3.0.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.3.0...v3.0.0
 [0.3.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0

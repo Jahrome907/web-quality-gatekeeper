@@ -22,6 +22,7 @@ vi.mock("../src/utils/fs.js", async () => {
 });
 
 function createPageDouble() {
+  let evaluateCallCount = 0;
   return {
     on: vi.fn(),
     setDefaultNavigationTimeout: vi.fn(),
@@ -31,7 +32,13 @@ function createPageDouble() {
     emulateMedia: vi.fn().mockResolvedValue(undefined),
     waitForTimeout: vi.fn().mockResolvedValue(undefined),
     screenshot: vi.fn().mockResolvedValue(undefined),
-    waitForSelector: vi.fn().mockResolvedValue(undefined)
+    waitForSelector: vi.fn().mockResolvedValue(undefined),
+    viewportSize: vi.fn().mockReturnValue({ width: 1280, height: 720 }),
+    evaluate: vi.fn().mockImplementation(async () => {
+      evaluateCallCount += 1;
+      // First evaluate call reads document height, subsequent calls are scroll operations.
+      return evaluateCallCount === 1 ? 3600 : undefined;
+    })
   };
 }
 
@@ -62,7 +69,7 @@ describe("playwright runner", () => {
         retries: { count: 2, delayMs: 10 },
         playwright: {
           viewport: { width: 1280, height: 720 },
-          userAgent: "wqg/0.3.0",
+          userAgent: "wqg/3.0.0",
           locale: "en-US",
           colorScheme: "light"
         },
@@ -135,7 +142,7 @@ describe("playwright runner", () => {
           timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
           playwright: {
             viewport: { width: 1280, height: 720 },
-            userAgent: "wqg/0.3.0",
+            userAgent: "wqg/3.0.0",
             locale: "en-US",
             colorScheme: "light"
           },
@@ -195,5 +202,84 @@ describe("playwright runner", () => {
       delayMs: 15,
       logger
     });
+  });
+
+  it("captures additional viewport screenshots when screenshot gallery mode is enabled", async () => {
+    const page = createPageDouble();
+    const logger = { debug: vi.fn() };
+    const { captureScreenshots } = await import("../src/runner/playwright.js");
+    const outDir = path.resolve(process.cwd(), "artifacts/screenshots");
+
+    const results = await captureScreenshots(
+      page as never,
+      "https://example.com",
+      {
+        retries: { count: 1, delayMs: 5 },
+        screenshots: [
+          {
+            name: "Landing",
+            path: "/",
+            fullPage: true
+          }
+        ],
+        screenshotGallery: {
+          enabled: true,
+          maxScreenshotsPerPath: 5
+        }
+      } as never,
+      outDir,
+      logger as never
+    );
+
+    expect(results).toHaveLength(5);
+    expect(results[0]!.name).toBe("Landing");
+    expect(results[1]!.name).toBe("Landing viewport 1");
+    expect(results[4]!.name).toBe("Landing viewport 4");
+    expect(results[4]!.path).toBe(path.join(outDir, "landing--vp-04.png"));
+
+    expect(page.screenshot).toHaveBeenCalledWith({
+      path: path.join(outDir, "landing.png"),
+      fullPage: true
+    });
+    expect(page.screenshot).toHaveBeenCalledWith({
+      path: path.join(outDir, "landing--vp-01.png"),
+      fullPage: false
+    });
+    expect(page.screenshot).toHaveBeenCalledWith({
+      path: path.join(outDir, "landing--vp-04.png"),
+      fullPage: false
+    });
+  });
+
+  it("supports high-volume screenshot galleries for report rendering", async () => {
+    const page = createPageDouble();
+    const logger = { debug: vi.fn() };
+    const { captureScreenshots } = await import("../src/runner/playwright.js");
+    const outDir = path.resolve(process.cwd(), "artifacts/screenshots");
+
+    const results = await captureScreenshots(
+      page as never,
+      "https://example.com",
+      {
+        retries: { count: 1, delayMs: 5 },
+        screenshots: [
+          {
+            name: "Landing",
+            path: "/",
+            fullPage: true
+          }
+        ],
+        screenshotGallery: {
+          enabled: true,
+          maxScreenshotsPerPath: 20
+        }
+      } as never,
+      outDir,
+      logger as never
+    );
+
+    expect(results).toHaveLength(20);
+    expect(results[19]!.name).toBe("Landing viewport 19");
+    expect(results[19]!.path).toBe(path.join(outDir, "landing--vp-19.png"));
   });
 });

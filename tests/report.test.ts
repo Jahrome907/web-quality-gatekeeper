@@ -6,7 +6,7 @@ const summary: Summary = {
   $schema:
     "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
   schemaVersion: "1.1.0",
-  toolVersion: "0.3.0",
+  toolVersion: "3.0.0",
   overallStatus: "pass",
   url: "https://example.com",
   startedAt: "2024-01-01T00:00:00.000Z",
@@ -126,10 +126,73 @@ describe("buildHtmlReport", () => {
     expect(html).toContain("Executive Summary");
     expect(html).toContain("Category Scores");
     expect(html).toContain("Core Web Vitals");
+    expect(html).toContain("Captured Playwright Screenshots");
     expect(html).toContain("Lighthouse Opportunities");
     expect(html).toContain("Console and JavaScript Errors");
     expect(html).toContain("Resource Breakdown");
     expect(html).toContain("Baseline, Current, and Diff Screenshots");
+    expect(html).toContain("Report sections");
+  });
+
+  it("renders simple/detailed view controls and expandable info panels", () => {
+    const html = buildHtmlReport(summary);
+    expect(html).toContain('data-view-mode="simple"');
+    expect(html).toContain('data-view-mode="detailed"');
+    expect(html).toContain("Simple view");
+    expect(html).toContain("Detailed view");
+    expect(html).toContain("<summary>More info</summary>");
+    expect(html).toContain('class="status-chip-row"');
+    expect(html).toContain('class="spark-row"');
+  });
+
+  it("shows 8 items by default with expandable view-all for large screenshot galleries", () => {
+    const html = buildHtmlReport({
+      ...summary,
+      screenshots: Array.from({ length: 10 }, (_, index) => ({
+        name: `shot-${index + 1}`,
+        path: `screenshots/shot-${index + 1}.png`,
+        url: "https://example.com",
+        fullPage: true
+      })),
+      visual: {
+        ...summary.visual!,
+        results: Array.from({ length: 10 }, (_, index) => ({
+          name: `view-${index + 1}`,
+          currentPath: `screenshots/view-${index + 1}.png`,
+          baselinePath: `../baselines/view-${index + 1}.png`,
+          diffPath: `diffs/view-${index + 1}.png`,
+          mismatchRatio: 0,
+          status: "diffed" as const
+        }))
+      }
+    });
+
+    expect(html).toContain("View all 10 screenshots");
+    expect(html).toContain("View all 10 visual comparisons");
+    expect((html.match(/class="gallery-expander"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders click-to-enlarge image controls and lightbox shell", () => {
+    const html = buildHtmlReport(summary);
+    expect(html).toContain('class="zoom-trigger"');
+    expect(html).toContain('id="image-lightbox"');
+    expect(html).toContain('id="lightbox-image"');
+    expect(html).toContain('data-preview-src="screenshots/home.png"');
+    expect(html).toContain('data-preview-src="../baselines/home.png"');
+    expect(html).toContain('aria-label="Image preview"');
+  });
+
+  it("renders sticky jump links and score drilldown panels", () => {
+    const html = buildHtmlReport(summary);
+    expect(html).toContain('class="jump-nav-link" href="#overview"');
+    expect(html).toContain('class="jump-nav-link" href="#resource-breakdown"');
+    expect(html).toContain('id="gauge-detail-performance"');
+    expect(html).toContain('id="gauge-detail-accessibility"');
+    expect(html).toContain('id="gauge-detail-best-practices"');
+    expect(html).toContain('id="gauge-detail-seo"');
+    expect(html).toContain('class="gauge-trigger" data-gauge-key="performance"');
+    expect(html).toContain('class="gauge-trigger" data-gauge-key="seo"');
+    expect(html).toContain("const setGaugePanel = (key) =>");
   });
 
   it("renders diagnostics and resource breakdown from canonical runtimeSignals", () => {
@@ -179,6 +242,8 @@ describe("buildHtmlReport", () => {
     expect(html).toContain("Total transfer size");
     expect(html).toContain("JS");
     expect(html).toContain("Image");
+    expect(html).toContain("resource-segment-tooltip");
+    expect(html).toContain("resource-legend-item");
   });
 
   it("keeps compatibility fallback for legacy performance diagnostics", () => {
@@ -263,6 +328,16 @@ describe("buildHtmlReport", () => {
     expect(html).toContain("Total requests: 0");
   });
 
+  it("renders screenshot gallery fallback when no Playwright screenshots were captured", () => {
+    const html = buildHtmlReport({
+      ...summary,
+      screenshots: []
+    });
+
+    expect(html).toContain("Captured Playwright Screenshots");
+    expect(html).toContain("No Playwright screenshots were captured.");
+  });
+
   it("renders stable high-signal layout fragments", () => {
     const html = buildHtmlReport(summary);
 
@@ -278,5 +353,10 @@ describe("buildHtmlReport", () => {
     expect(visualsSection?.[0]).toContain("figcaption>Baseline");
     expect(visualsSection?.[0]).toContain("figcaption>Current");
     expect(visualsSection?.[0]).toContain("figcaption>Diff");
+
+    const screenshotsSection = html.match(/<h2>Captured Playwright Screenshots<\/h2>[\s\S]*?<\/section>/);
+    expect(screenshotsSection?.[0]).toContain("screenshots/home.png");
+
+    expect(html).toContain('id="accessibility-summary" class="section card" data-view-section="detailed"');
   });
 });
