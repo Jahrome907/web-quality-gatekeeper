@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Composite Action smoke workflow using `uses: ./` with output assertions (`status`, `summary-path`)
 - Unit tests for `runAudit()` orchestration with dependency stubs
 - Runner behavior tests for Playwright and Lighthouse modules using mocks
-- Coverage thresholds in Vitest: `lines: 70`, `functions: 70`, `branches: 60`, `statements: 70`
+- Coverage thresholds in Vitest: `lines: 72`, `functions: 70`, `branches: 60`, `statements: 70`
 - Versioned JSON Schema file at `schemas/summary.v1.json`
 - Schema validation tests for generated summaries (unit + integration)
 - Authenticated audit support:
@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - npm pack install smoke workflow
 - npm publish workflow
 - Public case-study and benchmark artifact doc at `docs/case-study-run.md`
+- Multi-page audit orchestration via `config.urls` with deterministic per-page ordering
+- Trend snapshot persistence (`trends.enabled`) with run-over-run delta computation
+- Aggregate summary artifact at `artifacts/summary.v2.json`
+- Migration guide for summary v2 at `docs/migrations/summary-v2.md`
 
 ### Changed
 
@@ -28,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Composite Action resolves consumer config/baseline paths from `${{ github.workspace }}` and writes artifacts to `${{ github.workspace }}/artifacts`
 - Summary output now includes `$schema` URI
 - README examples now use stable action tag `@v1` instead of `@main`
+- CLI `audit` command accepts optional `url` when `config.urls` is present
+- Markdown output now renders per-page sections, status badges, and trend deltas
+- `summary.json` remains v1-compatible while v2 fields are emitted in `summary.v2.json`
+
+### Fixed
+
+- Remediated transitive `lodash-es` advisory (`GHSA-xxjr-mmjv-4gpg`) via dependency update
 
 ## [0.2.0] - 2026-02-07
 

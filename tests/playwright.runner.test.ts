@@ -21,6 +21,20 @@ vi.mock("../src/utils/fs.js", async () => {
   };
 });
 
+function createPageDouble() {
+  return {
+    on: vi.fn(),
+    setDefaultNavigationTimeout: vi.fn(),
+    setDefaultTimeout: vi.fn(),
+    goto: vi.fn().mockResolvedValue(undefined),
+    addStyleTag: vi.fn().mockResolvedValue(undefined),
+    emulateMedia: vi.fn().mockResolvedValue(undefined),
+    waitForTimeout: vi.fn().mockResolvedValue(undefined),
+    screenshot: vi.fn().mockResolvedValue(undefined),
+    waitForSelector: vi.fn().mockResolvedValue(undefined)
+  };
+}
+
 describe("playwright runner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -28,15 +42,9 @@ describe("playwright runner", () => {
   });
 
   it("opens page with auth headers and cookies", async () => {
-    const addCookies = vi.fn();
-    const newPage = vi.fn().mockResolvedValue({
-      setDefaultNavigationTimeout: vi.fn(),
-      setDefaultTimeout: vi.fn(),
-      goto: vi.fn().mockResolvedValue(undefined),
-      addStyleTag: vi.fn().mockResolvedValue(undefined),
-      emulateMedia: vi.fn().mockResolvedValue(undefined),
-      waitForTimeout: vi.fn().mockResolvedValue(undefined)
-    });
+    const page = createPageDouble();
+    const addCookies = vi.fn().mockResolvedValue(undefined);
+    const newPage = vi.fn().mockResolvedValue(page);
     const newContext = vi.fn().mockResolvedValue({
       addCookies,
       newPage
@@ -47,10 +55,11 @@ describe("playwright runner", () => {
 
     const logger = { debug: vi.fn() };
     const { openPage } = await import("../src/runner/playwright.js");
-    await openPage(
+    const result = await openPage(
       "https://example.com",
       {
         timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+        retries: { count: 2, delayMs: 10 },
         playwright: {
           viewport: { width: 1280, height: 720 },
           userAgent: "wqg/0.3.0",
@@ -64,7 +73,7 @@ describe("playwright runner", () => {
         },
         visual: { threshold: 0.01 },
         toggles: { a11y: true, perf: true, visual: true }
-      },
+      } as never,
       logger as never,
       {
         headers: { Authorization: "Bearer token-123" },
@@ -84,16 +93,67 @@ describe("playwright runner", () => {
         url: "https://example.com"
       }
     ]);
+    expect(page.on).toHaveBeenCalledWith("console", expect.any(Function));
+    expect(page.on).toHaveBeenCalledWith("request", expect.any(Function));
+    expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
+      retries: 2,
+      delayMs: 10,
+      logger
+    });
+    expect(result.runtimeSignals.snapshot()).toEqual({
+      console: {
+        total: 0,
+        errorCount: 0,
+        warningCount: 0,
+        dropped: 0,
+        messages: []
+      },
+      jsErrors: {
+        total: 0,
+        dropped: 0,
+        errors: []
+      },
+      network: {
+        totalRequests: 0,
+        failedRequests: 0,
+        transferSizeBytes: 0,
+        resourceTypeBreakdown: {}
+      }
+    });
+  });
+
+  it("propagates browser launch failures", async () => {
+    mockLaunch.mockRejectedValue(new Error("browser launch failed"));
+
+    const logger = { debug: vi.fn() };
+    const { openPage } = await import("../src/runner/playwright.js");
+
+    await expect(
+      openPage(
+        "https://example.com",
+        {
+          timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+          playwright: {
+            viewport: { width: 1280, height: 720 },
+            userAgent: "wqg/0.3.0",
+            locale: "en-US",
+            colorScheme: "light"
+          },
+          screenshots: [{ name: "home", path: "/", fullPage: true }],
+          lighthouse: {
+            budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+            formFactor: "desktop"
+          },
+          visual: { threshold: 0.01 },
+          toggles: { a11y: true, perf: true, visual: true }
+        } as never,
+        logger as never
+      )
+    ).rejects.toThrow("browser launch failed");
   });
 
   it("captures configured screenshots deterministically", async () => {
-    const goto = vi.fn().mockResolvedValue(undefined);
-    const screenshot = vi.fn().mockResolvedValue(undefined);
-    const waitForSelector = vi.fn().mockResolvedValue(undefined);
-    const waitForTimeout = vi.fn().mockResolvedValue(undefined);
-    const addStyleTag = vi.fn().mockResolvedValue(undefined);
-    const emulateMedia = vi.fn().mockResolvedValue(undefined);
-    const page = { goto, screenshot, waitForSelector, waitForTimeout, addStyleTag, emulateMedia };
+    const page = createPageDouble();
 
     const logger = { debug: vi.fn() };
     const { captureScreenshots } = await import("../src/runner/playwright.js");
@@ -102,6 +162,7 @@ describe("playwright runner", () => {
       page as never,
       "https://example.com",
       {
+        retries: { count: 2, delayMs: 15 },
         screenshots: [
           {
             name: "Home Page",
@@ -120,14 +181,19 @@ describe("playwright runner", () => {
     expect(results).toHaveLength(1);
     expect(results[0]!.path).toBe(path.join(outDir, "home-page.png"));
     expect(results[0]!.url).toBe("https://example.com/");
-    expect(goto).toHaveBeenCalledWith("https://example.com/", { waitUntil: "load" });
-    expect(screenshot).toHaveBeenCalledWith({
+    expect(page.goto).toHaveBeenCalledWith("https://example.com/", { waitUntil: "load" });
+    expect(page.screenshot).toHaveBeenCalledWith({
       path: path.join(outDir, "home-page.png"),
       fullPage: true
     });
-    expect(waitForSelector).toHaveBeenCalledWith("#app", { timeout: 10000 });
-    expect(waitForTimeout).toHaveBeenCalledWith(100);
-    expect(addStyleTag).toHaveBeenCalledTimes(1);
-    expect(emulateMedia).toHaveBeenCalledWith({ reducedMotion: "reduce" });
+    expect(page.waitForSelector).toHaveBeenCalledWith("#app", { timeout: 10000 });
+    expect(page.waitForTimeout).toHaveBeenCalledWith(100);
+    expect(page.addStyleTag).toHaveBeenCalledTimes(1);
+    expect(page.emulateMedia).toHaveBeenCalledWith({ reducedMotion: "reduce" });
+    expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
+      retries: 2,
+      delayMs: 15,
+      logger
+    });
   });
 });

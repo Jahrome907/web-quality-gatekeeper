@@ -29,7 +29,10 @@ export async function loadConfig(path: string): Promise<Config> {
 
   const result = ConfigSchema.safeParse(parsed);
   if (!result.success) {
-    throw new Error(`Invalid config: ${formatZodError(result.error)}`);
+    throw new Error(
+      `Invalid config at ${path}: ${formatZodError(result.error)}. ` +
+        `Use configs/default.json as the reference shape.`
+    );
   }
 
   return result.data;

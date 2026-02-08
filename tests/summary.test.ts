@@ -8,7 +8,7 @@ const baseParams = {
   url: "https://example.com",
   startedAt: "2025-01-01T00:00:00.000Z",
   durationMs: 5000,
-  toolVersion: "0.2.0",
+  toolVersion: "0.3.0",
   screenshots: [{ name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }],
   artifacts: {
     summary: "summary.json",

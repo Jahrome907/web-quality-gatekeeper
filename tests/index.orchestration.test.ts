@@ -1,6 +1,7 @@
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Summary } from "../src/report/summary.js";
+import type { RuntimeSignalSummary } from "../src/runner/playwright.js";
+import type { Summary, SummaryV2 } from "../src/report/summary.js";
 
 const mockLoadConfig = vi.fn();
 const mockOpenPage = vi.fn();
@@ -9,6 +10,7 @@ const mockRunAxeScan = vi.fn();
 const mockRunLighthouseAudit = vi.fn();
 const mockRunVisualDiff = vi.fn();
 const mockBuildSummary = vi.fn();
+const mockBuildSummaryV2 = vi.fn();
 const mockBuildHtmlReport = vi.fn();
 const mockEnsureDir = vi.fn();
 const mockWriteJson = vi.fn();
@@ -33,7 +35,11 @@ vi.mock("../src/runner/visualDiff.js", () => ({
 }));
 vi.mock("../src/report/summary.js", () => ({
   buildSummary: mockBuildSummary,
-  SCHEMA_VERSION: "1.0.0",
+  buildSummaryV2: mockBuildSummaryV2,
+  SCHEMA_VERSION: "1.1.0",
+  SCHEMA_VERSION_V2: "2.0.0",
+  SUMMARY_SCHEMA_URI_V2:
+    "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
   SUMMARY_SCHEMA_URI:
     "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json"
 }));
@@ -47,11 +53,48 @@ vi.mock("../src/utils/fs.js", () => ({
   validateOutputDirectory: mockValidateOutputDirectory
 }));
 
+function createRuntimeSignals(): RuntimeSignalSummary {
+  return {
+    console: {
+      total: 3,
+      errorCount: 1,
+      warningCount: 1,
+      dropped: 0,
+      messages: [
+        {
+          type: "error",
+          text: "Boom",
+          location: "https://example.com/app.js:1:1"
+        }
+      ]
+    },
+    jsErrors: {
+      total: 1,
+      dropped: 0,
+      errors: [
+        {
+          message: "ReferenceError",
+          stack: "stack"
+        }
+      ]
+    },
+    network: {
+      totalRequests: 10,
+      failedRequests: 1,
+      transferSizeBytes: 1024,
+      resourceTypeBreakdown: {
+        document: 1,
+        script: 9
+      }
+    }
+  };
+}
+
 function createSummary(overallStatus: "pass" | "fail"): Summary {
   return {
     $schema:
       "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
-    schemaVersion: "1.0.0",
+    schemaVersion: "1.1.0",
     toolVersion: "0.3.0",
     overallStatus,
     url: "https://example.com",
@@ -79,23 +122,48 @@ function createSummary(overallStatus: "pass" | "fail"): Summary {
   };
 }
 
+function createSummaryV2(overallStatus: "pass" | "fail"): SummaryV2 {
+  return {
+    ...createSummary(overallStatus),
+    $schema:
+      "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+    schemaVersion: "2.0.0",
+    artifacts: {
+      ...createSummary(overallStatus).artifacts,
+      summaryV2: "summary.v2.json"
+    },
+    runtimeSignals: createRuntimeSignals()
+  };
+}
+
+function createFullConfig() {
+  return {
+    retries: { count: 2, delayMs: 50 },
+    toggles: { a11y: true, perf: true, visual: true },
+    visual: { threshold: 0.01 }
+  };
+}
+
 describe("runAudit orchestration", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
     mockBuildHtmlReport.mockReturnValue("<html>report</html>");
+    mockBuildSummary.mockReturnValue(createSummary("pass"));
+    mockBuildSummaryV2.mockReturnValue(createSummaryV2("pass"));
   });
 
-  it("runs all enabled checks and rewrites artifact paths relative to out dir", async () => {
+  it("runs all enabled checks, rewrites paths, and writes both summary versions", async () => {
     const outDir = path.resolve(process.cwd(), "artifacts");
     const baselineDir = path.resolve(process.cwd(), "baselines");
     const close = vi.fn();
 
-    mockLoadConfig.mockResolvedValue({
-      toggles: { a11y: true, perf: true, visual: true },
-      visual: { threshold: 0.01 }
+    mockLoadConfig.mockResolvedValue(createFullConfig());
+    mockOpenPage.mockResolvedValue({
+      browser: { close },
+      page: {},
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
     });
-    mockOpenPage.mockResolvedValue({ browser: { close }, page: {} });
     mockCaptureScreenshots.mockResolvedValue([
       {
         name: "home",
@@ -107,13 +175,23 @@ describe("runAudit orchestration", () => {
     mockRunAxeScan.mockResolvedValue({
       violations: 1,
       countsByImpact: { critical: 1, serious: 0, moderate: 0, minor: 0 },
-      reportPath: path.join(outDir, "axe.json")
+      reportPath: path.join(outDir, "axe.json"),
+      details: [],
+      metadata: {
+        totalViolations: 1,
+        keptViolations: 1,
+        droppedViolations: 0,
+        droppedNodes: 0
+      }
     });
     mockRunLighthouseAudit.mockResolvedValue({
       metrics: { performanceScore: 0.95, lcpMs: 1000, cls: 0.01, tbtMs: 50 },
       budgets: { performance: 0.9, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
       budgetResults: { performance: true, lcp: true, cls: true, tbt: true },
-      reportPath: path.join(outDir, "lighthouse.json")
+      reportPath: path.join(outDir, "lighthouse.json"),
+      categoryScores: { performance: 0.95, accessibility: 0.9, bestPractices: 0.9, seo: 0.9 },
+      extendedMetrics: { fcpMs: 900, speedIndexMs: 1200, ttiMs: 1500, ttfbMs: 90 },
+      opportunities: []
     });
     mockRunVisualDiff.mockResolvedValue({
       results: [
@@ -130,7 +208,6 @@ describe("runAudit orchestration", () => {
       failed: false,
       maxMismatchRatio: 0
     });
-    mockBuildSummary.mockReturnValue(createSummary("pass"));
 
     const { runAudit } = await import("../src/index.js");
     const result = await runAudit("https://example.com", {
@@ -148,11 +225,13 @@ describe("runAudit orchestration", () => {
 
     expect(result.exitCode).toBe(0);
     expect(mockValidateOutputDirectory).toHaveBeenCalledTimes(2);
-    expect(mockRunAxeScan).toHaveBeenCalledTimes(1);
+    expect(mockRunAxeScan).toHaveBeenCalledWith(expect.anything(), outDir, expect.anything(), expect.anything());
     expect(mockRunLighthouseAudit).toHaveBeenCalledTimes(1);
     expect(mockRunVisualDiff).toHaveBeenCalledTimes(1);
     expect(close).toHaveBeenCalledTimes(1);
+
     expect(mockWriteJson).toHaveBeenCalledWith(path.join(outDir, "summary.json"), result.summary);
+    expect(mockWriteJson).toHaveBeenCalledWith(path.join(outDir, "summary.v2.json"), createSummaryV2("pass"));
     expect(mockWriteText).toHaveBeenCalledWith(path.join(outDir, "report.html"), "<html>report</html>");
 
     const summaryArgs = mockBuildSummary.mock.calls[0]![0];
@@ -163,6 +242,10 @@ describe("runAudit orchestration", () => {
     expect(summaryArgs.visual.results[0].baselinePath).toBe("../baselines/home.png");
     expect(summaryArgs.visual.results[0].diffPath).toBe("diffs/home.png");
     expect(summaryArgs.artifacts.baselineDir).toBe("../baselines");
+
+    const summaryV2Args = mockBuildSummaryV2.mock.calls[0]![0];
+    expect(summaryV2Args.runtimeSignals).toEqual(createRuntimeSignals());
+    expect(summaryV2Args.artifacts.summaryV2).toBe("summary.v2.json");
   });
 
   it("skips disabled checks and passes null summaries", async () => {
@@ -171,7 +254,11 @@ describe("runAudit orchestration", () => {
       toggles: { a11y: false, perf: false, visual: false },
       visual: { threshold: 0.01 }
     });
-    mockOpenPage.mockResolvedValue({ browser: { close }, page: {} });
+    mockOpenPage.mockResolvedValue({
+      browser: { close },
+      page: {},
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+    });
     mockCaptureScreenshots.mockResolvedValue([
       {
         name: "home",
@@ -180,7 +267,6 @@ describe("runAudit orchestration", () => {
         fullPage: true
       }
     ]);
-    mockBuildSummary.mockReturnValue(createSummary("pass"));
 
     const { runAudit } = await import("../src/index.js");
     await runAudit("https://example.com", {
@@ -210,7 +296,11 @@ describe("runAudit orchestration", () => {
       toggles: { a11y: false, perf: false, visual: false },
       visual: { threshold: 0.01 }
     });
-    mockOpenPage.mockResolvedValue({ browser: { close }, page: {} });
+    mockOpenPage.mockResolvedValue({
+      browser: { close },
+      page: {},
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+    });
     mockCaptureScreenshots.mockResolvedValue([]);
     mockBuildSummary.mockReturnValue(createSummary("fail"));
 
@@ -236,7 +326,11 @@ describe("runAudit orchestration", () => {
       toggles: { a11y: true, perf: false, visual: false },
       visual: { threshold: 0.01 }
     });
-    mockOpenPage.mockResolvedValue({ browser: { close }, page: {} });
+    mockOpenPage.mockResolvedValue({
+      browser: { close },
+      page: {},
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+    });
     mockRunAxeScan.mockRejectedValue(new Error("axe failed"));
     mockCaptureScreenshots.mockResolvedValue([]);
 
@@ -264,7 +358,11 @@ describe("runAudit orchestration", () => {
       toggles: { a11y: false, perf: true, visual: false },
       visual: { threshold: 0.01 }
     });
-    mockOpenPage.mockResolvedValue({ browser: { close }, page: {} });
+    mockOpenPage.mockResolvedValue({
+      browser: { close },
+      page: {},
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+    });
     mockCaptureScreenshots.mockResolvedValue([]);
     mockRunLighthouseAudit.mockResolvedValue({
       metrics: { performanceScore: 0.95, lcpMs: 1000, cls: 0.01, tbtMs: 50 },
@@ -272,7 +370,6 @@ describe("runAudit orchestration", () => {
       budgetResults: { performance: true, lcp: true, cls: true, tbt: true },
       reportPath: path.resolve(process.cwd(), "artifacts", "lighthouse.json")
     });
-    mockBuildSummary.mockReturnValue(createSummary("pass"));
 
     const auth = {
       headers: { Authorization: "Bearer token-123" },
@@ -293,17 +390,38 @@ describe("runAudit orchestration", () => {
     });
 
     expect(mockOpenPage).toHaveBeenCalledWith(
-      "https://example.com",
+      "https://example.com/",
       expect.any(Object),
       expect.any(Object),
       auth
     );
     expect(mockRunLighthouseAudit).toHaveBeenCalledWith(
-      "https://example.com",
+      "https://example.com/",
       expect.any(String),
       expect.any(Object),
       expect.any(Object),
       auth
     );
+  });
+
+  it("fails fast on invalid config loading without opening browser", async () => {
+    mockLoadConfig.mockRejectedValue(new Error("Invalid config"));
+
+    const { runAudit } = await import("../src/index.js");
+    await expect(
+      runAudit("https://example.com", {
+        config: "configs/default.json",
+        out: "artifacts",
+        baselineDir: "baselines",
+        setBaseline: false,
+        failOnA11y: true,
+        failOnPerf: true,
+        failOnVisual: true,
+        verbose: false,
+        auth: null
+      })
+    ).rejects.toThrow("Invalid config");
+
+    expect(mockOpenPage).not.toHaveBeenCalled();
   });
 });
