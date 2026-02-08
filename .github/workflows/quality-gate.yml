@@ -32,6 +32,9 @@ jobs:
         # Security: Use --ignore-scripts to prevent malicious postinstall scripts
         run: npm ci --ignore-scripts
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
       - name: Run checks
         run: npm run check
 
@@ -44,9 +47,6 @@ jobs:
         with:
           files: coverage/lcov.info
           fail_ci_if_error: false
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
 
       - name: Resolve audit target
         id: target
