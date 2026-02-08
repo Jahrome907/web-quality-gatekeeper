@@ -4,6 +4,7 @@ import type { Config, ScreenshotDefinition } from "../config/schema.js";
 import { ensureDir } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
+import type { AuditAuth } from "../utils/auth.js";
 
 export interface ScreenshotResult {
   name: string;
@@ -42,16 +43,30 @@ async function applyStabilityOverrides(page: Page): Promise<void> {
 export async function openPage(
   url: string,
   config: Config,
-  logger: Logger
+  logger: Logger,
+  auth: AuditAuth | null = null
 ): Promise<{ browser: Browser; page: Page }> {
   logger.debug("Launching Playwright browser");
   const browser = await chromium.launch({ headless: true });
+  const extraHeaders = auth?.headers && Object.keys(auth.headers).length > 0 ? auth.headers : null;
   const context = await browser.newContext({
     viewport: config.playwright.viewport,
     userAgent: config.playwright.userAgent,
     locale: config.playwright.locale,
-    colorScheme: config.playwright.colorScheme
+    colorScheme: config.playwright.colorScheme,
+    ...(extraHeaders ? { extraHTTPHeaders: extraHeaders } : {})
   });
+
+  if (auth?.cookies.length) {
+    await context.addCookies(
+      auth.cookies.map((cookie) => ({
+        name: cookie.name,
+        value: cookie.value,
+        url
+      }))
+    );
+  }
+
   const page = await context.newPage();
   page.setDefaultNavigationTimeout(config.timeouts.navigationMs);
   page.setDefaultTimeout(config.timeouts.actionMs);

@@ -12,14 +12,28 @@ describe("validateOutputDirectory", () => {
 
   it("rejects path traversal with ../", () => {
     expect(() => validateOutputDirectory("../outside")).toThrow(
-      "Output directory must be within the working directory"
+      "Output directory must be within the working directory or GITHUB_WORKSPACE"
     );
   });
 
   it("rejects deeply nested traversal", () => {
     expect(() => validateOutputDirectory("../../etc")).toThrow(
-      "Output directory must be within the working directory"
+      "Output directory must be within the working directory or GITHUB_WORKSPACE"
     );
+  });
+
+  it("accepts path within GITHUB_WORKSPACE when set", () => {
+    const previous = process.env.GITHUB_WORKSPACE;
+    process.env.GITHUB_WORKSPACE = "/tmp/wqg-workspace";
+    try {
+      expect(() => validateOutputDirectory("/tmp/wqg-workspace/artifacts")).not.toThrow();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.GITHUB_WORKSPACE;
+      } else {
+        process.env.GITHUB_WORKSPACE = previous;
+      }
+    }
   });
 });
 

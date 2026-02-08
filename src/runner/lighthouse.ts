@@ -5,6 +5,8 @@ import type { Config } from "../config/schema.js";
 import { writeJson } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
+import type { AuditAuth } from "../utils/auth.js";
+import { toCookieHeader } from "../utils/auth.js";
 
 export interface LighthouseBudgets {
   performance: number;
@@ -56,22 +58,39 @@ export function toFixedScore(score: number | null | undefined): number {
 // Security: Determine if we can use sandbox (not in CI containers typically)
 function getChromeFlags(): string[] {
   const flags = ["--headless", "--disable-gpu"];
-  
+
   // In CI environments (containers), sandbox often doesn't work
   // Only disable sandbox when necessary
   const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
   if (isCI) {
     flags.push("--no-sandbox", "--disable-setuid-sandbox");
   }
-  
+
   return flags;
+}
+
+function buildLighthouseHeaders(auth: AuditAuth | null): Record<string, string> | null {
+  if (!auth) {
+    return null;
+  }
+
+  const headers: Record<string, string> = { ...auth.headers };
+  if (!headers.Cookie) {
+    const cookieHeader = toCookieHeader(auth.cookies);
+    if (cookieHeader) {
+      headers.Cookie = cookieHeader;
+    }
+  }
+
+  return Object.keys(headers).length > 0 ? headers : null;
 }
 
 export async function runLighthouseAudit(
   url: string,
   outDir: string,
   config: Config,
-  logger: Logger
+  logger: Logger,
+  auth: AuditAuth | null = null
 ): Promise<LighthouseSummary> {
   logger.debug("Running Lighthouse audit");
   const chrome = await launch({
@@ -94,6 +113,7 @@ export async function runLighthouseAudit(
           deviceScaleFactor: 1
         };
 
+    const lhHeaders = buildLighthouseHeaders(auth);
     const runnerResult = await retry(
       () =>
         lighthouse(
@@ -102,7 +122,8 @@ export async function runLighthouseAudit(
             port: chrome.port,
             output: "json",
             logLevel: "error",
-            onlyCategories: ["performance"]
+            onlyCategories: ["performance"],
+            ...(lhHeaders ? { extraHeaders: lhHeaders } : {})
           },
           {
             extends: "lighthouse:default",

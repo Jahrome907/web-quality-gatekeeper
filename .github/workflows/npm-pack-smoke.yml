@@ -1,0 +1,44 @@
+name: NPM Pack Smoke
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pack-install-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build package
+        run: npm run build
+
+      - name: Create npm tarball
+        id: pack
+        run: |
+          TARBALL="$(npm pack --silent)"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          tar -tzf "$TARBALL" | grep -q "package/schemas/summary.v1.json"
+          tar -tzf "$TARBALL" | grep -q "package/dist/cli.js"
+
+      - name: Install tarball in clean project
+        run: |
+          mkdir -p /tmp/wqg-pack-smoke
+          cp "${{ steps.pack.outputs.tarball }}" /tmp/wqg-pack-smoke/
+          cd /tmp/wqg-pack-smoke
+          npm init -y
+          npm install "./${{ steps.pack.outputs.tarball }}" --ignore-scripts
+          ./node_modules/.bin/wqg --version

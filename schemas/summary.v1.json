@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
+  "title": "Web Quality Gatekeeper Summary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "toolVersion",
+    "overallStatus",
+    "url",
+    "startedAt",
+    "durationMs",
+    "steps",
+    "artifacts",
+    "screenshots",
+    "a11y",
+    "performance",
+    "visual"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "toolVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "overallStatus": {
+      "type": "string",
+      "enum": ["pass", "fail"]
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "durationMs": {
+      "type": "number",
+      "minimum": 0
+    },
+    "steps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["playwright", "a11y", "perf", "visual"],
+      "properties": {
+        "playwright": { "$ref": "#/$defs/stepStatus" },
+        "a11y": { "$ref": "#/$defs/stepStatus" },
+        "perf": { "$ref": "#/$defs/stepStatus" },
+        "visual": { "$ref": "#/$defs/stepStatus" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "report",
+        "axe",
+        "lighthouse",
+        "screenshotsDir",
+        "diffsDir",
+        "baselineDir"
+      ],
+      "properties": {
+        "summary": { "type": "string" },
+        "report": { "type": "string" },
+        "axe": { "type": ["string", "null"] },
+        "lighthouse": { "type": ["string", "null"] },
+        "screenshotsDir": { "type": "string" },
+        "diffsDir": { "type": "string" },
+        "baselineDir": { "type": "string" }
+      }
+    },
+    "screenshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "path", "url", "fullPage"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "fullPage": { "type": "boolean" }
+        }
+      }
+    },
+    "a11y": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["violations", "countsByImpact", "reportPath"],
+          "properties": {
+            "violations": { "type": "number", "minimum": 0 },
+            "countsByImpact": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["critical", "serious", "moderate", "minor"],
+              "properties": {
+                "critical": { "type": "number", "minimum": 0 },
+                "serious": { "type": "number", "minimum": 0 },
+                "moderate": { "type": "number", "minimum": 0 },
+                "minor": { "type": "number", "minimum": 0 }
+              }
+            },
+            "reportPath": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "performance": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metrics", "budgets", "budgetResults", "reportPath"],
+          "properties": {
+            "metrics": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["performanceScore", "lcpMs", "cls", "tbtMs"],
+              "properties": {
+                "performanceScore": { "type": "number", "minimum": 0 },
+                "lcpMs": { "type": "number", "minimum": 0 },
+                "cls": { "type": "number", "minimum": 0 },
+                "tbtMs": { "type": "number", "minimum": 0 }
+              }
+            },
+            "budgets": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["performance", "lcpMs", "cls", "tbtMs"],
+              "properties": {
+                "performance": { "type": "number", "minimum": 0, "maximum": 1 },
+                "lcpMs": { "type": "number", "minimum": 0 },
+                "cls": { "type": "number", "minimum": 0 },
+                "tbtMs": { "type": "number", "minimum": 0 }
+              }
+            },
+            "budgetResults": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["performance", "lcp", "cls", "tbt"],
+              "properties": {
+                "performance": { "type": "boolean" },
+                "lcp": { "type": "boolean" },
+                "cls": { "type": "boolean" },
+                "tbt": { "type": "boolean" }
+              }
+            },
+            "reportPath": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "visual": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["results", "threshold", "failed", "maxMismatchRatio"],
+          "properties": {
+            "results": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "currentPath",
+                  "baselinePath",
+                  "diffPath",
+                  "mismatchRatio",
+                  "status"
+                ],
+                "properties": {
+                  "name": { "type": "string" },
+                  "currentPath": { "type": "string" },
+                  "baselinePath": { "type": "string" },
+                  "diffPath": { "type": ["string", "null"] },
+                  "mismatchRatio": { "type": ["number", "null"], "minimum": 0 },
+                  "status": {
+                    "type": "string",
+                    "enum": ["baseline_created", "baseline_updated", "diffed"]
+                  }
+                }
+              }
+            },
+            "threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+            "failed": { "type": "boolean" },
+            "maxMismatchRatio": { "type": "number", "minimum": 0 }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "stepStatus": {
+      "type": "string",
+      "enum": ["pass", "fail", "skipped"]
+    }
+  }
+}

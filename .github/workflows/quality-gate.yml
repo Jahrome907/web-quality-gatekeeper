@@ -1,6 +1,9 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Quality Gate
 
 on:
+  push:
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -41,8 +44,6 @@ jobs:
         with:
           files: coverage/lcov.info
           fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -50,7 +51,6 @@ jobs:
       - name: Resolve audit target
         id: target
         env:
-          WQG_URL: ${{ vars.WQG_URL }}
           PAGES_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
         run: |
           node <<'NODE'

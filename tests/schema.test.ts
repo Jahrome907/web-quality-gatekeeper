@@ -1,5 +1,12 @@
+import path from "node:path";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildSummary, SCHEMA_VERSION } from "../src/report/summary.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const Ajv2020 = require("ajv/dist/2020");
+const addFormats = require("ajv-formats");
+import { buildSummary, SCHEMA_VERSION, SUMMARY_SCHEMA_URI } from "../src/report/summary.js";
 import { formatSummaryAsMarkdown } from "../src/report/markdown.js";
 import type { AxeSummary } from "../src/runner/axe.js";
 import type { LighthouseSummary } from "../src/runner/lighthouse.js";
@@ -49,6 +56,12 @@ const visual: VisualDiffSummary = {
 };
 
 describe("summary JSON schema contract", () => {
+  const schemaPath = path.resolve(process.cwd(), "schemas", "summary.v1.json");
+  const schema = JSON.parse(readFileSync(schemaPath, "utf8")) as object;
+  const ajv = new Ajv2020({ allErrors: true, strict: false });
+  addFormats(ajv);
+  const validate = ajv.compile(schema);
+
   it("contains all required top-level fields", () => {
     const summary = buildSummary({
       ...baseParams,
@@ -61,6 +74,7 @@ describe("summary JSON schema contract", () => {
     // These fields define the public contract. Removing any
     // of them is a breaking change that requires a version bump.
     const requiredFields = [
+      "$schema",
       "schemaVersion",
       "toolVersion",
       "overallStatus",
@@ -78,6 +92,20 @@ describe("summary JSON schema contract", () => {
     for (const field of requiredFields) {
       expect(summary, `missing field: ${field}`).toHaveProperty(field);
     }
+  });
+
+  it("validates against schemas/summary.v1.json", () => {
+    const summary = buildSummary({
+      ...baseParams,
+      a11y,
+      performance: perf,
+      visual,
+      options: { failOnA11y: true, failOnPerf: true, failOnVisual: true }
+    });
+
+    const valid = validate(summary);
+    expect(valid, JSON.stringify(validate.errors, null, 2)).toBe(true);
+    expect(summary.$schema).toBe(SUMMARY_SCHEMA_URI);
   });
 
   it("steps object has all four step keys", () => {
