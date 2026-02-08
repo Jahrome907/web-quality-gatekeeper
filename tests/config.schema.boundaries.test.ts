@@ -6,7 +6,7 @@ function createValidConfig() {
     timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 1000 },
     playwright: {
       viewport: { width: 1280, height: 720 },
-      userAgent: "wqg/0.3.0",
+      userAgent: "wqg/3.0.0",
       locale: "en-US",
       colorScheme: "light"
     },
@@ -223,6 +223,45 @@ describe("ConfigSchema boundaries", () => {
     const result = ConfigSchema.safeParse({
       ...createValidConfig(),
       screenshots: [{ name: "home", path: "/", waitForTimeoutMs: 30001 }]
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts screenshot gallery settings within bounds", () => {
+    const parsed = ConfigSchema.parse({
+      ...createValidConfig(),
+      screenshotGallery: {
+        enabled: true,
+        maxScreenshotsPerPath: 60
+      }
+    });
+
+    expect(parsed.screenshotGallery).toEqual({
+      enabled: true,
+      maxScreenshotsPerPath: 60
+    });
+  });
+
+  it("applies screenshot gallery defaults when object is present", () => {
+    const parsed = ConfigSchema.parse({
+      ...createValidConfig(),
+      screenshotGallery: {}
+    });
+
+    expect(parsed.screenshotGallery).toEqual({
+      enabled: false,
+      maxScreenshotsPerPath: 12
+    });
+  });
+
+  it("rejects screenshot gallery maxScreenshotsPerPath over maximum", () => {
+    const result = ConfigSchema.safeParse({
+      ...createValidConfig(),
+      screenshotGallery: {
+        enabled: true,
+        maxScreenshotsPerPath: 61
+      }
     });
 
     expect(result.success).toBe(false);

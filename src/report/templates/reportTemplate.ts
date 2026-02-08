@@ -1,7 +1,8 @@
-import type { Summary } from "../summary.js";
+import type { Summary, SummaryV2 } from "../summary.js";
 
 type ScoreTone = "good" | "warn" | "bad" | "muted";
 type VitalState = "pass" | "needs-improvement" | "fail" | "unknown";
+type GaugeKey = "performance" | "accessibility" | "best-practices" | "seo";
 
 interface DiagnosticEntry {
   message: string;
@@ -45,6 +46,7 @@ interface VitalDefinition {
 }
 
 const MAX_DIAGNOSTIC_ROWS = 25;
+const GALLERY_VISIBLE_COUNT = 8;
 const GAUGE_RADIUS = 44;
 const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
 
@@ -122,6 +124,16 @@ function toFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function firstFiniteNumber(...values: unknown[]): number | null {
+  for (const value of values) {
+    const numeric = toFiniteNumber(value);
+    if (numeric !== null) {
+      return numeric;
+    }
+  }
+  return null;
+}
+
 function toBoolean(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
@@ -172,15 +184,75 @@ function normalizeAssetPath(path: string | null | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function renderGauge(label: string, score: number | null | undefined): string {
+function renderZoomableImage(imagePath: string, alt: string): string {
+  const escapedPath = escapeHtml(imagePath);
+  const escapedAlt = escapeHtml(alt);
+  return `
+    <button
+      type="button"
+      class="zoom-trigger"
+      data-preview-src="${escapedPath}"
+      data-preview-alt="${escapedAlt}"
+      aria-label="${escapeHtml(`Open ${alt} in larger view`)}"
+    >
+      <img src="${escapedPath}" alt="${escapedAlt}" loading="lazy" />
+    </button>
+  `;
+}
+
+function renderGalleryOverflow(items: string[], noun: string, containerClass: string): string {
+  if (items.length <= GALLERY_VISIBLE_COUNT) {
+    return "";
+  }
+  const remaining = items.slice(GALLERY_VISIBLE_COUNT).join("");
+  return `
+    <details class="gallery-expander">
+      <summary>View all ${items.length} ${escapeHtml(noun)}</summary>
+      <div class="${escapeHtml(containerClass)}">
+        ${remaining}
+      </div>
+    </details>
+  `;
+}
+
+function renderSparkBar(label: string, score: number | null | undefined): string {
   if (typeof score !== "number") {
     return `
-      <article class="gauge-card card">
-        <h3>${escapeHtml(label)}</h3>
-        <div class="gauge-shell muted-gauge">
-          <span class="gauge-empty">n/a</span>
-        </div>
-      </article>
+      <div class="spark-item">
+        <span class="spark-label">${escapeHtml(label)}</span>
+        <div class="spark-track"><span class="spark-fill muted" style="width:0%"></span></div>
+        <span class="spark-value">n/a</span>
+      </div>
+    `;
+  }
+
+  const percent = clamp(Math.round(score * 100), 0, 100);
+  const tone = scoreTone(score);
+  return `
+    <div class="spark-item">
+      <span class="spark-label">${escapeHtml(label)}</span>
+      <div class="spark-track">
+        <span class="spark-fill ${tone}" style="width:${percent}%"></span>
+      </div>
+      <span class="spark-value">${percent}</span>
+    </div>
+  `;
+}
+
+function renderGauge(label: string, score: number | null | undefined, key: GaugeKey): string {
+  const triggerStart = `<button type="button" class="gauge-trigger" data-gauge-key="${key}" aria-expanded="false" aria-controls="gauge-detail-${key}">`;
+  const triggerEnd = `</button>`;
+  if (typeof score !== "number") {
+    return `
+      ${triggerStart}
+        <article class="gauge-card card">
+          <h3>${escapeHtml(label)}</h3>
+          <div class="gauge-shell muted-gauge">
+            <span class="gauge-empty">n/a</span>
+          </div>
+          <p class="gauge-hint">Click for breakdown</p>
+        </article>
+      ${triggerEnd}
     `;
   }
 
@@ -190,28 +262,31 @@ function renderGauge(label: string, score: number | null | undefined): string {
   const gap = GAUGE_CIRCUMFERENCE - dash;
 
   return `
-    <article class="gauge-card card">
-      <h3>${escapeHtml(label)}</h3>
-      <div class="gauge-shell">
-        <svg viewBox="0 0 120 120" role="img" aria-label="${escapeHtml(
-          `${label} score ${percent} out of 100`
-        )}">
-          <circle class="gauge-track" cx="60" cy="60" r="${GAUGE_RADIUS}" />
-          <circle
-            class="gauge-progress ${tone}"
-            cx="60"
-            cy="60"
-            r="${GAUGE_RADIUS}"
-            stroke-dasharray="${dash} ${gap}"
-          />
-        </svg>
-        <div class="gauge-value">
-          <strong>${percent}</strong>
-          <span>/100</span>
+    ${triggerStart}
+      <article class="gauge-card card">
+        <h3>${escapeHtml(label)}</h3>
+        <div class="gauge-shell">
+          <svg viewBox="0 0 120 120" role="img" aria-label="${escapeHtml(
+            `${label} score ${percent} out of 100`
+          )}">
+            <circle class="gauge-track" cx="60" cy="60" r="${GAUGE_RADIUS}" />
+            <circle
+              class="gauge-progress ${tone}"
+              cx="60"
+              cy="60"
+              r="${GAUGE_RADIUS}"
+              stroke-dasharray="${dash} ${gap}"
+            />
+          </svg>
+          <div class="gauge-value">
+            <strong>${percent}</strong>
+            <span>/100</span>
+          </div>
         </div>
-      </div>
-      ${toneBadge(tone === "good" ? "Good" : tone === "warn" ? "Needs improvement" : "Poor", tone)}
-    </article>
+        ${toneBadge(tone === "good" ? "Good" : tone === "warn" ? "Needs improvement" : "Poor", tone)}
+        <p class="gauge-hint">Click for breakdown</p>
+      </article>
+    ${triggerEnd}
   `;
 }
 
@@ -357,7 +432,7 @@ function extractDiagnosticBucket(source: unknown): DiagnosticBucket {
   };
 }
 
-function extractDiagnostics(summary: Summary): DiagnosticsData {
+function extractDiagnostics(summary: Summary | SummaryV2): DiagnosticsData {
   const root = summary as unknown as Record<string, unknown>;
   const runtimeSignals = toRecord(root.runtimeSignals);
   if (runtimeSignals) {
@@ -446,7 +521,7 @@ function normalizeResourceType(raw: string): ResourceSlice["type"] {
   return "Other";
 }
 
-function extractResourceBreakdown(summary: Summary): ResourceBreakdownData {
+function extractResourceBreakdown(summary: Summary | SummaryV2): ResourceBreakdownData {
   const root = summary as unknown as Record<string, unknown>;
   const runtimeSignals = toRecord(root.runtimeSignals);
   const runtimeNetwork = toRecord(runtimeSignals?.network);
@@ -571,12 +646,15 @@ function extractResourceBreakdown(summary: Summary): ResourceBreakdownData {
   };
 }
 
-export function renderReportTemplate(summary: Summary): string {
+export function renderReportTemplate(summary: Summary | SummaryV2): string {
   const a11y = summary.a11y;
   const perf = summary.performance;
   const visual = summary.visual;
   const diagnostics = extractDiagnostics(summary);
   const resources = extractResourceBreakdown(summary);
+  const root = summary as unknown as Record<string, unknown>;
+  const runtimeSignals = toRecord(root.runtimeSignals);
+  const runtimeNetwork = toRecord(runtimeSignals?.network);
 
   // Executive summary.
   const a11yRows = a11y
@@ -592,23 +670,123 @@ export function renderReportTemplate(summary: Summary): string {
   // Gauges.
   const categoryScores = perf?.categoryScores;
   const gaugeMarkup = [
-    renderGauge("Performance", categoryScores?.performance),
-    renderGauge("Accessibility", categoryScores?.accessibility),
-    renderGauge("Best Practices", categoryScores?.bestPractices),
-    renderGauge("SEO", categoryScores?.seo)
+    renderGauge("Performance", categoryScores?.performance, "performance"),
+    renderGauge("Accessibility", categoryScores?.accessibility, "accessibility"),
+    renderGauge("Best Practices", categoryScores?.bestPractices, "best-practices"),
+    renderGauge("SEO", categoryScores?.seo, "seo")
+  ].join("");
+  const sparkBarsMarkup = [
+    renderSparkBar("Perf", categoryScores?.performance),
+    renderSparkBar("A11y", categoryScores?.accessibility),
+    renderSparkBar("Best", categoryScores?.bestPractices),
+    renderSparkBar("SEO", categoryScores?.seo)
+  ].join("");
+  const statusChipsMarkup = [
+    `<span class="status-chip ${summary.overallStatus}">Overall ${escapeHtml(summary.overallStatus.toUpperCase())}</span>`,
+    `<span class="status-chip ${summary.steps.a11y}">A11y ${escapeHtml(summary.steps.a11y.toUpperCase())}</span>`,
+    `<span class="status-chip ${summary.steps.perf}">Perf ${escapeHtml(summary.steps.perf.toUpperCase())}</span>`,
+    `<span class="status-chip ${summary.steps.visual}">Visual ${escapeHtml(summary.steps.visual.toUpperCase())}</span>`
   ].join("");
 
+  const perfRecord = perf ? (perf as unknown as Record<string, unknown>) : null;
+  const perfMetrics = toRecord(perfRecord?.metrics);
+  const perfExtended = toRecord(perfRecord?.extendedMetrics);
   const vitalValues = {
-    fcp: toFiniteNumber(perf?.extendedMetrics?.fcpMs ?? null),
-    lcp: toFiniteNumber(perf?.metrics?.lcpMs ?? null),
-    cls: toFiniteNumber(perf?.metrics?.cls ?? null),
-    tbt: toFiniteNumber(perf?.metrics?.tbtMs ?? null),
-    ttfb: toFiniteNumber(perf?.extendedMetrics?.ttfbMs ?? null)
+    fcp: firstFiniteNumber(
+      perfExtended?.fcpMs,
+      perfMetrics?.fcpMs,
+      perfRecord?.fcpMs
+    ),
+    lcp: firstFiniteNumber(
+      perfMetrics?.lcpMs,
+      perfExtended?.lcpMs,
+      perfRecord?.lcpMs
+    ),
+    cls: firstFiniteNumber(
+      perfMetrics?.cls,
+      perfExtended?.cls,
+      perfRecord?.cls
+    ),
+    tbt: firstFiniteNumber(
+      perfMetrics?.tbtMs,
+      perfExtended?.tbtMs,
+      perfRecord?.tbtMs
+    ),
+    ttfb: firstFiniteNumber(
+      perfExtended?.ttfbMs,
+      perfMetrics?.ttfbMs,
+      perfRecord?.ttfbMs
+    )
   };
 
   const vitalsMarkup = VITAL_DEFINITIONS.map((def) =>
     renderVitalCard(def.label, vitalValues[def.id as keyof typeof vitalValues], def)
   ).join("");
+  const gaugeDetailsMarkup = `
+    <article id="gauge-detail-performance" class="gauge-detail card" hidden aria-live="polite">
+      <h3>Performance Score Breakdown</h3>
+      <ul class="breakdown-list">
+        <li>Performance score: <strong>${categoryScores?.performance !== undefined ? `${Math.round(categoryScores.performance * 100)}/100` : "n/a"}</strong></li>
+        <li>LCP: <strong>${escapeHtml(formatMs(vitalValues.lcp))}</strong>, CLS: <strong>${escapeHtml(formatRatio(vitalValues.cls))}</strong>, TBT: <strong>${escapeHtml(formatMs(vitalValues.tbt))}</strong></li>
+        <li>FCP: <strong>${escapeHtml(formatMs(vitalValues.fcp))}</strong>, TTFB: <strong>${escapeHtml(formatMs(vitalValues.ttfb))}</strong></li>
+        <li>Budget checks: <strong>${perf?.budgetResults ? `${perf.budgetResults.performance ? "Perf OK" : "Perf Fail"}, ${perf.budgetResults.lcp ? "LCP OK" : "LCP Fail"}, ${perf.budgetResults.cls ? "CLS OK" : "CLS Fail"}, ${perf.budgetResults.tbt ? "TBT OK" : "TBT Fail"}` : "n/a"}</strong></li>
+      </ul>
+    </article>
+    <article id="gauge-detail-accessibility" class="gauge-detail card" hidden aria-live="polite">
+      <h3>Accessibility Score Breakdown</h3>
+      <ul class="breakdown-list">
+        <li>Accessibility score: <strong>${categoryScores?.accessibility !== undefined ? `${Math.round(categoryScores.accessibility * 100)}/100` : "n/a"}</strong></li>
+        <li>Total violations: <strong>${a11y ? `${a11y.violations}` : "n/a"}</strong></li>
+        <li>Critical/Serious: <strong>${a11y ? `${a11y.countsByImpact.critical}/${a11y.countsByImpact.serious}` : "n/a"}</strong></li>
+        <li>Moderate/Minor: <strong>${a11y ? `${a11y.countsByImpact.moderate}/${a11y.countsByImpact.minor}` : "n/a"}</strong></li>
+      </ul>
+    </article>
+    <article id="gauge-detail-best-practices" class="gauge-detail card" hidden aria-live="polite">
+      <h3>Best Practices Score Breakdown</h3>
+      <ul class="breakdown-list">
+        <li>Best practices score: <strong>${categoryScores?.bestPractices !== undefined ? `${Math.round(categoryScores.bestPractices * 100)}/100` : "n/a"}</strong></li>
+        <li>Console errors: <strong>${diagnostics.consoleErrors.count}</strong></li>
+        <li>JavaScript runtime errors: <strong>${diagnostics.jsErrors.count}</strong></li>
+        <li>Failed network requests: <strong>${runtimeNetwork ? `${toNonNegativeInteger(toFiniteNumber(runtimeNetwork.failedRequests) ?? 0)}` : "n/a"}</strong></li>
+      </ul>
+    </article>
+    <article id="gauge-detail-seo" class="gauge-detail card" hidden aria-live="polite">
+      <h3>SEO Score Breakdown</h3>
+      <ul class="breakdown-list">
+        <li>SEO score: <strong>${categoryScores?.seo !== undefined ? `${Math.round(categoryScores.seo * 100)}/100` : "n/a"}</strong></li>
+        <li>Total requests: <strong>${runtimeNetwork ? `${toNonNegativeInteger(toFiniteNumber(runtimeNetwork.totalRequests) ?? 0)}` : "n/a"}</strong></li>
+        <li>Transfer size: <strong>${runtimeNetwork ? `${escapeHtml(formatBytes(toFiniteNumber(runtimeNetwork.transferSizeBytes) ?? 0))}` : "n/a"}</strong></li>
+        <li>Top opportunity: <strong>${perf?.opportunities?.[0] ? escapeHtml(perf.opportunities[0].title) : "n/a"}</strong></li>
+      </ul>
+    </article>
+  `;
+
+  const screenshotCards = summary.screenshots.map((shot) => {
+    const screenshotPath = normalizeAssetPath(shot.path);
+    return `
+      <article class="capture-card card">
+        ${
+          screenshotPath
+            ? renderZoomableImage(screenshotPath, `${shot.name} Playwright screenshot`)
+            : `<div class="image-fallback">Screenshot unavailable</div>`
+        }
+        <div class="capture-meta">
+          <h3>${escapeHtml(shot.name)}</h3>
+          <p class="capture-url">${escapeHtml(shot.url)}</p>
+          <p class="capture-path">${escapeHtml(shot.path)}</p>
+        </div>
+      </article>
+    `;
+  });
+  const screenshotCardsVisible =
+    screenshotCards.length > 0
+      ? screenshotCards.slice(0, GALLERY_VISIBLE_COUNT).join("")
+      : `<p class="muted">No Playwright screenshots were captured.</p>`;
+  const screenshotCardsOverflow = renderGalleryOverflow(
+    screenshotCards,
+    "screenshots",
+    "capture-gallery"
+  );
 
   // Opportunities.
   const opportunityRows =
@@ -630,10 +808,14 @@ export function renderReportTemplate(summary: Summary): string {
                 <td>${escapeHtml(
                   opportunity.estimatedSavingsMs !== null
                     ? `${Math.round(opportunity.estimatedSavingsMs)} ms`
-                    : "n/a"
+                    : "—"
                 )}</td>
-                <td>${escapeHtml(formatBytes(opportunity.estimatedSavingsBytes))}</td>
-                <td>${escapeHtml(opportunity.displayValue || "n/a")}</td>
+                <td>${escapeHtml(
+                  opportunity.estimatedSavingsBytes !== null
+                    ? formatBytes(opportunity.estimatedSavingsBytes)
+                    : "—"
+                )}</td>
+                <td>${escapeHtml(opportunity.displayValue || "—")}</td>
               </tr>
             `
           )
@@ -698,56 +880,57 @@ export function renderReportTemplate(summary: Summary): string {
   // Visual block.
   const visualCards =
     visual && visual.results.length > 0
-      ? visual.results
-          .map((result) => {
-            const mismatch = result.mismatchRatio !== null ? formatRatio(result.mismatchRatio) : "n/a";
-            const baselinePath = normalizeAssetPath(result.baselinePath);
-            const currentPath = normalizeAssetPath(result.currentPath);
-            const diffPath = normalizeAssetPath(result.diffPath);
-            return `
-              <article class="visual-card card">
-                <header>
-                  <h3>${escapeHtml(result.name)}</h3>
-                  <div class="visual-meta">${statusPill(result.status)}</div>
-                </header>
-                <div class="visual-grid">
-                  <figure>
-                    ${
-                      baselinePath
-                        ? `<img src="${escapeHtml(baselinePath)}" alt="${escapeHtml(
-                            `${result.name} baseline screenshot`
-                          )}" loading="lazy" />`
-                        : `<div class="image-fallback">Baseline unavailable</div>`
-                    }
-                    <figcaption>Baseline</figcaption>
-                  </figure>
-                  <figure>
-                    ${
-                      currentPath
-                        ? `<img src="${escapeHtml(currentPath)}" alt="${escapeHtml(
-                            `${result.name} current screenshot`
-                          )}" loading="lazy" />`
-                        : `<div class="image-fallback">Current unavailable</div>`
-                    }
-                    <figcaption>Current</figcaption>
-                  </figure>
-                  <figure>
-                    ${
-                      diffPath
-                        ? `<img src="${escapeHtml(diffPath)}" alt="${escapeHtml(
-                            `${result.name} visual diff`
-                          )}" loading="lazy" />`
-                        : `<div class="image-fallback">Diff unavailable</div>`
-                    }
-                    <figcaption>Diff</figcaption>
-                  </figure>
-                </div>
-                <p class="visual-ratio">Mismatch ratio: <strong>${escapeHtml(mismatch)}</strong></p>
-              </article>
-            `;
-          })
-          .join("")
+      ? visual.results.map((result) => {
+          const mismatch = result.mismatchRatio !== null ? formatRatio(result.mismatchRatio) : "n/a";
+          const baselinePath = normalizeAssetPath(result.baselinePath);
+          const currentPath = normalizeAssetPath(result.currentPath);
+          const diffPath = normalizeAssetPath(result.diffPath);
+          return `
+            <article class="visual-card card">
+              <header>
+                <h3>${escapeHtml(result.name)}</h3>
+                <div class="visual-meta">${statusPill(result.status)}</div>
+              </header>
+              <div class="visual-grid">
+                <figure>
+                  ${
+                    baselinePath
+                      ? renderZoomableImage(baselinePath, `${result.name} baseline screenshot`)
+                      : `<div class="image-fallback">Baseline unavailable</div>`
+                  }
+                  <figcaption>Baseline</figcaption>
+                </figure>
+                <figure>
+                  ${
+                    currentPath
+                      ? renderZoomableImage(currentPath, `${result.name} current screenshot`)
+                      : `<div class="image-fallback">Current unavailable</div>`
+                  }
+                  <figcaption>Current</figcaption>
+                </figure>
+                <figure>
+                  ${
+                    diffPath
+                      ? renderZoomableImage(diffPath, `${result.name} visual diff`)
+                      : `<div class="image-fallback">Diff unavailable</div>`
+                  }
+                  <figcaption>Diff</figcaption>
+                </figure>
+              </div>
+              <p class="visual-ratio">Mismatch ratio: <strong>${escapeHtml(mismatch)}</strong></p>
+            </article>
+          `;
+        })
+      : [];
+  const visualCardsVisible =
+    visualCards.length > 0
+      ? visualCards.slice(0, GALLERY_VISIBLE_COUNT).join("")
       : `<p class="muted">Visual diff step skipped or no results captured.</p>`;
+  const visualCardsOverflow = renderGalleryOverflow(
+    visualCards,
+    "visual comparisons",
+    "visual-list"
+  );
 
   // Runtime diagnostics.
   const consoleRows =
@@ -786,9 +969,19 @@ export function renderReportTemplate(summary: Summary): string {
     ? resources.slices
         .map((slice) => {
           const percent = resourceTotal > 0 ? clamp((slice.bytes / resourceTotal) * 100, 0, 100) : 0;
+          const percentLabel = `${formatNumber(percent, 1)}%`;
+          const tooltipLabel = `${slice.type}: ${formatBytes(slice.bytes)} · ${formatNumber(
+            slice.requests,
+            0
+          )} requests · ${percentLabel}`;
           return `<span class="resource-segment ${slice.type.toLowerCase()}" style="width:${percent.toFixed(
             1
-          )}%"></span>`;
+          )}%"
+            tabindex="0"
+            aria-label="${escapeHtml(tooltipLabel)}"
+          >
+            <span class="resource-segment-tooltip">${escapeHtml(tooltipLabel)}</span>
+          </span>`;
         })
         .join("")
     : "";
@@ -807,9 +1000,23 @@ export function renderReportTemplate(summary: Summary): string {
         )
         .join("")
     : `<tr><td colspan="4">Resource breakdown not available in summary data.</td></tr>`;
+  const resourceLegend =
+    resources.available
+      ? resources.slices
+          .map(
+            (slice) => `
+              <div class="resource-legend-item">
+                <span class="resource-legend-swatch ${slice.type.toLowerCase()}"></span>
+                <span>${slice.type}</span>
+                <span class="muted">(${escapeHtml(formatBytes(slice.bytes))})</span>
+              </div>
+            `
+          )
+          .join("")
+      : "";
 
   return `<!doctype html>
-<html lang="en">
+<html lang="en" data-report-view="detailed">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -872,11 +1079,59 @@ export function renderReportTemplate(summary: Summary): string {
       padding: 28px 22px 48px;
     }
 
+    .jump-nav {
+      position: sticky;
+      top: 10px;
+      z-index: 40;
+      margin: 0 0 18px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--card) 88%, var(--bg-strong) 12%);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 8px 10px;
+    }
+
+    .jump-nav-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .jump-nav-link {
+      display: inline-block;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: var(--card);
+    }
+
+    .jump-nav-link:hover,
+    .jump-nav-link:focus-visible {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+    }
+
     .header {
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 12px;
       margin-bottom: 20px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     .header h1 {
@@ -901,6 +1156,35 @@ export function renderReportTemplate(summary: Summary): string {
       font: inherit;
     }
 
+    .view-toggle-group {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--card);
+    }
+
+    .view-toggle {
+      border: 0;
+      border-right: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .view-toggle:last-child {
+      border-right: 0;
+    }
+
+    .view-toggle[aria-pressed="true"] {
+      background: color-mix(in srgb, var(--accent) 18%, var(--card));
+      color: var(--text);
+    }
+
     /* Executive summary */
     .summary-card {
       margin-bottom: 18px;
@@ -917,6 +1201,40 @@ export function renderReportTemplate(summary: Summary): string {
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
       margin-top: 14px;
+    }
+
+    .status-chip-row {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 4px 10px;
+      letter-spacing: 0.03em;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--card) 92%, var(--bg-strong) 8%);
+    }
+
+    .status-chip.pass {
+      color: var(--good);
+      border-color: color-mix(in srgb, var(--good) 35%, var(--border));
+    }
+
+    .status-chip.fail {
+      color: var(--bad);
+      border-color: color-mix(in srgb, var(--bad) 35%, var(--border));
+    }
+
+    .status-chip.skipped {
+      color: var(--warn);
+      border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
     }
 
     .summary-point {
@@ -940,6 +1258,14 @@ export function renderReportTemplate(summary: Summary): string {
       border-radius: 12px;
       padding: 16px;
       box-shadow: var(--shadow);
+      transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+    }
+
+    .card:hover,
+    .card:focus-within {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+      box-shadow: 0 12px 30px rgba(26, 35, 49, 0.14);
     }
 
     .card h3 {
@@ -1033,12 +1359,151 @@ export function renderReportTemplate(summary: Summary): string {
       margin-bottom: 12px;
     }
 
+    .section:target h2 {
+      scroll-margin-top: 70px;
+      color: var(--accent);
+    }
+
+    [data-report-view="simple"] [data-view-section="detailed"] {
+      display: none !important;
+    }
+
+    .info-panel {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--card) 90%, var(--bg-strong) 10%);
+      padding: 8px 10px;
+      margin: 0 0 12px;
+    }
+
+    .info-panel summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--muted);
+      font-size: 13px;
+      list-style: none;
+    }
+
+    .info-panel summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .info-panel p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
     /* Gauges */
     .gauge-card {
       display: grid;
       gap: 10px;
       justify-items: center;
       text-align: center;
+    }
+
+    .gauge-trigger {
+      border: 0;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      width: 100%;
+      text-align: inherit;
+      cursor: pointer;
+    }
+
+    .gauge-trigger:focus-visible .gauge-card {
+      outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+      outline-offset: 2px;
+    }
+
+    .gauge-hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .spark-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .spark-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: color-mix(in srgb, var(--card) 92%, var(--bg-strong) 8%);
+    }
+
+    .spark-label {
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .spark-track {
+      position: relative;
+      height: 8px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--muted) 20%, transparent);
+      overflow: hidden;
+    }
+
+    .spark-fill {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .spark-fill.good {
+      background: var(--good);
+    }
+
+    .spark-fill.warn {
+      background: var(--warn);
+    }
+
+    .spark-fill.bad {
+      background: var(--bad);
+    }
+
+    .spark-fill.muted {
+      background: var(--muted);
+    }
+
+    .spark-value {
+      font-weight: 700;
+      min-width: 30px;
+      text-align: right;
+    }
+
+    .gauge-details {
+      margin-top: 12px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .gauge-detail h3 {
+      margin: 0 0 8px;
+      color: var(--text);
+    }
+
+    .breakdown-list {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
     }
 
     .gauge-shell {
@@ -1194,6 +1659,84 @@ export function renderReportTemplate(summary: Summary): string {
       color: var(--muted);
     }
 
+    .capture-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .gallery-expander {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--card) 92%, var(--bg-strong) 8%);
+      padding: 10px 12px;
+    }
+
+    .gallery-expander summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--accent);
+      list-style: none;
+      user-select: none;
+    }
+
+    .gallery-expander summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .gallery-expander[open] > summary {
+      margin-bottom: 10px;
+    }
+
+    .capture-card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .zoom-trigger {
+      display: block;
+      width: 100%;
+      border: 0;
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      cursor: zoom-in;
+    }
+
+    .capture-card img,
+    .capture-card .image-fallback {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      display: block;
+      background: color-mix(in srgb, var(--bg-strong) 70%, transparent);
+    }
+
+    .capture-meta {
+      padding: 10px 12px 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .capture-meta h3 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .capture-url,
+    .capture-path {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      word-break: break-word;
+    }
+
+    .capture-path {
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      margin-top: 4px;
+    }
+
     /* Opportunities */
     .opportunity-title {
       font-weight: 600;
@@ -1322,6 +1865,11 @@ export function renderReportTemplate(summary: Summary): string {
       margin-bottom: 10px;
     }
 
+    .visual-list {
+      display: grid;
+      gap: 12px;
+    }
+
     .visual-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1418,6 +1966,139 @@ export function renderReportTemplate(summary: Summary): string {
       background: var(--chart-other);
     }
 
+    .resource-segment {
+      position: relative;
+      min-width: 2px;
+      cursor: pointer;
+    }
+
+    .resource-segment-tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%);
+      background: color-mix(in srgb, var(--bg) 82%, #000 18%);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 11px;
+      line-height: 1.3;
+      padding: 6px 8px;
+      width: max-content;
+      max-width: 240px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease;
+      z-index: 3;
+    }
+
+    .resource-segment:hover .resource-segment-tooltip,
+    .resource-segment:focus-visible .resource-segment-tooltip {
+      opacity: 1;
+    }
+
+    .resource-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      margin: 8px 0 12px;
+    }
+
+    .resource-legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .resource-legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .resource-legend-swatch.js {
+      background: var(--chart-js);
+    }
+
+    .resource-legend-swatch.css {
+      background: var(--chart-css);
+    }
+
+    .resource-legend-swatch.image {
+      background: var(--chart-image);
+    }
+
+    .resource-legend-swatch.font {
+      background: var(--chart-font);
+    }
+
+    .resource-legend-swatch.other {
+      background: var(--chart-other);
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: grid;
+      place-items: center;
+    }
+
+    .lightbox[hidden] {
+      display: none;
+    }
+
+    .lightbox-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 12, 20, 0.75);
+    }
+
+    .lightbox-dialog {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: min(96vw, 1200px);
+      max-height: 92vh;
+      overflow: auto;
+      padding: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .lightbox-close {
+      position: sticky;
+      top: 0;
+      margin-left: auto;
+      display: block;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      z-index: 2;
+    }
+
+    .lightbox-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: calc(92vh - 74px);
+      object-fit: contain;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--bg-strong) 70%, transparent);
+    }
+
+    .lightbox-caption {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
     .muted {
       color: var(--muted);
     }
@@ -1431,8 +2112,8 @@ export function renderReportTemplate(summary: Summary): string {
         grid-template-columns: 1fr;
       }
 
-      .theme-toggle {
-        justify-self: start;
+      .header-actions {
+        justify-content: flex-start;
       }
 
       .visual-grid {
@@ -1441,6 +2122,10 @@ export function renderReportTemplate(summary: Summary): string {
 
       .diagnostic-grid {
         grid-template-columns: 1fr;
+      }
+
+      .jump-nav {
+        position: static;
       }
     }
 
@@ -1482,22 +2167,45 @@ export function renderReportTemplate(summary: Summary): string {
 </head>
 <body>
   <div class="container">
+    <nav class="jump-nav" aria-label="Report sections">
+      <ul class="jump-nav-list">
+        <li><a class="jump-nav-link" href="#overview">Overview</a></li>
+        <li><a class="jump-nav-link" href="#category-scores">Scores</a></li>
+        <li><a class="jump-nav-link" href="#core-web-vitals">Vitals</a></li>
+        <li><a class="jump-nav-link" href="#playwright-captures">Screenshots</a></li>
+        <li><a class="jump-nav-link" href="#accessibility-summary">A11y</a></li>
+        <li><a class="jump-nav-link" href="#accessibility-violations">Violations</a></li>
+        <li><a class="jump-nav-link" href="#lighthouse-opportunities">Opportunities</a></li>
+        <li><a class="jump-nav-link" href="#visual-comparisons">Visual</a></li>
+        <li><a class="jump-nav-link" href="#runtime-errors">Runtime</a></li>
+        <li><a class="jump-nav-link" href="#resource-breakdown">Resources</a></li>
+      </ul>
+    </nav>
     <div class="header">
       <div>
         <h1>Web Quality Gatekeeper</h1>
         <div class="meta">${escapeHtml(summary.url)}</div>
         <div class="meta">Started ${escapeHtml(summary.startedAt)} · Duration ${summary.durationMs} ms</div>
       </div>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Toggle dark mode</button>
+      <div class="header-actions">
+        <div class="view-toggle-group" role="group" aria-label="Report view mode">
+          <button class="view-toggle" data-view-mode="simple" type="button" aria-pressed="false">Simple view</button>
+          <button class="view-toggle" data-view-mode="detailed" type="button" aria-pressed="true">Detailed view</button>
+        </div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Toggle dark mode</button>
+      </div>
     </div>
 
-    <section class="section card summary-card">
+    <section id="overview" class="section card summary-card" data-view-section="simple">
       <h2>Executive Summary</h2>
       <p>
         Overall status is <strong>${escapeHtml(summary.overallStatus.toUpperCase())}</strong>.
         This report combines automated accessibility, Lighthouse performance diagnostics,
         and deterministic visual diff checks for a single review surface.
       </p>
+      <div class="status-chip-row">
+        ${statusChipsMarkup}
+      </div>
       <div class="summary-points">
         <div class="summary-point">Accessibility step: ${statusPill(summary.steps.a11y)}</div>
         <div class="summary-point">Performance step: ${statusPill(summary.steps.perf)}</div>
@@ -1525,21 +2233,47 @@ export function renderReportTemplate(summary: Summary): string {
       </div>
     </div>
 
-    <section class="section">
+    <section id="category-scores" class="section" data-view-section="simple">
       <h2>Category Scores</h2>
+      <details class="info-panel">
+        <summary>More info</summary>
+        <p>Category scores come from Lighthouse (0-100). Simple view surfaces quick quality posture, detailed view adds diagnostics and opportunities.</p>
+      </details>
+      <div class="spark-row" role="list" aria-label="Category score spark bars">
+        ${sparkBarsMarkup}
+      </div>
       <div class="grid">
         ${gaugeMarkup}
       </div>
+      <div class="gauge-details">
+        ${gaugeDetailsMarkup}
+      </div>
     </section>
 
-    <section class="section">
+    <section id="core-web-vitals" class="section" data-view-section="simple">
       <h2>Core Web Vitals</h2>
+      <details class="info-panel">
+        <summary>More info</summary>
+        <p>Thresholds use Web Vitals guidance. If a metric is unavailable from Lighthouse for a run, it renders as n/a without failing report generation.</p>
+      </details>
       <div class="grid">
         ${vitalsMarkup}
       </div>
     </section>
 
-    <div class="section card">
+    <section id="playwright-captures" class="section" data-view-section="simple">
+      <h2>Captured Playwright Screenshots</h2>
+      <details class="info-panel">
+        <summary>More info</summary>
+        <p>This gallery includes deterministic Playwright captures. Enable high-volume mode in config to include many viewport captures per path.</p>
+      </details>
+      <div class="capture-gallery">
+        ${screenshotCardsVisible}
+      </div>
+      ${screenshotCardsOverflow}
+    </section>
+
+    <div id="accessibility-summary" class="section card" data-view-section="detailed">
       <h2>Accessibility</h2>
       <table>
         <tbody>
@@ -1548,7 +2282,7 @@ export function renderReportTemplate(summary: Summary): string {
       </table>
     </div>
 
-    <div class="section card">
+    <div id="accessibility-violations" class="section card" data-view-section="detailed">
       <h2>Accessibility Violations</h2>
       ${
         a11y?.metadata
@@ -1570,7 +2304,7 @@ export function renderReportTemplate(summary: Summary): string {
       ${a11yViolationsMarkup}
     </div>
 
-    <div class="section card">
+    <div id="lighthouse-opportunities" class="section card" data-view-section="detailed">
       <h2>Lighthouse Opportunities</h2>
       <table>
         <thead>
@@ -1588,12 +2322,15 @@ export function renderReportTemplate(summary: Summary): string {
       </table>
     </div>
 
-    <section class="section">
+    <section id="visual-comparisons" class="section" data-view-section="detailed">
       <h2>Baseline, Current, and Diff Screenshots</h2>
-      ${visualCards}
+      <div class="visual-list">
+        ${visualCardsVisible}
+      </div>
+      ${visualCardsOverflow}
     </section>
 
-    <section class="section card">
+    <section id="runtime-errors" class="section card" data-view-section="detailed">
       <h2>Console and JavaScript Errors</h2>
       ${
         diagnostics.available
@@ -1634,7 +2371,7 @@ export function renderReportTemplate(summary: Summary): string {
       </div>
     </section>
 
-    <section class="section card">
+    <section id="resource-breakdown" class="section card" data-view-section="detailed">
       <h2>Resource Breakdown</h2>
       ${
         resources.available
@@ -1645,7 +2382,11 @@ export function renderReportTemplate(summary: Summary): string {
             </p>`
           : `<p class="muted">Resource-level transfer data was not provided in summary data.</p>`
       }
-      ${resources.available ? `<div class="resource-stack" role="img" aria-label="Resource transfer size breakdown">${resourceBar}</div>` : ""}
+      ${
+        resources.available
+          ? `<div class="resource-legend">${resourceLegend}</div><div class="resource-stack" role="img" aria-label="Resource transfer size breakdown">${resourceBar}</div>`
+          : ""
+      }
       <table>
         <thead>
           <tr>
@@ -1661,33 +2402,166 @@ export function renderReportTemplate(summary: Summary): string {
       </table>
     </section>
   </div>
+  <div id="image-lightbox" class="lightbox" hidden aria-hidden="true">
+    <div class="lightbox-backdrop" data-lightbox-close="true"></div>
+    <div class="lightbox-dialog" role="dialog" aria-modal="true" aria-label="Image preview">
+      <button id="lightbox-close" class="lightbox-close" type="button" data-lightbox-close="true">Close</button>
+      <img id="lightbox-image" class="lightbox-image" src="" alt="" />
+      <div id="lightbox-caption" class="lightbox-caption"></div>
+    </div>
+  </div>
   <script>
     (() => {
-      const key = "wqg-theme";
+      const themeKey = "wqg-theme";
+      const viewKey = "wqg-view";
       const root = document.documentElement;
-      const button = document.getElementById("theme-toggle");
-      if (!button) return;
+      const themeButton = document.getElementById("theme-toggle");
+      const viewButtons = Array.from(document.querySelectorAll("[data-view-mode]"));
+      const gaugeButtons = Array.from(document.querySelectorAll(".gauge-trigger"));
+      const gaugePanels = Array.from(document.querySelectorAll(".gauge-detail"));
+      const zoomTriggers = Array.from(document.querySelectorAll(".zoom-trigger"));
+      const lightbox = document.getElementById("image-lightbox");
+      const lightboxImage = document.getElementById("lightbox-image");
+      const lightboxCaption = document.getElementById("lightbox-caption");
+      const lightboxClose = document.getElementById("lightbox-close");
+      let lastFocused = null;
+      if (!themeButton) return;
 
       const applyTheme = (theme) => {
         if (theme === "dark") {
           root.setAttribute("data-theme", "dark");
-          button.setAttribute("aria-pressed", "true");
+          themeButton.setAttribute("aria-pressed", "true");
         } else {
           root.removeAttribute("data-theme");
-          button.setAttribute("aria-pressed", "false");
+          themeButton.setAttribute("aria-pressed", "false");
         }
       };
 
-      const stored = localStorage.getItem(key);
-      const preferredDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const initial = stored === "dark" || stored === "light" ? stored : preferredDark ? "dark" : "light";
-      applyTheme(initial);
+      const applyView = (view) => {
+        const mode = view === "simple" ? "simple" : "detailed";
+        root.setAttribute("data-report-view", mode);
+        viewButtons.forEach((button) => {
+          const pressed = button.getAttribute("data-view-mode") === mode;
+          button.setAttribute("aria-pressed", pressed ? "true" : "false");
+        });
+      };
 
-      button.addEventListener("click", () => {
+      const storedTheme = localStorage.getItem(themeKey);
+      const preferredDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const initialTheme =
+        storedTheme === "dark" || storedTheme === "light"
+          ? storedTheme
+          : preferredDark
+            ? "dark"
+            : "light";
+      applyTheme(initialTheme);
+
+      const storedView = localStorage.getItem(viewKey);
+      const initialView = storedView === "simple" || storedView === "detailed" ? storedView : "detailed";
+      applyView(initialView);
+
+      themeButton.addEventListener("click", () => {
         const isDark = root.getAttribute("data-theme") === "dark";
         const next = isDark ? "light" : "dark";
         applyTheme(next);
-        localStorage.setItem(key, next);
+        localStorage.setItem(themeKey, next);
+      });
+
+      viewButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const mode = button.getAttribute("data-view-mode");
+          if (!mode) return;
+          applyView(mode);
+          localStorage.setItem(viewKey, mode);
+        });
+      });
+
+      const setGaugePanel = (key) => {
+        let activeFound = false;
+        gaugePanels.forEach((panel) => {
+          if (!(panel instanceof HTMLElement)) return;
+          const isTarget = panel.id === "gauge-detail-" + key;
+          panel.hidden = !isTarget;
+          if (isTarget) {
+            activeFound = true;
+            panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        });
+
+        gaugeButtons.forEach((button) => {
+          const isTarget = button.getAttribute("data-gauge-key") === key && activeFound;
+          button.setAttribute("aria-expanded", isTarget ? "true" : "false");
+        });
+      };
+
+      gaugeButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const key = button.getAttribute("data-gauge-key");
+          if (!key) return;
+          const isExpanded = button.getAttribute("aria-expanded") === "true";
+          if (isExpanded) {
+            gaugePanels.forEach((panel) => {
+              if (panel instanceof HTMLElement) {
+                panel.hidden = true;
+              }
+            });
+            button.setAttribute("aria-expanded", "false");
+            return;
+          }
+          setGaugePanel(key);
+        });
+      });
+
+      const closeLightbox = () => {
+        if (!lightbox || !lightboxImage || !lightboxCaption) return;
+        lightbox.setAttribute("hidden", "true");
+        lightbox.setAttribute("aria-hidden", "true");
+        lightboxImage.setAttribute("src", "");
+        lightboxImage.setAttribute("alt", "");
+        lightboxCaption.textContent = "";
+        if (lastFocused && typeof lastFocused.focus === "function") {
+          lastFocused.focus();
+        }
+      };
+
+      const openLightbox = (src, alt) => {
+        if (!lightbox || !lightboxImage || !lightboxCaption) return;
+        lastFocused = document.activeElement;
+        lightboxImage.setAttribute("src", src);
+        lightboxImage.setAttribute("alt", alt || "Screenshot preview");
+        lightboxCaption.textContent = alt || src;
+        lightbox.removeAttribute("hidden");
+        lightbox.setAttribute("aria-hidden", "false");
+        if (lightboxClose && typeof lightboxClose.focus === "function") {
+          lightboxClose.focus();
+        }
+      };
+
+      zoomTriggers.forEach((trigger) => {
+        trigger.addEventListener("click", () => {
+          const src = trigger.getAttribute("data-preview-src");
+          if (!src) return;
+          const alt = trigger.getAttribute("data-preview-alt") || "";
+          openLightbox(src, alt);
+        });
+      });
+
+      if (lightbox) {
+        lightbox.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          if (target.matches("[data-lightbox-close]")) {
+            closeLightbox();
+          }
+        });
+      }
+      if (lightboxClose) {
+        lightboxClose.addEventListener("click", closeLightbox);
+      }
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeLightbox();
+        }
       });
     })();
   </script>

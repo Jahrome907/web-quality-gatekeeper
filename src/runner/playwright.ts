@@ -9,6 +9,7 @@ import type { AuditAuth } from "../utils/auth.js";
 const MAX_CONSOLE_MESSAGES = 200;
 const MAX_JS_ERRORS = 100;
 const MAX_MESSAGE_LENGTH = 1000;
+const MAX_SEGMENT_CAPTURE_POINTS = 200;
 
 export interface ScreenshotResult {
   name: string;
@@ -305,6 +306,78 @@ async function captureScreenshot(
   };
 }
 
+async function getScrollHeight(page: Page): Promise<number> {
+  const value = await page.evaluate(() => {
+    const body = document.body;
+    const root = document.documentElement;
+    const bodyHeight = body ? body.scrollHeight : 0;
+    const rootHeight = root ? root.scrollHeight : 0;
+    return Math.max(bodyHeight, rootHeight);
+  });
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function buildSegmentOffsets(totalHeight: number, viewportHeight: number, maxScreenshots: number): number[] {
+  if (maxScreenshots <= 1 || viewportHeight <= 0) {
+    return [];
+  }
+
+  const maxOffset = Math.max(0, totalHeight - viewportHeight);
+  if (maxOffset === 0) {
+    return [];
+  }
+
+  const desiredExtraCount = Math.max(0, Math.min(maxScreenshots - 1, MAX_SEGMENT_CAPTURE_POINTS));
+  const offsets = new Set<number>();
+
+  for (let index = 1; index <= desiredExtraCount; index += 1) {
+    const progress = index / desiredExtraCount;
+    const offset = Math.round(maxOffset * progress);
+    offsets.add(offset);
+  }
+
+  return Array.from(offsets).sort((left, right) => left - right);
+}
+
+async function captureViewportSegments(
+  page: Page,
+  shot: ScreenshotDefinition,
+  screenshotBaseName: string,
+  outDir: string,
+  url: string,
+  maxScreenshotsPerPath: number
+): Promise<ScreenshotResult[]> {
+  const viewport = page.viewportSize();
+  const viewportHeight = viewport?.height ?? 0;
+  const scrollHeight = await getScrollHeight(page);
+  const offsets = buildSegmentOffsets(scrollHeight, viewportHeight, maxScreenshotsPerPath);
+
+  const results: ScreenshotResult[] = [];
+  for (let index = 0; index < offsets.length; index += 1) {
+    const offset = offsets[index]!;
+    await page.evaluate((y) => {
+      window.scrollTo(0, y);
+    }, offset);
+    await page.waitForTimeout(120);
+
+    const filename = `${screenshotBaseName}--vp-${String(index + 1).padStart(2, "0")}.png`;
+    const filePath = path.join(outDir, filename);
+    await page.screenshot({ path: filePath, fullPage: false });
+    results.push({
+      name: `${shot.name} viewport ${index + 1}`,
+      path: filePath,
+      url,
+      fullPage: false
+    });
+  }
+
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
+
+  return results;
+}
+
 export async function captureScreenshots(
   page: Page,
   baseUrl: string,
@@ -316,9 +389,12 @@ export async function captureScreenshots(
 
   const retryCount = config.retries?.count ?? 1;
   const retryDelayMs = config.retries?.delayMs ?? 2000;
+  const screenshotGalleryEnabled = config.screenshotGallery?.enabled ?? false;
+  const maxScreenshotsPerPath = config.screenshotGallery?.maxScreenshotsPerPath ?? 12;
 
   const results: ScreenshotResult[] = [];
   for (const shot of config.screenshots) {
+    const screenshotBaseName = sanitizeName(shot.name);
     const result = await captureScreenshot(
       page,
       baseUrl,
@@ -329,6 +405,18 @@ export async function captureScreenshots(
       retryDelayMs
     );
     results.push(result);
+
+    if (screenshotGalleryEnabled && shot.fullPage) {
+      const galleryResults = await captureViewportSegments(
+        page,
+        shot,
+        screenshotBaseName,
+        outDir,
+        result.url,
+        maxScreenshotsPerPath
+      );
+      results.push(...galleryResults);
+    }
   }
   return results;
 }

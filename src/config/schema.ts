@@ -11,10 +11,13 @@ const MAX_IGNORE_REGIONS = 25;
 const MAX_URL_TARGETS = 25;
 const MAX_TREND_HISTORY_PATH = 500;
 const MAX_TREND_SNAPSHOTS = 365;
+const MAX_GALLERY_SCREENSHOTS_PER_PATH = 60;
 export const DEFAULT_RETRY_COUNT = 1;
 export const DEFAULT_RETRY_DELAY_MS = 2000;
 export const DEFAULT_PIXELMATCH_INCLUDE_AA = false;
 export const DEFAULT_PIXELMATCH_THRESHOLD = 0.1;
+export const DEFAULT_SCREENSHOT_GALLERY_ENABLED = false;
+export const DEFAULT_SCREENSHOT_GALLERY_MAX_PER_PATH = 12;
 
 export const VisualIgnoreRegionSchema = z.object({
   x: z.number().int().nonnegative().max(100000),
@@ -55,6 +58,16 @@ export const TrendSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   historyDir: z.string().min(1).max(MAX_TREND_HISTORY_PATH).default(".wqg-history"),
   maxSnapshots: z.number().int().positive().max(MAX_TREND_SNAPSHOTS).default(90)
+});
+
+export const ScreenshotGallerySchema = z.object({
+  enabled: z.boolean().default(DEFAULT_SCREENSHOT_GALLERY_ENABLED),
+  maxScreenshotsPerPath: z
+    .number()
+    .int()
+    .positive()
+    .max(MAX_GALLERY_SCREENSHOTS_PER_PATH)
+    .default(DEFAULT_SCREENSHOT_GALLERY_MAX_PER_PATH)
 });
 
 export const ConfigSchema = z.object({
@@ -111,6 +124,7 @@ export const ConfigSchema = z.object({
     perf: z.boolean(),
     visual: z.boolean()
   }),
+  screenshotGallery: ScreenshotGallerySchema.optional(),
   urls: z.array(UrlTargetSchema).min(1).max(MAX_URL_TARGETS).optional(),
   trends: TrendSettingsSchema.optional()
 });

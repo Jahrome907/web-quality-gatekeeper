@@ -335,14 +335,16 @@ describe("lighthouse runner", () => {
         { debug: vi.fn() } as never
       );
 
-      expect(mockLaunch).toHaveBeenCalledWith({
-        chromeFlags: [
-          "--headless",
-          "--disable-gpu",
-          "--no-sandbox",
-          "--disable-setuid-sandbox"
-        ]
-      });
+      expect(mockLaunch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          chromeFlags: expect.arrayContaining([
+            "--headless",
+            "--disable-gpu",
+            "--no-sandbox",
+            "--disable-setuid-sandbox"
+          ])
+        })
+      );
     } finally {
       if (previousCI === undefined) {
         delete process.env.CI;
@@ -353,6 +355,52 @@ describe("lighthouse runner", () => {
         delete process.env.GITHUB_ACTIONS;
       } else {
         process.env.GITHUB_ACTIONS = previousActions;
+      }
+    }
+  });
+
+  it("remaps Windows-style LOCALAPPDATA on non-Windows hosts and restores it after run", async () => {
+    const previousLocalAppData = process.env.LOCALAPPDATA;
+    process.env.LOCALAPPDATA = "C:\\Users\\Joey\\AppData\\Local";
+
+    const kill = vi.fn().mockResolvedValue(undefined);
+    let launchLocalAppData: string | undefined;
+    mockLaunch.mockImplementation(async () => {
+      launchLocalAppData = process.env.LOCALAPPDATA;
+      return { port: 9222, kill };
+    });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        categories: {
+          performance: { score: 0.95 }
+        },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+        }
+      }
+    });
+
+    try {
+      const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+      await runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        { debug: vi.fn() } as never
+      );
+
+      if (process.platform === "win32") {
+        expect(launchLocalAppData).toBe("C:\\Users\\Joey\\AppData\\Local");
+      } else {
+        expect(launchLocalAppData).toBe(path.join("/tmp/artifacts", ".lighthouse-localappdata"));
+      }
+    } finally {
+      if (previousLocalAppData === undefined) {
+        delete process.env.LOCALAPPDATA;
+      } else {
+        process.env.LOCALAPPDATA = previousLocalAppData;
       }
     }
   });

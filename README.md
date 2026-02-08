@@ -167,11 +167,15 @@ Default config lives at `configs/default.json`.
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/0.3.0",
+    "userAgent": "wqg/3.0.0",
     "locale": "en-US",
     "colorScheme": "light"
   },
   "screenshots": [{ "name": "home", "path": "/", "fullPage": true }],
+  "screenshotGallery": {
+    "enabled": true,
+    "maxScreenshotsPerPath": 20
+  },
   "lighthouse": {
     "budgets": { "performance": 0.8, "lcpMs": 2500, "cls": 0.1, "tbtMs": 200 },
     "formFactor": "desktop"
@@ -193,6 +197,11 @@ Default config lives at `configs/default.json`.
 `urls` preserves array order in report and summary output.  
 When `trends.enabled` is `true`, each run compares to the latest valid snapshot and emits deltas in `summary.v2.json` and Markdown output.
 
+High-volume screenshot galleries:
+- set `screenshotGallery.enabled` to `true`
+- set `screenshotGallery.maxScreenshotsPerPath` to the max captures per configured screenshot path
+- each configured full-page screenshot will include deterministic viewport captures (`...--vp-01.png`, `...--vp-02.png`, etc.) that render in the **Captured Playwright Screenshots** section of `report.html`
+
 Trend page-to-page matching strategy:
 - each current page is matched to a previous page by `name::url`
 - if no prior match exists, page deltas use `previous: null` and `delta: null`
@@ -204,12 +213,12 @@ Trend page-to-page matching strategy:
 Add to your workflow:
 
 ```yaml
-- uses: Jahrome907/web-quality-gatekeeper@v1
+- uses: Jahrome907/web-quality-gatekeeper@v3
   with:
     url: https://my-site.com
 ```
 
-Use a stable major tag (`@v1`) for compatibility, or pin an exact release tag (for example `@v1.3.2`) for fully reproducible pipelines.
+Use a stable major tag (`@v3`) for compatibility, or pin an exact release tag (for example `@v3.0.0`) for fully reproducible pipelines.
 
 Inputs:
 
@@ -261,7 +270,7 @@ Example summary snippet:
 {
   "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
   "schemaVersion": "1.1.0",
-  "toolVersion": "0.3.0",
+  "toolVersion": "3.0.0",
   "overallStatus": "pass",
   "steps": { "a11y": "pass", "perf": "pass", "visual": "pass" },
   "performance": { "metrics": { "performanceScore": 0.92, "lcpMs": 1800 } }
