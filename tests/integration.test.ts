@@ -5,6 +5,11 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import http from "node:http";
 import { readFileSync, existsSync } from "node:fs";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const Ajv2020 = require("ajv/dist/2020");
+const addFormats = require("ajv-formats");
 
 const execFileAsync = promisify(execFile);
 
@@ -12,6 +17,7 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const CLI = path.join(ROOT, "dist", "cli.js");
 const FIXTURE_DIR = path.join(ROOT, "tests", "fixtures", "site");
 const TEST_CONFIG = path.join(ROOT, "tests", "fixtures", "integration-config.json");
+const SUMMARY_SCHEMA = path.join(ROOT, "schemas", "summary.v1.json");
 
 /**
  * Starts a static file server for the fixture site.
@@ -88,12 +94,18 @@ describe("CLI integration", () => {
     // --- Assert summary JSON is valid and schema-correct ---
     const raw = await readFile(summaryPath, "utf8");
     const summary = JSON.parse(raw);
+    const schema = JSON.parse(readFileSync(SUMMARY_SCHEMA, "utf8")) as object;
+    const ajv = new Ajv2020({ allErrors: true, strict: false });
+    addFormats(ajv);
+    const validate = ajv.compile(schema);
 
     // Top-level fields
     expect(summary).toHaveProperty("schemaVersion");
+    expect(summary).toHaveProperty("$schema");
     expect(summary).toHaveProperty("toolVersion");
     expect(summary.schemaVersion).toMatch(/^\d+\.\d+\.\d+$/);
     expect(summary.toolVersion).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(validate(summary), JSON.stringify(validate.errors, null, 2)).toBe(true);
 
     // Required shape
     expect(summary).toHaveProperty("overallStatus");

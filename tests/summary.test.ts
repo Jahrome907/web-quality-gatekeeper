@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSummary, SCHEMA_VERSION } from "../src/report/summary.js";
+import { buildSummary, SCHEMA_VERSION, SUMMARY_SCHEMA_URI } from "../src/report/summary.js";
 import type { AxeSummary } from "../src/runner/axe.js";
 import type { LighthouseSummary } from "../src/runner/lighthouse.js";
 import type { VisualDiffSummary } from "../src/runner/visualDiff.js";
@@ -185,6 +185,7 @@ describe("buildSummary", () => {
       visual: null,
       options: { failOnA11y: true, failOnPerf: true, failOnVisual: true }
     });
+    expect(summary.$schema).toBe(SUMMARY_SCHEMA_URI);
     expect(summary.schemaVersion).toBe(SCHEMA_VERSION);
     expect(summary.toolVersion).toMatch(/^\d+\.\d+\.\d+/);
   });

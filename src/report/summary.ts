@@ -4,6 +4,8 @@ import type { VisualDiffSummary } from "../runner/visualDiff.js";
 import type { ScreenshotResult } from "../runner/playwright.js";
 
 export const SCHEMA_VERSION = "1.0.0";
+export const SUMMARY_SCHEMA_URI =
+  "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json";
 
 export type StepStatus = "pass" | "fail" | "skipped";
 
@@ -18,6 +20,7 @@ export interface ArtifactPaths {
 }
 
 export interface Summary {
+  $schema: string;
   schemaVersion: string;
   toolVersion: string;
   overallStatus: "pass" | "fail";
@@ -75,6 +78,7 @@ export function buildSummary(params: {
   const overallStatus = a11yFail || perfFail || visualFail ? "fail" : "pass";
 
   return {
+    $schema: SUMMARY_SCHEMA_URI,
     schemaVersion: SCHEMA_VERSION,
     toolVersion: params.toolVersion,
     overallStatus,

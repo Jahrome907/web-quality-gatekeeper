@@ -1,0 +1,56 @@
+name: Action Smoke
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+jobs:
+  local-composite-action:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start local fixture site
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory tests/fixtures/site > /tmp/wqg-fixture.log 2>&1 &
+          echo $! > /tmp/wqg-fixture.pid
+          for _ in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Fixture server did not start in time"
+          exit 1
+
+      - name: Run local action
+        id: wqg
+        uses: ./
+        with:
+          url: http://127.0.0.1:4173
+          config-path: tests/fixtures/integration-config.json
+          baseline-dir: .tmp-action-smoke-baselines
+          fail-on-a11y: "false"
+          fail-on-perf: "false"
+          fail-on-visual: "false"
+
+      - name: Assert action outputs
+        run: |
+          STATUS="${{ steps.wqg.outputs.status }}"
+          SUMMARY_PATH="${{ steps.wqg.outputs.summary-path }}"
+          test -n "$STATUS"
+          test -n "$SUMMARY_PATH"
+          case "$STATUS" in
+            pass|fail) ;;
+            *) echo "Unexpected status: $STATUS"; exit 1 ;;
+          esac
+          test -f "${GITHUB_WORKSPACE}/${SUMMARY_PATH}"
+
+      - name: Stop fixture site
+        if: always()
+        run: |
+          if [ -f /tmp/wqg-fixture.pid ]; then
+            kill "$(cat /tmp/wqg-fixture.pid)" || true
+          fi

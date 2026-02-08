@@ -3,6 +3,8 @@ import { buildHtmlReport } from "../src/report/html.js";
 import type { Summary } from "../src/report/summary.js";
 
 const summary: Summary = {
+  $schema:
+    "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
   schemaVersion: "1.0.0",
   toolVersion: "0.2.0",
   overallStatus: "pass",

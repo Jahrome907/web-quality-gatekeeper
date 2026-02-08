@@ -17,9 +17,14 @@ jobs:
       - uses: actions/checkout@v4
 
       # Run the quality gate against your deployed site
-      - uses: Jahrome907/web-quality-gatekeeper@main
+      - uses: Jahrome907/web-quality-gatekeeper@v1
         with:
           url: https://your-site.example.com
+          # Optional authenticated audits (recommended to source from secrets)
+          # headers: |
+          #   Authorization: Bearer ${{ secrets.STAGING_API_TOKEN }}
+          # cookies: |
+          #   session_id=${{ secrets.STAGING_SESSION_ID }}
           # Optional: customize thresholds via config
           # config-path: .quality-gate.json
           # Optional: control which gates fail the build

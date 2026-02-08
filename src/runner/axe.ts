@@ -1,4 +1,4 @@
-import AxeBuilder from "@axe-core/playwright";
+import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "playwright";
 import path from "node:path";
 import { writeJson } from "../utils/fs.js";

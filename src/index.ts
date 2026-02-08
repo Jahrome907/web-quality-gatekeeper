@@ -14,6 +14,7 @@ import type { AxeSummary } from "./runner/axe.js";
 import type { LighthouseSummary } from "./runner/lighthouse.js";
 import type { VisualDiffSummary } from "./runner/visualDiff.js";
 import type { Summary } from "./report/summary.js";
+import type { AuditAuth } from "./utils/auth.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
@@ -32,6 +33,7 @@ export interface AuditOptions {
   failOnVisual: boolean;
   verbose: boolean;
   format?: string;
+  auth?: AuditAuth | null;
 }
 
 function toRelative(outDir: string, filePath: string): string {
@@ -67,7 +69,7 @@ export async function runAudit(
   let lighthouseSummary: LighthouseSummary | null = null;
   let visualSummary: VisualDiffSummary | null = null;
 
-  const { browser, page } = await openPage(url, config, logger);
+  const { browser, page } = await openPage(url, config, logger, options.auth ?? null);
   try {
     if (config.toggles.a11y) {
       axeSummary = await runAxeScan(page, outDir, logger);
@@ -76,7 +78,7 @@ export async function runAudit(
     const screenshots = await captureScreenshots(page, url, config, screenshotsDir, logger);
 
     if (config.toggles.perf) {
-      lighthouseSummary = await runLighthouseAudit(url, outDir, config, logger);
+      lighthouseSummary = await runLighthouseAudit(url, outDir, config, logger, options.auth ?? null);
     }
 
     if (config.toggles.visual) {

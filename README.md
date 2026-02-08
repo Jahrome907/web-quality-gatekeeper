@@ -14,18 +14,18 @@ A production-ready quality gate CLI and GitHub Action that runs Playwright smoke
 
 Lighthouse CI, Pa11y, and similar tools each cover a single concern. Teams end up stitching together three or four actions, juggling separate configs, and parsing multiple output formats. **Web Quality Gatekeeper** runs all four checks (smoke, a11y, perf, visual) in one pass, with a single config file, unified summary output, and a composite GitHub Action that works out-of-the-box in any repo.
 
-| Capability | Lighthouse CI | Pa11y CI | WQG |
-|------------|:---:|:---:|:---:|
-| Performance budgets | Yes | — | Yes |
-| Accessibility scanning | — | Yes | Yes |
-| Visual regression | — | — | Yes |
-| Deterministic screenshots | — | — | Yes |
-| Single config + action | — | — | Yes |
-| Machine-readable summary | Partial | — | Yes |
+|Capability|Lighthouse CI|Pa11y CI|WQG|
+|---|:---:|:---:|:---:|
+|Performance budgets|Yes|—|Yes|
+|Accessibility scanning|—|Yes|Yes|
+|Visual regression|—|—|Yes|
+|Deterministic screenshots|—|—|Yes|
+|Single config + action|—|—|Yes|
+|Machine-readable summary|Partial|—|Yes|
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │                   CLI / API                      │
 │         src/cli.ts  ·  src/index.ts              │
@@ -54,6 +54,8 @@ Lighthouse CI, Pa11y, and similar tools each cover a single concern. Teams end u
 - [Configuration](#config)
 - [CI Integration](#ci-github-action)
 - [Output](#output)
+- [Schema Contract](#schema-contract)
+- [Case Study & Benchmarks](#case-study--benchmarks)
 - [Development](#development)
 - [Tech Stack](#tech-stack)
 - [License](#license)
@@ -65,6 +67,7 @@ Lighthouse CI, Pa11y, and similar tools each cover a single concern. Teams end u
 - **Lighthouse Performance** — Budget enforcement for score, LCP, CLS, and TBT
 - **Visual Regression** — Baseline management with pixel-level diff detection
 - **HTML & JSON Reports** — Human-readable reports plus machine-readable summaries
+- **Authenticated Audits** — Pass auth headers/cookies via CLI flags or env vars
 - **GitHub Action** — Automated PR comments with results and artifact uploads
 
 ## Quickstart
@@ -100,7 +103,16 @@ Flags:
 - `--no-fail-on-perf` disables performance budget gate
 - `--no-fail-on-visual` disables visual diff gate
 - `--format <type>` output format: `json`, `html`, or `md` (default: `html`)
+- `--header <header>` add request header in `Name: Value` format (repeatable)
+- `--cookie <cookie>` add cookie in `name=value` format (repeatable)
 - `--verbose` for debug logging
+
+Environment-backed auth options:
+
+- `WQG_AUTH_HEADERS`: newline-delimited headers, JSON object, or JSON string array
+- `WQG_AUTH_COOKIES`: semicolon/newline-delimited cookies, JSON object, or JSON string array
+- `WQG_AUTH_HEADER`: single header shortcut
+- `WQG_AUTH_COOKIE`: single cookie shortcut
 
 ## Programmatic API
 
@@ -115,11 +127,15 @@ const { exitCode, summary } = await runAudit("https://example.com", {
   failOnA11y: true,
   failOnPerf: true,
   failOnVisual: true,
-  verbose: false
+  verbose: false,
+  auth: {
+    headers: { Authorization: `Bearer ${process.env.API_TOKEN}` },
+    cookies: [{ name: "session_id", value: process.env.SESSION_ID ?? "" }]
+  }
 });
 
 console.log(summary.overallStatus); // "pass" or "fail"
-console.log(summary.schemaVersion); // "1.0.0"
+console.log(summary.schemaVersion); // "1.x.x"
 ```
 
 ## Baseline Workflow
@@ -130,7 +146,7 @@ console.log(summary.schemaVersion); // "1.0.0"
 npm run audit -- https://example.com --set-baseline
 ```
 
-2. Commit `baselines/` to track visual regression.
+1. Commit `baselines/` to track visual regression.
 
 ## Config
 
@@ -145,7 +161,7 @@ Default config lives at `configs/default.json`.
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/0.1.0",
+    "userAgent": "wqg/0.3.0",
     "locale": "en-US",
     "colorScheme": "light"
   },
@@ -166,28 +182,30 @@ Default config lives at `configs/default.json`.
 Add to your workflow:
 
 ```yaml
-- uses: Jahrome907/web-quality-gatekeeper@main
+- uses: Jahrome907/web-quality-gatekeeper@v1
   with:
     url: https://my-site.com
 ```
 
 Inputs:
 
-| Input | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `url` | Yes | — | URL to audit |
-| `config-path` | No | `configs/default.json` | Path to config JSON file |
-| `baseline-dir` | No | `baselines` | Directory for visual regression baselines |
-| `fail-on-a11y` | No | `true` | Fail if accessibility violations are found |
-| `fail-on-perf` | No | `true` | Fail if performance budgets are exceeded |
-| `fail-on-visual` | No | `true` | Fail if visual diffs exceed threshold |
+|Input|Required|Default|Description|
+|---|---|---|---|
+|`url`|Yes|—|URL to audit|
+|`config-path`|No|`configs/default.json`|Path to config JSON file|
+|`baseline-dir`|No|`baselines`|Directory for visual regression baselines|
+|`fail-on-a11y`|No|`true`|Fail if accessibility violations are found|
+|`fail-on-perf`|No|`true`|Fail if performance budgets are exceeded|
+|`fail-on-visual`|No|`true`|Fail if visual diffs exceed threshold|
+|`headers`|No|`""`|Newline-delimited headers in `Name: Value` format|
+|`cookies`|No|`""`|Cookies in `name=value` format (semicolon/newline delimited)|
 
 Outputs:
 
-| Output | Description |
-|--------|-------------|
-| `status` | Overall audit status: `pass` or `fail` |
-| `summary-path` | Path to the JSON summary file |
+|Output|Description|
+|---|---|
+|`status`|Overall audit status: `pass` or `fail`|
+|`summary-path`|Path to the JSON summary file|
 
 ### CI Workflow
 
@@ -214,8 +232,9 @@ Example summary snippet:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
   "schemaVersion": "1.0.0",
-  "toolVersion": "0.2.0",
+  "toolVersion": "0.3.0",
   "overallStatus": "pass",
   "steps": { "a11y": "pass", "perf": "pass", "visual": "pass" },
   "performance": { "metrics": { "performanceScore": 0.92, "lcpMs": 1800 } }
@@ -223,6 +242,25 @@ Example summary snippet:
 ```
 
 For machine consumption, use `--format json` to print the summary to stdout, or `--format md` for a Markdown table.
+
+## Schema Contract
+
+Versioned summary schema:
+
+- File: `schemas/summary.v1.json`
+- URI: `https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json`
+- Summary pointer: `$schema` field in every `summary.json`
+
+Schema migration policy:
+
+- Major bump (`2.0.0`): remove/rename fields, type changes, stricter constraints that can break existing consumers.
+- Minor bump (`1.1.0`): additive non-breaking fields or optional sections.
+- Patch bump (`1.0.1`): typo/docs clarifications or schema metadata fixes with no validation behavior change.
+
+## Case Study & Benchmarks
+
+- Public case-study artifact: `docs/case-study-run.md`
+- Includes before/after gate outcomes and a benchmark table (runtime, artifact sizes, pass/fail examples).
 
 ## Development
 
@@ -236,14 +274,14 @@ npm run audit -- https://example.com
 
 ## Tech Stack
 
-| Technology | Purpose |
-|------------|---------|
-| [Playwright](https://playwright.dev/) | Browser automation & screenshots |
-| [axe-core](https://github.com/dequelabs/axe-core) | Accessibility testing |
-| [Lighthouse](https://developer.chrome.com/docs/lighthouse/) | Performance auditing |
-| [pixelmatch](https://github.com/mapbox/pixelmatch) | Visual diff comparison |
-| [Zod](https://zod.dev/) | Configuration validation |
-| [Commander](https://github.com/tj/commander.js) | CLI framework |
+|Technology|Purpose|
+|---|---|
+|[Playwright](https://playwright.dev/)|Browser automation & screenshots|
+|[axe-core](https://github.com/dequelabs/axe-core)|Accessibility testing|
+|[Lighthouse](https://developer.chrome.com/docs/lighthouse/)|Performance auditing|
+|[pixelmatch](https://github.com/mapbox/pixelmatch)|Visual diff comparison|
+|[Zod](https://zod.dev/)|Configuration validation|
+|[Commander](https://github.com/tj/commander.js)|CLI framework|
 
 ## Author
 
