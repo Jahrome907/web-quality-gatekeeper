@@ -1,14 +1,41 @@
 {
   "name": "web-quality-gatekeeper",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Quality gate CLI and GitHub Action for Playwright, axe-core, Lighthouse, and visual diffs.",
+  "author": "Jahrome907",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jahrome907/web-quality-gatekeeper.git"
+  },
+  "homepage": "https://github.com/Jahrome907/web-quality-gatekeeper#readme",
+  "bugs": {
+    "url": "https://github.com/Jahrome907/web-quality-gatekeeper/issues"
+  },
+  "keywords": [
+    "quality",
+    "accessibility",
+    "a11y",
+    "lighthouse",
+    "playwright",
+    "visual-regression",
+    "github-action",
+    "axe-core",
+    "web-performance",
+    "ci"
+  ],
   "type": "module",
   "bin": {
     "wqg": "dist/cli.js"
   },
-  "main": "dist/cli.js",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./cli": "./dist/cli.js"
+  },
   "files": [
     "dist",
+    "schemas",
     "configs",
     "README.md",
     "LICENSE"
@@ -17,6 +44,7 @@
     "dev": "tsx src/cli.ts",
     "build": "tsup",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier . --write",
     "typecheck": "tsc --noEmit",
@@ -42,6 +70,9 @@
     "@types/node": "^20.14.12",
     "@types/pixelmatch": "^5.2.6",
     "@types/pngjs": "^6.0.5",
+    "@vitest/coverage-v8": "^4.0.18",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "eslint": "^9.8.0",
     "prettier": "^3.3.3",
     "tsup": "^8.1.0",

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Web Quality Gatekeeper</title>
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --text: #1f2933;
+      --muted: #667085;
+      --accent: #2f80ed;
+      --border: #e4e7ec;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      background: linear-gradient(120deg, #f6f7fb 0%, #eef3ff 60%, #fef6ee 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px;
+      flex: 1;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .tagline {
+      color: var(--muted);
+      font-size: 18px;
+      margin-bottom: 32px;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .feature {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+
+    .feature h3 {
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .feature p {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    pre {
+      background: #1f2933;
+      color: #e4e7ec;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    a {
+      color: var(--accent);
+    }
+
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 600px) {
+      .features {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Web Quality Gatekeeper</h1>
+    <p class="tagline">Automated quality gates for web projects — accessibility, performance, and visual regression in one CLI.</p>
+
+    <div class="features">
+      <div class="feature">
+        <h3>Playwright Smoke</h3>
+        <p>Headless browser screenshots with deterministic rendering.</p>
+      </div>
+      <div class="feature">
+        <h3>axe Accessibility</h3>
+        <p>WCAG compliance scanning with severity counts.</p>
+      </div>
+      <div class="feature">
+        <h3>Lighthouse Perf</h3>
+        <p>Budget enforcement for score, LCP, CLS, and TBT.</p>
+      </div>
+      <div class="feature">
+        <h3>Visual Regression</h3>
+        <p>Pixel-level diff against committed baselines.</p>
+      </div>
+    </div>
+
+    <h2>Quickstart</h2>
+    <pre><code>npm ci
+npx playwright install
+npm run build
+npx wqg audit https://example.com</code></pre>
+
+    <p>See the <a href="https://github.com/Jahrome907/web-quality-gatekeeper">GitHub repository</a> for full documentation.</p>
+  </div>
+  <footer>
+    MIT &middot; <a href="https://github.com/Jahrome907">Jahrome907</a>
+  </footer>
+</body>
+</html>

@@ -23,11 +23,20 @@ export function validatePathWithinBase(targetPath: string, baseDir: string): voi
 export function validateOutputDirectory(outDir: string): void {
   const cwd = process.cwd();
   const resolvedOut = resolve(outDir);
-  const relativePath = relative(cwd, resolvedOut);
-  
-  // Allow paths within cwd or explicit absolute paths that don't traverse up from cwd
-  if (relativePath.startsWith("..")) {
-    throw new Error(`Output directory must be within the working directory: ${outDir}`);
+  const allowedBases = [cwd];
+  if (process.env.GITHUB_WORKSPACE) {
+    allowedBases.push(process.env.GITHUB_WORKSPACE);
+  }
+
+  const isAllowed = allowedBases.some((base) => {
+    const relativePath = relative(resolve(base), resolvedOut);
+    return !relativePath.startsWith("..") && !isAbsolute(relativePath);
+  });
+
+  if (!isAllowed) {
+    throw new Error(
+      `Output directory must be within the working directory or GITHUB_WORKSPACE: ${outDir}`
+    );
   }
 }
 

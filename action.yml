@@ -1,0 +1,147 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: "Web Quality Gatekeeper"
+description: "Run Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs"
+branding:
+  icon: "check-circle"
+  color: "blue"
+
+inputs:
+  url:
+    description: "URL to audit"
+    required: true
+  config-path:
+    description: "Path to config JSON file"
+    required: false
+    default: "configs/default.json"
+  baseline-dir:
+    description: "Directory for visual regression baselines"
+    required: false
+    default: "baselines"
+  fail-on-a11y:
+    description: "Fail if accessibility violations are found"
+    required: false
+    default: "true"
+  fail-on-perf:
+    description: "Fail if performance budgets are exceeded"
+    required: false
+    default: "true"
+  fail-on-visual:
+    description: "Fail if visual diffs exceed threshold"
+    required: false
+    default: "true"
+  headers:
+    description: "Optional newline-delimited headers in Name: Value format"
+    required: false
+    default: ""
+  cookies:
+    description: "Optional cookies in name=value format (semicolon or newline delimited)"
+    required: false
+    default: ""
+
+outputs:
+  status:
+    description: "Overall audit status: pass or fail"
+    value: ${{ steps.audit.outputs.status }}
+  summary-path:
+    description: "Path to the JSON summary file"
+    value: ${{ steps.audit.outputs.summary-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: npm
+
+    - name: Install dependencies
+      working-directory: ${{ github.action_path }}
+      shell: bash
+      run: npm ci --ignore-scripts
+
+    - name: Install Playwright browsers
+      working-directory: ${{ github.action_path }}
+      shell: bash
+      run: npx playwright install --with-deps chromium
+
+    - name: Build
+      working-directory: ${{ github.action_path }}
+      shell: bash
+      run: npm run build
+
+    - name: Run audit
+      id: audit
+      working-directory: ${{ github.action_path }}
+      shell: bash
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_CONFIG: ${{ inputs.config-path }}
+        INPUT_BASELINE: ${{ inputs.baseline-dir }}
+        INPUT_A11Y: ${{ inputs.fail-on-a11y }}
+        INPUT_PERF: ${{ inputs.fail-on-perf }}
+        INPUT_VISUAL: ${{ inputs.fail-on-visual }}
+        INPUT_HEADERS: ${{ inputs.headers }}
+        INPUT_COOKIES: ${{ inputs.cookies }}
+      run: |
+        resolve_workspace_path() {
+          local candidate="$1"
+          if [[ "$candidate" = /* ]]; then
+            printf '%s\n' "$candidate"
+          else
+            printf '%s\n' "${GITHUB_WORKSPACE}/${candidate}"
+          fi
+        }
+
+        resolve_config_path() {
+          local candidate="$1"
+          local workspace_candidate
+          workspace_candidate="$(resolve_workspace_path "$candidate")"
+          if [[ -f "$workspace_candidate" ]]; then
+            printf '%s\n' "$workspace_candidate"
+            return
+          fi
+          if [[ "$candidate" == "configs/default.json" && -f "${GITHUB_ACTION_PATH}/configs/default.json" ]]; then
+            printf '%s\n' "${GITHUB_ACTION_PATH}/configs/default.json"
+            return
+          fi
+          printf '%s\n' "$workspace_candidate"
+        }
+
+        CONFIG_PATH="$(resolve_config_path "$INPUT_CONFIG")"
+        BASELINE_PATH="$(resolve_workspace_path "$INPUT_BASELINE")"
+        OUT_DIR="${GITHUB_WORKSPACE}/artifacts"
+
+        ARGS=(
+          "$INPUT_URL"
+          "--config" "$CONFIG_PATH"
+          "--baseline-dir" "$BASELINE_PATH"
+          "--out" "$OUT_DIR"
+        )
+        [[ "$INPUT_A11Y" != "true" ]] && ARGS+=("--no-fail-on-a11y")
+        [[ "$INPUT_PERF" != "true" ]] && ARGS+=("--no-fail-on-perf")
+        [[ "$INPUT_VISUAL" != "true" ]] && ARGS+=("--no-fail-on-visual")
+        if [[ -n "$INPUT_HEADERS" ]]; then
+          while IFS= read -r header; do
+            [[ -z "${header// }" ]] && continue
+            ARGS+=("--header" "$header")
+          done <<< "$INPUT_HEADERS"
+        fi
+        if [[ -n "$INPUT_COOKIES" ]]; then
+          COOKIES_NORMALIZED="${INPUT_COOKIES//$'\n'/;}"
+          IFS=';' read -ra COOKIE_PARTS <<< "$COOKIES_NORMALIZED"
+          for cookie in "${COOKIE_PARTS[@]}"; do
+            cookie="${cookie#"${cookie%%[![:space:]]*}"}"
+            cookie="${cookie%"${cookie##*[![:space:]]}"}"
+            [[ -z "$cookie" ]] && continue
+            ARGS+=("--cookie" "$cookie")
+          done
+        fi
+
+        node "${GITHUB_ACTION_PATH}/dist/cli.js" audit "${ARGS[@]}"
+        STATUS=$(node -e "const s=require(process.argv[1]);console.log(s.overallStatus)" "${OUT_DIR}/summary.json")
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+        echo "summary-path=artifacts/summary.json" >> "$GITHUB_OUTPUT"
