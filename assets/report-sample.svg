@@ -1,24 +1,186 @@
-<svg width="960" height="540" viewBox="0 0 960 540" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="960" height="540" fill="#F6F7FB" />
-  <rect x="40" y="36" width="880" height="468" rx="20" fill="#FFFFFF" stroke="#E4E7EC" />
-  <text x="80" y="90" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="24" fill="#1F2933">
-    Web Quality Gatekeeper Report
-  </text>
-  <text x="80" y="120" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">
-    https://example.com • Duration 8.7s
-  </text>
-  <rect x="80" y="150" width="200" height="80" rx="12" fill="#EEF3FF" />
-  <rect x="300" y="150" width="200" height="80" rx="12" fill="#F1F9F4" />
-  <rect x="520" y="150" width="200" height="80" rx="12" fill="#FFF4E5" />
-  <rect x="740" y="150" width="140" height="80" rx="12" fill="#FDECEC" />
-  <text x="100" y="190" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">Overall</text>
-  <text x="320" y="190" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">A11y</text>
-  <text x="540" y="190" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">Performance</text>
-  <text x="760" y="190" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14" fill="#667085">Visual</text>
-  <rect x="80" y="260" width="800" height="200" rx="16" fill="#FFFFFF" stroke="#E4E7EC" />
-  <text x="100" y="300" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="16" fill="#1F2933">Key metrics and diffs</text>
-  <rect x="100" y="320" width="760" height="20" rx="6" fill="#EEF3FF" />
-  <rect x="100" y="350" width="760" height="20" rx="6" fill="#F1F9F4" />
-  <rect x="100" y="380" width="760" height="20" rx="6" fill="#FFF4E5" />
-  <rect x="100" y="410" width="760" height="20" rx="6" fill="#FDECEC" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" fill="none">
+  <defs>
+    <radialGradient id="bg1" cx="10%" cy="10%" r="40%">
+      <stop offset="0%" stop-color="#dce6f5"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <radialGradient id="bg2" cx="90%" cy="0%" r="32%">
+      <stop offset="0%" stop-color="rgba(13,110,253,0.12)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+    <filter id="cardShadow" x="-4%" y="-4%" width="108%" height="116%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#1a2331" flood-opacity="0.09"/>
+    </filter>
+    <clipPath id="round12"><rect width="100%" height="100%" rx="12"/></clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="700" fill="#eef2f8"/>
+  <rect width="1200" height="700" fill="url(#bg1)"/>
+  <rect width="1200" height="700" fill="url(#bg2)"/>
+
+  <!-- Sticky nav bar -->
+  <rect x="28" y="12" width="1144" height="36" rx="10" fill="#fff" fill-opacity="0.88" stroke="#d7dee9"/>
+  <text x="48" y="35" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#1c2533">Summary</text>
+  <text x="120" y="35" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#1c2533">Gauges</text>
+  <text x="185" y="35" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#1c2533">Vitals</text>
+  <text x="240" y="35" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#1c2533">A11y</text>
+  <text x="287" y="35" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#1c2533">Perf</text>
+  <text x="325" y="35" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#1c2533">Visual</text>
+  <text x="380" y="35" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#1c2533">Screenshots</text>
+  <text x="465" y="35" font-family="Segoe UI, sans-serif" font-size="11" font-weight="700" fill="#1c2533">Diagnostics</text>
+
+  <!-- Header -->
+  <text x="38" y="85" font-family="Segoe UI, sans-serif" font-size="28" font-weight="700" fill="#1c2533" letter-spacing="-0.5">Web Quality Gatekeeper Report</text>
+  <text x="38" y="108" font-family="Segoe UI, sans-serif" font-size="13" fill="#5f6c7e">https://www.apple.com/ · audited Feb 10, 2026 · 43 s · v3.0.0</text>
+
+  <!-- Theme toggle + view toggles -->
+  <rect x="1020" y="68" width="60" height="28" rx="14" fill="#fff" stroke="#d7dee9"/>
+  <text x="1037" y="87" font-family="Segoe UI, sans-serif" font-size="11" fill="#1c2533">🌙</text>
+  <rect x="1090" y="68" width="80" height="28" rx="14" fill="#fff" stroke="#d7dee9"/>
+  <rect x="1090" y="68" width="44" height="28" rx="14" fill="rgba(13,110,253,0.18)"/>
+  <text x="1098" y="87" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#1c2533">Detail</text>
+  <text x="1142" y="87" font-family="Segoe UI, sans-serif" font-size="10" font-weight="600" fill="#5f6c7e">Simple</text>
+
+  <!-- Status chips -->
+  <rect x="38" y="118" width="90" height="22" rx="11" fill="rgba(18,122,58,0.12)"/>
+  <text x="52" y="133" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#127a3a" letter-spacing="0.3">Overall PASS</text>
+  <rect x="136" y="118" width="68" height="22" rx="11" fill="rgba(18,122,58,0.12)"/>
+  <text x="148" y="133" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#127a3a" letter-spacing="0.3">A11y PASS</text>
+  <rect x="212" y="118" width="68" height="22" rx="11" fill="rgba(18,122,58,0.12)"/>
+  <text x="223" y="133" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#127a3a" letter-spacing="0.3">Perf PASS</text>
+  <rect x="288" y="118" width="80" height="22" rx="11" fill="rgba(18,122,58,0.12)"/>
+  <text x="298" y="133" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#127a3a" letter-spacing="0.3">Visual PASS</text>
+
+  <!-- Executive Summary Card -->
+  <rect x="28" y="152" width="1144" height="64" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="48" y="175" font-family="Segoe UI, sans-serif" font-size="14" font-weight="700" fill="#1c2533">Executive Summary</text>
+  <text x="48" y="198" font-family="Segoe UI, sans-serif" font-size="12" fill="#5f6c7e">4 a11y violations found · Lighthouse performance 53/100 · LCP 8,017 ms (over budget) · CLS 0.0002 (within budget) · TBT 229 ms (over budget) · Visual diff: 33.7% mismatch</text>
+
+  <!-- Gauge Section -->
+  <text x="38" y="245" font-family="Segoe UI, sans-serif" font-size="18" font-weight="700" fill="#1c2533">Lighthouse Scores</text>
+
+  <!-- Gauge 1: Performance 53 (warn) -->
+  <rect x="28" y="258" width="270" height="175" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="120" y="282" font-family="Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#5f6c7e" text-anchor="middle">Performance</text>
+  <circle cx="163" cy="355" r="44" fill="none" stroke="#d7dee9" stroke-width="6"/>
+  <circle cx="163" cy="355" r="44" fill="none" stroke="#9d5800" stroke-width="6" stroke-dasharray="146.5 130" stroke-linecap="round" transform="rotate(-90 163 355)"/>
+  <text x="163" y="358" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700" fill="#1c2533" text-anchor="middle">53</text>
+  <text x="163" y="374" font-family="Segoe UI, sans-serif" font-size="10" fill="#5f6c7e" text-anchor="middle">/100</text>
+  <rect x="130" y="404" width="66" height="18" rx="9" fill="rgba(157,88,0,0.14)"/>
+  <text x="163" y="417" font-family="Segoe UI, sans-serif" font-size="9" font-weight="700" fill="#9d5800" text-anchor="middle">Needs improvement</text>
+
+  <!-- Gauge 2: Accessibility (n/a placeholder - from Lighthouse) -->
+  <rect x="316" y="258" width="270" height="175" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="410" y="282" font-family="Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#5f6c7e" text-anchor="middle">Accessibility</text>
+  <circle cx="451" cy="355" r="44" fill="none" stroke="#d7dee9" stroke-width="6"/>
+  <text x="451" y="362" font-family="Segoe UI, sans-serif" font-size="16" fill="#5f6c7e" text-anchor="middle">n/a</text>
+
+  <!-- Gauge 3: Best Practices (n/a) -->
+  <rect x="604" y="258" width="270" height="175" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="698" y="282" font-family="Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#5f6c7e" text-anchor="middle">Best Practices</text>
+  <circle cx="739" cy="355" r="44" fill="none" stroke="#d7dee9" stroke-width="6"/>
+  <text x="739" y="362" font-family="Segoe UI, sans-serif" font-size="16" fill="#5f6c7e" text-anchor="middle">n/a</text>
+
+  <!-- Gauge 4: SEO (n/a) -->
+  <rect x="892" y="258" width="270" height="175" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="986" y="282" font-family="Segoe UI, sans-serif" font-size="14" font-weight="600" fill="#5f6c7e" text-anchor="middle">SEO</text>
+  <circle cx="1027" cy="355" r="44" fill="none" stroke="#d7dee9" stroke-width="6"/>
+  <text x="1027" y="362" font-family="Segoe UI, sans-serif" font-size="16" fill="#5f6c7e" text-anchor="middle">n/a</text>
+
+  <!-- Vitals Section -->
+  <text x="38" y="462" font-family="Segoe UI, sans-serif" font-size="18" font-weight="700" fill="#1c2533">Core Web Vitals</text>
+
+  <!-- Vital: FCP -->
+  <rect x="28" y="475" width="222" height="90" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="48" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#5f6c7e">FCP</text>
+  <text x="218" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#1c2533" text-anchor="end">n/a</text>
+  <rect x="48" y="510" width="182" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="48" y="510" width="61" height="6" rx="3" fill="#127a3a"/>
+  <rect x="109" y="510" width="61" height="6" rx="3" fill="#9d5800"/>
+  <rect x="170" y="510" width="60" height="6" rx="3" fill="#b42318"/>
+  <text x="48" y="545" font-family="Segoe UI, sans-serif" font-size="9" fill="#5f6c7e">Pass ≤ 1800 ms</text>
+  <text x="150" y="545" font-family="Segoe UI, sans-serif" font-size="9" fill="#5f6c7e">Needs ≤ 3000 ms</text>
+
+  <!-- Vital: LCP 8017ms (fail) -->
+  <rect x="262" y="475" width="222" height="90" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="282" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#5f6c7e">LCP</text>
+  <text x="452" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#1c2533" text-anchor="end">8017 ms</text>
+  <rect x="282" y="510" width="182" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="282" y="510" width="61" height="6" rx="3" fill="#127a3a"/>
+  <rect x="343" y="510" width="61" height="6" rx="3" fill="#9d5800"/>
+  <rect x="404" y="510" width="60" height="6" rx="3" fill="#b42318"/>
+  <circle cx="452" cy="513" r="5" fill="#b42318"/>
+  <rect x="282" y="528" width="90" height="18" rx="9" fill="rgba(180,35,24,0.14)"/>
+  <text x="327" y="540" font-family="Segoe UI, sans-serif" font-size="9" font-weight="700" fill="#b42318" text-anchor="middle">Fail</text>
+
+  <!-- Vital: CLS 0.000 (pass) -->
+  <rect x="496" y="475" width="222" height="90" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="516" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#5f6c7e">CLS</text>
+  <text x="686" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#1c2533" text-anchor="end">0.000</text>
+  <rect x="516" y="510" width="182" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="516" y="510" width="61" height="6" rx="3" fill="#127a3a"/>
+  <rect x="577" y="510" width="61" height="6" rx="3" fill="#9d5800"/>
+  <rect x="638" y="510" width="60" height="6" rx="3" fill="#b42318"/>
+  <circle cx="517" cy="513" r="5" fill="#127a3a"/>
+  <rect x="516" y="528" width="90" height="18" rx="9" fill="rgba(18,122,58,0.12)"/>
+  <text x="561" y="540" font-family="Segoe UI, sans-serif" font-size="9" font-weight="700" fill="#127a3a" text-anchor="middle">Pass</text>
+
+  <!-- Vital: TBT 229ms (needs improvement) -->
+  <rect x="730" y="475" width="222" height="90" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="750" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#5f6c7e">TBT</text>
+  <text x="920" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#1c2533" text-anchor="end">229 ms</text>
+  <rect x="750" y="510" width="182" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="750" y="510" width="61" height="6" rx="3" fill="#127a3a"/>
+  <rect x="811" y="510" width="61" height="6" rx="3" fill="#9d5800"/>
+  <rect x="872" y="510" width="60" height="6" rx="3" fill="#b42318"/>
+  <circle cx="803" cy="513" r="5" fill="#9d5800"/>
+  <rect x="750" y="528" width="120" height="18" rx="9" fill="rgba(157,88,0,0.14)"/>
+  <text x="810" y="540" font-family="Segoe UI, sans-serif" font-size="9" font-weight="700" fill="#9d5800" text-anchor="middle">Needs improvement</text>
+
+  <!-- Vital: TTFB -->
+  <rect x="964" y="475" width="200" height="90" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="984" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#5f6c7e">TTFB</text>
+  <text x="1132" y="498" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#1c2533" text-anchor="end">n/a</text>
+  <rect x="984" y="510" width="148" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="984" y="510" width="49" height="6" rx="3" fill="#127a3a"/>
+  <rect x="1033" y="510" width="50" height="6" rx="3" fill="#9d5800"/>
+  <rect x="1083" y="510" width="49" height="6" rx="3" fill="#b42318"/>
+
+  <!-- A11y Summary -->
+  <text x="38" y="600" font-family="Segoe UI, sans-serif" font-size="18" font-weight="700" fill="#1c2533">Accessibility</text>
+
+  <rect x="28" y="614" width="560" height="72" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="48" y="640" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#5f6c7e">Total violations</text>
+  <text x="200" y="640" font-family="Segoe UI, sans-serif" font-size="12" fill="#1c2533">4</text>
+  <text x="48" y="660" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#5f6c7e">Critical</text>
+  <text x="200" y="660" font-family="Segoe UI, sans-serif" font-size="12" fill="#1c2533">1</text>
+  <text x="260" y="660" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#5f6c7e">Serious</text>
+  <text x="380" y="660" font-family="Segoe UI, sans-serif" font-size="12" fill="#1c2533">1</text>
+  <text x="420" y="660" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#5f6c7e">Moderate</text>
+  <text x="530" y="660" font-family="Segoe UI, sans-serif" font-size="12" fill="#1c2533">1</text>
+  <text x="260" y="640" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="#5f6c7e">Minor</text>
+  <text x="380" y="640" font-family="Segoe UI, sans-serif" font-size="12" fill="#1c2533">1</text>
+
+  <!-- Spark bars (right side summary) -->
+  <rect x="612" y="614" width="560" height="72" rx="12" fill="#fff" stroke="#d7dee9" filter="url(#cardShadow)"/>
+  <text x="632" y="635" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#5f6c7e">Perf</text>
+  <rect x="670" y="626" width="200" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="670" y="626" width="106" height="6" rx="3" fill="#9d5800"/>
+  <text x="880" y="635" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#1c2533">53</text>
+
+  <text x="632" y="655" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#5f6c7e">A11y</text>
+  <rect x="670" y="646" width="200" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="670" y="646" width="0" height="6" rx="3" fill="#5f6c7e"/>
+  <text x="880" y="655" font-family="Segoe UI, sans-serif" font-size="11" fill="#5f6c7e">n/a</text>
+
+  <text x="940" y="635" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#5f6c7e">Best</text>
+  <rect x="975" y="626" width="160" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="975" y="626" width="0" height="6" rx="3" fill="#5f6c7e"/>
+  <text x="1145" y="635" font-family="Segoe UI, sans-serif" font-size="11" fill="#5f6c7e">n/a</text>
+
+  <text x="940" y="655" font-family="Segoe UI, sans-serif" font-size="11" font-weight="600" fill="#5f6c7e">SEO</text>
+  <rect x="975" y="646" width="160" height="6" rx="3" fill="#d7dee9"/>
+  <rect x="975" y="646" width="0" height="6" rx="3" fill="#5f6c7e"/>
+  <text x="1145" y="655" font-family="Segoe UI, sans-serif" font-size="11" fill="#5f6c7e">n/a</text>
 </svg>

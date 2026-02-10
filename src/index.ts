@@ -40,10 +40,8 @@ import {
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
 
-// Temporary compatibility fallback for partial summary-module mocks.
-// Owner: Agent 1 (Coordinator tracking).
-// Removal condition: drop after test and consumer code always provides
-// SCHEMA_VERSION*, SUMMARY_SCHEMA_URI*, and buildSummaryV2 from report/summary.
+// TODO: Remove fallback URIs once all consumers provide SCHEMA_VERSION*,
+// SUMMARY_SCHEMA_URI*, and buildSummaryV2 via report/summary.
 const SUMMARY_SCHEMA_URI_V1_FALLBACK =
   "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json";
 const SUMMARY_SCHEMA_URI_V2_FALLBACK =
