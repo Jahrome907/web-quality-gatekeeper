@@ -258,8 +258,8 @@ export async function openPage(
 
   logger.debug(`Navigating to ${url}`);
   await retry(() => page.goto(url, { waitUntil: "load" }), {
-    retries: retryCount,
-    delayMs: retryDelayMs,
+    maxRetries: retryCount,
+    baseDelayMs: retryDelayMs,
     logger
   });
   await applyStabilityOverrides(page);
@@ -280,8 +280,8 @@ async function captureScreenshot(
   const url = resolveUrl(baseUrl, shot.path);
   logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
   await retry(() => page.goto(url, { waitUntil: "load" }), {
-    retries: retryCount,
-    delayMs: retryDelayMs,
+    maxRetries: retryCount,
+    baseDelayMs: retryDelayMs,
     logger
   });
   await applyStabilityOverrides(page);

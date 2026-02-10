@@ -103,8 +103,8 @@ describe("playwright runner", () => {
     expect(page.on).toHaveBeenCalledWith("console", expect.any(Function));
     expect(page.on).toHaveBeenCalledWith("request", expect.any(Function));
     expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
-      retries: 2,
-      delayMs: 10,
+      maxRetries: 2,
+      baseDelayMs: 10,
       logger
     });
     expect(result.runtimeSignals.snapshot()).toEqual({
@@ -198,8 +198,8 @@ describe("playwright runner", () => {
     expect(page.addStyleTag).toHaveBeenCalledTimes(1);
     expect(page.emulateMedia).toHaveBeenCalledWith({ reducedMotion: "reduce" });
     expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
-      retries: 2,
-      delayMs: 15,
+      maxRetries: 2,
+      baseDelayMs: 15,
       logger
     });
   });

@@ -96,8 +96,8 @@ describe("lighthouse runner", () => {
       ttfbMs: 110.1
     });
     expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
-      retries: 2,
-      delayMs: 50,
+      maxRetries: 2,
+      baseDelayMs: 50,
       logger: { debug: expect.any(Function) }
     });
     expect(mockWriteJson).toHaveBeenCalledWith(

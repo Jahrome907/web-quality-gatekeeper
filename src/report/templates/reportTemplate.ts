@@ -215,26 +215,92 @@ function renderGalleryOverflow(items: string[], noun: string, containerClass: st
   `;
 }
 
-function renderSparkBar(label: string, score: number | null | undefined): string {
-  if (typeof score !== "number") {
-    return `
-      <div class="spark-item" role="listitem">
-        <span class="spark-label">${escapeHtml(label)}</span>
-        <div class="spark-track"><span class="spark-fill muted" style="width:0%"></span></div>
-        <span class="spark-value">n/a</span>
-      </div>
-    `;
+function renderRadarChart(categoryScores: {
+  performance?: number;
+  accessibility?: number;
+  bestPractices?: number;
+  seo?: number;
+} | undefined): string {
+  const axes = [
+    { key: "performance" as const, label: "Perf", full: "Performance" },
+    { key: "accessibility" as const, label: "A11y", full: "Accessibility" },
+    { key: "seo" as const, label: "SEO", full: "SEO" },
+    { key: "bestPractices" as const, label: "Best", full: "Best Practices" }
+  ];
+
+  const values = axes.map(a => {
+    const raw = categoryScores?.[a.key];
+    return typeof raw === "number" ? clamp(Math.round(raw * 100), 0, 100) : 0;
+  });
+
+  const cx = 140;
+  const cy = 140;
+  const maxR = 95;
+  const levels = 5;
+  const n = axes.length;
+  const step = (2 * Math.PI) / n;
+  const angles = axes.map((_, i) => -Math.PI / 2 + i * step);
+
+  const px = (a: number, r: number) => Number((cx + r * Math.cos(a)).toFixed(1));
+  const py = (a: number, r: number) => Number((cy + r * Math.sin(a)).toFixed(1));
+
+  let gridPaths = "";
+  for (let lv = 1; lv <= levels; lv++) {
+    const r = (maxR * lv) / levels;
+    const pts = angles.map(a => `${px(a, r)},${py(a, r)}`).join(" ");
+    gridPaths += `<polygon points="${pts}" class="radar-grid" />`;
   }
 
-  const percent = clamp(Math.round(score * 100), 0, 100);
-  const tone = scoreTone(score);
+  let axisLines = "";
+  for (const angle of angles) {
+    axisLines += `<line x1="${cx}" y1="${cy}" x2="${px(angle, maxR)}" y2="${py(angle, maxR)}" class="radar-axis" />`;
+  }
+
+  const dataPts = values.map((v, i) => {
+    const r = (maxR * v) / 100;
+    return `${px(angles[i]!, r)},${py(angles[i]!, r)}`;
+  });
+  const dataPolygon = `<polygon points="${dataPts.join(" ")}" class="radar-area" />`;
+  const dataOutline = `<polygon points="${dataPts.join(" ")}" class="radar-outline" />`;
+
+  let dots = "";
+  values.forEach((v, i) => {
+    const r = (maxR * v) / 100;
+    const tone = scoreTone(v / 100);
+    dots += `<circle cx="${px(angles[i]!, r)}" cy="${py(angles[i]!, r)}" r="4.5" class="radar-dot ${tone}" />`;
+  });
+
+  let labels = "";
+  const labelOffset = 18;
+  axes.forEach((axis, i) => {
+    const lx = px(angles[i]!, maxR + labelOffset);
+    const ly = py(angles[i]!, maxR + labelOffset);
+    const anchor = lx > cx + 5 ? "start" : lx < cx - 5 ? "end" : "middle";
+    const baseline = ly < cy - 5 ? "auto" : ly > cy + 5 ? "hanging" : "middle";
+    labels += `<text x="${lx}" y="${ly}" text-anchor="${anchor}" dominant-baseline="${baseline}" class="radar-label">${escapeHtml(axis.label)} <tspan class="radar-score">${values[i]}</tspan></text>`;
+  });
+
+  let markers = "";
+  for (let lv = 1; lv <= levels; lv++) {
+    const pct = Math.round((lv / levels) * 100);
+    const r = (maxR * lv) / levels;
+    markers += `<text x="${cx + 4}" y="${py(-Math.PI / 2, r) - 4}" class="radar-marker">${pct}</text>`;
+  }
+
+  const ariaLabel = axes.map((a, i) => `${a.full}: ${values[i]}`).join(", ");
+
   return `
-    <div class="spark-item" role="listitem">
-      <span class="spark-label">${escapeHtml(label)}</span>
-      <div class="spark-track">
-        <span class="spark-fill ${tone}" style="width:${percent}%"></span>
-      </div>
-      <span class="spark-value">${percent}</span>
+    <div class="radar-wrapper">
+      <svg viewBox="0 0 280 280" class="radar-chart" role="img"
+           aria-label="Category scores radar chart — ${escapeHtml(ariaLabel)}">
+        ${gridPaths}
+        ${axisLines}
+        ${dataPolygon}
+        ${dataOutline}
+        ${dots}
+        ${labels}
+        ${markers}
+      </svg>
     </div>
   `;
 }
@@ -675,12 +741,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     renderGauge("Best Practices", categoryScores?.bestPractices, "best-practices"),
     renderGauge("SEO", categoryScores?.seo, "seo")
   ].join("");
-  const sparkBarsMarkup = [
-    renderSparkBar("Perf", categoryScores?.performance),
-    renderSparkBar("A11y", categoryScores?.accessibility),
-    renderSparkBar("Best", categoryScores?.bestPractices),
-    renderSparkBar("SEO", categoryScores?.seo)
-  ].join("");
+  const radarChartMarkup = renderRadarChart(categoryScores);
   const statusChipsMarkup = [
     `<span class="status-chip ${summary.overallStatus}">Overall ${escapeHtml(summary.overallStatus.toUpperCase())}</span>`,
     `<span class="status-chip ${summary.steps.a11y}">A11y ${escapeHtml(summary.steps.a11y.toUpperCase())}</span>`,
@@ -1434,64 +1495,103 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       letter-spacing: 0.04em;
     }
 
-    .spark-row {
+    /* Radar chart */
+    .scores-layout {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+      align-items: start;
     }
 
-    .spark-item {
+    .scores-radar {
       display: grid;
-      grid-template-columns: auto 1fr auto;
-      gap: 8px;
-      align-items: center;
+      place-items: center;
+    }
+
+    .scores-gauges .grid {
+      margin-bottom: 0;
+    }
+
+    .radar-wrapper {
+      display: grid;
+      place-items: center;
+      padding: 16px 8px;
+    }
+
+    .radar-chart {
+      width: 100%;
+      max-width: 260px;
+      height: auto;
+    }
+
+    .radar-grid {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 0.8;
+    }
+
+    .radar-axis {
+      stroke: var(--border);
+      stroke-width: 0.8;
+    }
+
+    .radar-area {
+      fill: color-mix(in srgb, var(--accent) 18%, transparent);
+      stroke: none;
+      transform-origin: 140px 140px;
+      animation: radar-fill 0.8s ease-out both;
+    }
+
+    @keyframes radar-fill {
+      from { opacity: 0; transform: scale(0.3); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    .radar-outline {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2;
+      stroke-linejoin: round;
+    }
+
+    .radar-dot {
+      stroke: var(--card);
+      stroke-width: 2;
+    }
+
+    .radar-dot.good  { fill: var(--good); }
+    .radar-dot.warn  { fill: var(--warn); }
+    .radar-dot.bad   { fill: var(--bad); }
+    .radar-dot.muted { fill: var(--muted); }
+
+    .radar-label {
       font-size: 12px;
+      font-weight: 700;
+      fill: var(--text);
+    }
+
+    .radar-score {
+      font-size: 11px;
+      fill: var(--muted);
+      font-weight: 400;
+    }
+
+    .radar-marker {
+      font-size: 9px;
+      fill: var(--muted);
+    }
+
+    kbd {
+      display: inline-block;
       border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 6px 10px;
-      background: color-mix(in srgb, var(--card) 92%, var(--bg-strong) 8%);
-    }
-
-    .spark-label {
-      font-weight: 700;
-      color: var(--muted);
-    }
-
-    .spark-track {
-      position: relative;
-      height: 8px;
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--muted) 20%, transparent);
-      overflow: hidden;
-    }
-
-    .spark-fill {
-      display: block;
-      height: 100%;
-      border-radius: 999px;
-    }
-
-    .spark-fill.good {
-      background: var(--good);
-    }
-
-    .spark-fill.warn {
-      background: var(--warn);
-    }
-
-    .spark-fill.bad {
-      background: var(--bad);
-    }
-
-    .spark-fill.muted {
-      background: var(--muted);
-    }
-
-    .spark-value {
-      font-weight: 700;
-      min-width: 30px;
-      text-align: right;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 12px;
+      background: var(--bg);
+      min-width: 22px;
+      text-align: center;
     }
 
     .gauge-details {
@@ -1533,6 +1633,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       transform: rotate(-90deg);
       transform-origin: 60px 60px;
       stroke-linecap: round;
+      transition: stroke-dasharray 1.2s ease-out;
     }
 
     .gauge-progress.good {
@@ -2136,6 +2237,10 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       .jump-nav {
         position: static;
       }
+
+      .scores-layout {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media (max-width: 720px) {
@@ -2194,13 +2299,14 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       <div>
         <h1>Web Quality Gatekeeper</h1>
         <div class="meta">${escapeHtml(summary.url)}</div>
-        <div class="meta">Started ${escapeHtml(summary.startedAt)} · Duration ${summary.durationMs} ms</div>
+        <div class="meta">Started <time data-iso="${escapeHtml(summary.startedAt)}" datetime="${escapeHtml(summary.startedAt)}">${escapeHtml(summary.startedAt)}</time> · Duration ${formatNumber(summary.durationMs, 0)} ms</div>
       </div>
       <div class="header-actions">
         <div class="view-toggle-group" role="group" aria-label="Report view mode">
           <button class="view-toggle" data-view-mode="simple" type="button" aria-pressed="false">Simple view</button>
           <button class="view-toggle" data-view-mode="detailed" type="button" aria-pressed="true">Detailed view</button>
         </div>
+        <button id="copy-summary" class="theme-toggle" type="button" aria-label="Copy report summary to clipboard">Copy summary</button>
         <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Toggle dark mode</button>
       </div>
     </div>
@@ -2248,11 +2354,15 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         <summary>More info</summary>
         <p>Category scores come from Lighthouse (0-100). Simple view surfaces quick quality posture, detailed view adds diagnostics and opportunities.</p>
       </details>
-      <div class="spark-row" role="list" aria-label="Category score spark bars">
-        ${sparkBarsMarkup}
-      </div>
-      <div class="grid">
-        ${gaugeMarkup}
+      <div class="scores-layout">
+        <div class="scores-radar card">
+          ${radarChartMarkup}
+        </div>
+        <div class="scores-gauges">
+          <div class="grid">
+            ${gaugeMarkup}
+          </div>
+        </div>
       </div>
       <div class="gauge-details">
         ${gaugeDetailsMarkup}
@@ -2419,12 +2529,30 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       <div id="lightbox-caption" class="lightbox-caption"></div>
     </div>
   </div>
+  <div id="shortcuts-overlay" class="lightbox" hidden aria-hidden="true">
+    <div class="lightbox-backdrop" data-shortcuts-close="true"></div>
+    <div class="lightbox-dialog" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+      <button class="lightbox-close" type="button" data-shortcuts-close="true">Close</button>
+      <h2 style="margin:0 0 16px;font-size:18px;">Keyboard Shortcuts</h2>
+      <table>
+        <tbody>
+          <tr><th><kbd>?</kbd></th><td>Show this help</td></tr>
+          <tr><th><kbd>t</kbd></th><td>Toggle dark / light mode</td></tr>
+          <tr><th><kbd>s</kbd></th><td>Switch to simple view</td></tr>
+          <tr><th><kbd>d</kbd></th><td>Switch to detailed view</td></tr>
+          <tr><th><kbd>c</kbd></th><td>Copy report summary</td></tr>
+          <tr><th><kbd>Esc</kbd></th><td>Close overlays</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
   <script>
     (() => {
       const themeKey = "wqg-theme";
       const viewKey = "wqg-view";
       const root = document.documentElement;
       const themeButton = document.getElementById("theme-toggle");
+      const copyButton = document.getElementById("copy-summary");
       const viewButtons = Array.from(document.querySelectorAll("[data-view-mode]"));
       const gaugeButtons = Array.from(document.querySelectorAll(".gauge-trigger"));
       const gaugePanels = Array.from(document.querySelectorAll(".gauge-detail"));
@@ -2433,9 +2561,11 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       const lightboxImage = document.getElementById("lightbox-image");
       const lightboxCaption = document.getElementById("lightbox-caption");
       const lightboxClose = document.getElementById("lightbox-close");
+      const shortcutsOverlay = document.getElementById("shortcuts-overlay");
       let lastFocused = null;
       if (!themeButton) return;
 
+      /* ---- Theme ---- */
       const applyTheme = (theme) => {
         if (theme === "dark") {
           root.setAttribute("data-theme", "dark");
@@ -2446,6 +2576,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         }
       };
 
+      /* ---- View toggle ---- */
       const applyView = (view) => {
         const mode = view === "simple" ? "simple" : "detailed";
         root.setAttribute("data-report-view", mode);
@@ -2485,6 +2616,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         });
       });
 
+      /* ---- Gauge detail panels ---- */
       const setGaugePanel = (key) => {
         let activeFound = false;
         gaugePanels.forEach((panel) => {
@@ -2521,6 +2653,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         });
       });
 
+      /* ---- Image lightbox ---- */
       const closeLightbox = () => {
         if (!lightbox || !lightboxImage || !lightboxCaption) return;
         lightbox.setAttribute("hidden", "true");
@@ -2567,9 +2700,145 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       if (lightboxClose) {
         lightboxClose.addEventListener("click", closeLightbox);
       }
+
+      /* ---- Gauge + score counter animation ---- */
+      const CIRCUMFERENCE = 2 * Math.PI * 44;
+      const gaugeProgressEls = Array.from(document.querySelectorAll(".gauge-progress"));
+      const gaugeValueEls = Array.from(document.querySelectorAll(".gauge-value strong"));
+      const savedDash = gaugeProgressEls.map((el) => el.getAttribute("stroke-dasharray"));
+
+      // Set initial state (empty ring)
+      gaugeProgressEls.forEach((el) => el.setAttribute("stroke-dasharray", "0 " + CIRCUMFERENCE));
+      gaugeValueEls.forEach((el) => { el.dataset.target = el.textContent || "0"; el.textContent = "0"; });
+
+      function animateCountTo(el, target, duration) {
+        const start = performance.now();
+        function tick(now) {
+          const progress = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - progress, 3);
+          el.textContent = String(Math.round(target * eased));
+          if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      const gaugeObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          gaugeObserver.unobserve(entry.target);
+          const index = gaugeProgressEls.indexOf(entry.target);
+          if (index >= 0 && savedDash[index]) {
+            entry.target.setAttribute("stroke-dasharray", savedDash[index]);
+          }
+          if (index >= 0 && gaugeValueEls[index]) {
+            const target = parseInt(gaugeValueEls[index].dataset.target || "0", 10);
+            animateCountTo(gaugeValueEls[index], target, 1200);
+          }
+        });
+      }, { threshold: 0.3 });
+
+      gaugeProgressEls.forEach((el) => gaugeObserver.observe(el));
+
+      /* ---- Human-readable timestamps ---- */
+      document.querySelectorAll("time[data-iso]").forEach((el) => {
+        try {
+          const d = new Date(el.getAttribute("data-iso"));
+          if (isNaN(d.getTime())) return;
+          el.textContent = d.toLocaleDateString("en-US", {
+            year: "numeric", month: "short", day: "numeric"
+          }) + " at " + d.toLocaleTimeString("en-US", {
+            hour: "numeric", minute: "2-digit", hour12: true
+          });
+        } catch (_) { /* keep raw ISO fallback */ }
+      });
+
+      /* ---- Copy summary ---- */
+      if (copyButton) {
+        copyButton.addEventListener("click", () => {
+          const gauges = Array.from(document.querySelectorAll(".gauge-card"));
+          const scores = gauges.map((g) => {
+            const h3 = g.querySelector("h3");
+            const val = g.querySelector(".gauge-value strong");
+            return (h3 ? h3.textContent : "?") + ": " + (val ? val.dataset.target || val.textContent : "n/a") + "/100";
+          }).join(" | ");
+          const statusEl = document.querySelector(".status-chip");
+          const urlEl = document.querySelector(".meta");
+          const text = "WQG Report\\n" +
+            (urlEl ? urlEl.textContent.trim() : "") + "\\n" +
+            (statusEl ? statusEl.textContent.trim() : "") + "\\n" +
+            scores;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+              copyButton.textContent = "Copied!";
+              setTimeout(() => { copyButton.textContent = "Copy summary"; }, 2000);
+            }).catch(() => {
+              copyButton.textContent = "Copy failed";
+              setTimeout(() => { copyButton.textContent = "Copy summary"; }, 2000);
+            });
+          }
+        });
+      }
+
+      /* ---- Keyboard shortcuts ---- */
+      const closeShortcuts = () => {
+        if (!shortcutsOverlay) return;
+        shortcutsOverlay.setAttribute("hidden", "true");
+        shortcutsOverlay.setAttribute("aria-hidden", "true");
+        if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus();
+      };
+
+      const openShortcuts = () => {
+        if (!shortcutsOverlay) return;
+        lastFocused = document.activeElement;
+        shortcutsOverlay.removeAttribute("hidden");
+        shortcutsOverlay.setAttribute("aria-hidden", "false");
+        const closeBtn = shortcutsOverlay.querySelector(".lightbox-close");
+        if (closeBtn) closeBtn.focus();
+      };
+
+      if (shortcutsOverlay) {
+        shortcutsOverlay.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          if (target.matches("[data-shortcuts-close]") || target.matches(".lightbox-close")) {
+            closeShortcuts();
+          }
+        });
+      }
+
+      const closeAllOverlays = () => {
+        closeLightbox();
+        closeShortcuts();
+      };
+
       window.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-          closeLightbox();
+        if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+        if (event.ctrlKey || event.metaKey || event.altKey) return;
+        switch (event.key) {
+          case "Escape":
+            closeAllOverlays();
+            break;
+          case "?":
+            if (!shortcutsOverlay) break;
+            if (shortcutsOverlay.hasAttribute("hidden")) openShortcuts();
+            else closeShortcuts();
+            break;
+          case "t":
+            themeButton.click();
+            break;
+          case "s": {
+            const btn = viewButtons.find((b) => b.getAttribute("data-view-mode") === "simple");
+            if (btn) btn.click();
+            break;
+          }
+          case "d": {
+            const btn = viewButtons.find((b) => b.getAttribute("data-view-mode") === "detailed");
+            if (btn) btn.click();
+            break;
+          }
+          case "c":
+            if (copyButton) copyButton.click();
+            break;
         }
       });
     })();

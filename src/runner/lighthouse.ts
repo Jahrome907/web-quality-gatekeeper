@@ -303,7 +303,7 @@ export async function runLighthouseAudit(
               }
             }
           ),
-        { retries: retryCount, delayMs: retryDelayMs, logger }
+        { maxRetries: retryCount, baseDelayMs: retryDelayMs, logger }
       );
 
       if (!runnerResult?.lhr) {

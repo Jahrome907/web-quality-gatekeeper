@@ -142,7 +142,7 @@ describe("buildHtmlReport", () => {
     expect(html).toContain("Detailed view");
     expect(html).toContain("<summary>More info</summary>");
     expect(html).toContain('class="status-chip-row"');
-    expect(html).toContain('class="spark-row"');
+    expect(html).toContain('class="scores-layout"');
   });
 
   it("shows 8 items by default with expandable view-all for large screenshot galleries", () => {

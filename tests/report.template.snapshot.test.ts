@@ -147,7 +147,8 @@ describe("HTML report template", () => {
     expect(html).toContain('class="jump-nav-link" href="#overview"');
     expect(html).toContain('id="gauge-detail-performance"');
     expect(html).toContain('class="status-chip-row"');
-    expect(html).toContain('class="spark-row"');
+    expect(html).toContain('class="radar-chart"');
+    expect(html).toContain('class="scores-layout"');
   });
 
   it("renders gauge SVGs and visual image blocks", () => {
@@ -293,5 +294,8 @@ describe("HTML report template", () => {
     expect(html).toContain("Simple view");
     expect(html).toContain("Detailed view");
     expect(html).toContain("Toggle dark mode");
+    expect(html).toContain("Copy summary");
+    expect(html).toContain('id="shortcuts-overlay"');
+    expect(html).toContain("Keyboard Shortcuts");
   });
 });
