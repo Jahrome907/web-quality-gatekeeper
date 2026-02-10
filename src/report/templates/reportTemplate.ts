@@ -218,7 +218,7 @@ function renderGalleryOverflow(items: string[], noun: string, containerClass: st
 function renderSparkBar(label: string, score: number | null | undefined): string {
   if (typeof score !== "number") {
     return `
-      <div class="spark-item">
+      <div class="spark-item" role="listitem">
         <span class="spark-label">${escapeHtml(label)}</span>
         <div class="spark-track"><span class="spark-fill muted" style="width:0%"></span></div>
         <span class="spark-value">n/a</span>
@@ -229,7 +229,7 @@ function renderSparkBar(label: string, score: number | null | undefined): string
   const percent = clamp(Math.round(score * 100), 0, 100);
   const tone = scoreTone(score);
   return `
-    <div class="spark-item">
+    <div class="spark-item" role="listitem">
       <span class="spark-label">${escapeHtml(label)}</span>
       <div class="spark-track">
         <span class="spark-fill ${tone}" style="width:${percent}%"></span>
@@ -865,7 +865,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
                     <strong>Fix guidance:</strong> ${escapeHtml(violation.help || "No guidance provided.")}
                     ${
                       violation.helpUrl
-                        ? ` <a href="${escapeHtml(violation.helpUrl)}" target="_blank" rel="noreferrer">Reference</a>`
+                        ? ` <a href="${escapeHtml(violation.helpUrl)}" target="_blank" rel="noopener noreferrer">Reference</a>`
                         : ""
                     }
                   </p>
@@ -1085,6 +1085,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       z-index: 40;
       margin: 0 0 18px;
       border: 1px solid var(--border);
+      background: var(--card);
       background: color-mix(in srgb, var(--card) 88%, var(--bg-strong) 12%);
       border-radius: 10px;
       box-shadow: var(--shadow);
@@ -1116,6 +1117,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     .jump-nav-link:focus-visible {
       outline: none;
       border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.3);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
     }
 
@@ -1224,16 +1226,19 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
 
     .status-chip.pass {
       color: var(--good);
+      border-color: var(--border);
       border-color: color-mix(in srgb, var(--good) 35%, var(--border));
     }
 
     .status-chip.fail {
       color: var(--bad);
+      border-color: var(--border);
       border-color: color-mix(in srgb, var(--bad) 35%, var(--border));
     }
 
     .status-chip.skipped {
       color: var(--warn);
+      border-color: var(--border);
       border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
     }
 
@@ -1264,6 +1269,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     .card:hover,
     .card:focus-within {
       transform: translateY(-1px);
+      border-color: var(--accent);
       border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
       box-shadow: 0 12px 30px rgba(26, 35, 49, 0.14);
     }
@@ -1414,6 +1420,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     }
 
     .gauge-trigger:focus-visible .gauge-card {
+      outline: 2px solid rgba(13, 110, 253, 0.6);
       outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
       outline-offset: 2px;
     }
@@ -1559,6 +1566,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
 
     .muted-gauge {
       border-radius: 50%;
+      border: 10px solid rgba(95, 108, 126, 0.22);
       border: 10px solid color-mix(in srgb, var(--muted) 22%, transparent);
     }
 
@@ -1678,6 +1686,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       font-weight: 600;
       color: var(--accent);
       list-style: none;
+      -webkit-user-select: none;
       user-select: none;
     }
 

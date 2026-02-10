@@ -87,7 +87,7 @@ Flags:
 npm run audit -- https://example.com --set-baseline
 ```
 
-2. Commit `baselines/` to track visual regression.
+1. Commit `baselines/` to track visual regression.
 
 ## Config
 
@@ -187,6 +187,7 @@ Node **20 or later** is required (`engines.node` is set to `>=20`). Earlier vers
 
 - **Commit:** `baselines/*.png` — these are reference screenshots for visual regression.
 - **Do not commit:** `artifacts/` — generated every run. Add it to `.gitignore`.
+
 </details>
 
 <details>
