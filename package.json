@@ -1,6 +1,6 @@
 {
   "name": "web-quality-gatekeeper",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Quality gate CLI and GitHub Action for Playwright, axe-core, Lighthouse, and visual diffs.",
   "author": "Jahrome907",
   "license": "MIT",
@@ -49,8 +49,10 @@
     "format": "prettier . --write",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm run lint && npm run test",
+    "security:audit": "node scripts/enforce-runtime-audit.mjs --exceptions configs/security/audit-exceptions.json",
     "audit": "tsx src/cli.ts audit",
-    "audit:ci": "tsx src/cli.ts audit --config configs/default.json --out artifacts --baseline-dir baselines --no-fail-on-a11y"
+    "audit:ci": "tsx src/cli.ts audit --config configs/default.json --out artifacts --baseline-dir baselines --no-fail-on-a11y",
+    "case-study:roi": "node scripts/case-study/roi-from-summaries.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -64,6 +66,12 @@
     "playwright": "^1.47.2",
     "pngjs": "^7.0.0",
     "zod": "^3.23.8"
+  },
+  "overrides": {
+    "@sentry/node": {
+      "minimatch": "10.2.4"
+    },
+    "basic-ftp": "5.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",

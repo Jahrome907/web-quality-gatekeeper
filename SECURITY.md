@@ -16,6 +16,12 @@ This tool navigates to URLs and executes JavaScript in a browser context. **Only
 - Consume excessive resources (CPU, memory, network)
 - Generate misleading or harmful content in reports
 
+Internal/private target policy:
+
+- Internal/private targets are **blocked by default** when running in CI (`CI`/`GITHUB_ACTIONS`) or when authenticated inputs are supplied (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`).
+- Internal/private targets remain warning-only in local non-auth runs for development workflows.
+- Override blocking only when intentional with `--allow-internal-targets` or `WQG_ALLOW_INTERNAL_TARGETS=true`.
+
 ### Configuration File Security
 
 The configuration file controls which paths are visited and screenshotted. Security measures in place:
@@ -31,8 +37,12 @@ When running in CI environments:
 
 - The GitHub Actions workflow uses `--ignore-scripts` during `npm ci` to prevent malicious postinstall scripts
 - Credentials are not persisted after checkout
+- Remote audits are blocking by default; relaxed/non-blocking remote mode requires explicit opt-in via `WQG_RELAXED_REMOTE=true`
+- If you need authenticated audits, pass credentials via secrets (`WQG_AUTH_HEADER`, `WQG_AUTH_HEADERS`, `WQG_AUTH_COOKIE`, `WQG_AUTH_COOKIES`)
+- Sensitive/authenticated runs suppress artifact uploads and PR comments by default (`WQG_SENSITIVE_AUDIT=true` or detected auth inputs)
+- Only set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` when you intentionally accept publication risk for artifacts/comments
 - Chrome sandbox is disabled only in CI containers where it's required
-- Output artifacts may contain screenshots of audited pages—avoid auditing pages with sensitive data visible
+- Output artifacts may contain screenshots of audited pages and violation metadata; avoid auditing pages with sensitive data visible in public repos
 
 ### Chrome Sandbox
 
@@ -54,5 +64,6 @@ Generated reports (HTML, JSON) may contain:
 ### Dependency Security
 
 - Dependencies are automatically updated via Dependabot
-- Run `npm audit` regularly to check for known vulnerabilities
+- Runtime workflows enforce `npm run security:audit`, which blocks unexcepted high/critical runtime vulnerabilities
+- Temporary exceptions must be explicit, owned, and time-bounded in `configs/security/audit-exceptions.json`
 - The project requires Node.js 20+ for security updates

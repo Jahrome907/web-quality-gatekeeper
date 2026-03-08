@@ -1,5 +1,13 @@
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { validateOutputDirectory, validatePathWithinBase } from "../src/utils/fs.js";
+import {
+  validateOutputDirectory,
+  validatePathWithinBase,
+  writeJson,
+  writeText
+} from "../src/utils/fs.js";
 
 describe("validateOutputDirectory", () => {
   it("accepts path within cwd", () => {
@@ -56,5 +64,43 @@ describe("validatePathWithinBase", () => {
     expect(() => validatePathWithinBase("/etc/passwd", "/home/user")).toThrow(
       "Path traversal detected"
     );
+  });
+});
+
+describe("atomic writes", () => {
+  it("writeJson writes formatted JSON and does not leave temp files", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "wqg-fs-json-"));
+    const outputFile = path.join(workspace, "nested", "summary.json");
+
+    try {
+      await writeJson(outputFile, { ok: true, count: 2 });
+
+      const content = await readFile(outputFile, "utf8");
+      expect(JSON.parse(content)).toEqual({ ok: true, count: 2 });
+      expect(content).toContain('\n  "ok": true');
+
+      const entries = await readdir(path.dirname(outputFile));
+      expect(entries.some((entry) => entry.endsWith(".tmp"))).toBe(false);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it("writeText replaces existing files and does not leave temp files", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "wqg-fs-text-"));
+    const outputFile = path.join(workspace, "nested", "report.html");
+
+    try {
+      await writeText(outputFile, "first");
+      await writeText(outputFile, "second");
+
+      const content = await readFile(outputFile, "utf8");
+      expect(content).toBe("second");
+
+      const entries = await readdir(path.dirname(outputFile));
+      expect(entries.some((entry) => entry.endsWith(".tmp"))).toBe(false);
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+    }
   });
 });

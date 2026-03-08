@@ -32,6 +32,7 @@ jobs:
           url: http://127.0.0.1:4173
           config-path: tests/fixtures/integration-config.json
           baseline-dir: .tmp-action-smoke-baselines
+          allow-internal-targets: "true"
           fail-on-a11y: "false"
           fail-on-perf: "false"
           fail-on-visual: "false"

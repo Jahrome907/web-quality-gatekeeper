@@ -5,17 +5,17 @@
 [![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-A production-ready quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs on every PR. Outputs a clean HTML report plus a machine-readable JSON summary.
+A production-ready quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs on every PR. Outputs a clean HTML report plus machine-readable JSON summaries.
 
 ## Install
 
 ```bash
 npm i -D web-quality-gatekeeper
 npx playwright install                    # one-time browser download (~250 MB)
-npx wqg audit https://your-site.com       # that's it — results in < 60 s
+npx wqg audit https://your-site.com       # that's it — results in ~30-90 s for a single page
 ```
 
-> The CLI writes `artifacts/report.html` and `artifacts/summary.json` by default — open them to see results instantly.
+> The CLI writes `artifacts/report.html`, `artifacts/summary.json`, and `artifacts/summary.v2.json` by default.
 
 <p align="center">
   <img src="assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
@@ -42,8 +42,11 @@ npx wqg audit https://your-site.com       # that's it — results in < 60 s
 - **axe-core Accessibility** — WCAG compliance scanning with severity counts
 - **Lighthouse Performance** — Budget enforcement for score, LCP, CLS, and TBT
 - **Visual Regression** — Baseline management with pixel-level diff detection
+- **Actionable Remediation** — Prioritized fix guidance per failure with evidence and verification steps
+- **Trend Dashboard** — Rolling history insights from prior snapshots (`trends/dashboard.html`)
+- **Policy Templates** — Built-in multi-page/site templates (`marketing`, `docs`, `ecommerce`, `saas`)
 - **HTML & JSON Reports** — Human-readable reports plus machine-readable summaries
-- **GitHub Action** — Automated PR comments with results and artifact uploads
+- **GitHub Action + Workflow Template** — Composite Action for consumer repos, plus this repo's hardened CI workflow
 
 ## Quickstart
 
@@ -54,7 +57,7 @@ npm run build
 npm run audit -- https://example.com
 ```
 
-Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` for the summary data.
+Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` / `artifacts/summary.v2.json` for summary data.
 
 ## CLI Usage
 
@@ -74,10 +77,18 @@ wqg audit https://example.com \
 Flags:
 
 - `--set-baseline` overwrites baseline images
+- `--policy <name|path>` overlays a built-in policy or policy JSON
+- `--list-policies` prints built-in policy names and exits
+- `--allow-internal-targets` allows internal/private targets during CI or authenticated audits
 - `--no-fail-on-a11y` disables a11y failure gate
 - `--no-fail-on-perf` disables performance budget gate
 - `--no-fail-on-visual` disables visual diff gate
+- `--format <json|html|md>` controls stdout/report format mode
+- `--header "Name: Value"` adds a request header (repeatable)
+- `--cookie "name=value"` adds a cookie (repeatable)
 - `--verbose` for debug logging
+
+Built-in policies are host-agnostic defaults (paths, budgets, toggles); the target host still comes from `wqg audit <url>` unless your config explicitly sets `urls`.
 
 ## Baseline Workflow
 
@@ -102,11 +113,15 @@ Default config lives at `configs/default.json`.
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/0.1.0",
+    "userAgent": "wqg/3.0.0",
     "locale": "en-US",
     "colorScheme": "light"
   },
   "screenshots": [{ "name": "home", "path": "/", "fullPage": true }],
+  "screenshotGallery": {
+    "enabled": false,
+    "maxScreenshotsPerPath": 12
+  },
   "lighthouse": {
     "budgets": { "performance": 0.8, "lcpMs": 2500, "cls": 0.1, "tbtMs": 200 },
     "formFactor": "desktop"
@@ -118,24 +133,35 @@ Default config lives at `configs/default.json`.
 
 ## CI (GitHub Action)
 
-The workflow runs on `pull_request`, installs dependencies, runs `npm run check`, and audits a URL.
+This repo includes:
 
-- If a `demo` script exists in `package.json`, the Action will start it and audit `http://localhost:4173` (with a11y failures enabled).
-- Otherwise, it defaults to `https://example.com` and disables a11y failure to keep the fallback green.
-- You can override with `WQG_URL` in the workflow env to re-enable strict a11y gating.
+- A composite Action (`action.yml`) you can call from your own workflows.
+- A hardened workflow (`.github/workflows/quality-gate.yml`) used by this repository.
 
-Artifacts are uploaded from `artifacts/` and a concise PR comment is posted with results.
+Workflow behavior (`.github/workflows/quality-gate.yml`):
+
+- If `package.json` has a `demo` script, it audits `http://localhost:4173`.
+- Otherwise it audits a remote URL (`WQG_URL` override, else GitHub Pages fallback).
+- All gates are blocking by default, including remote audits.
+- Set `WQG_RELAXED_REMOTE=true` to make remote mode non-blocking (`--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual`).
+- If authenticated inputs are detected (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`) or `WQG_SENSITIVE_AUDIT=true`, artifact upload and PR comments are disabled by default.
+- Set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` only when you intentionally want to publish outputs for a sensitive run.
+- Internal/private targets are blocked by default in CI and authenticated runs unless you explicitly set `--allow-internal-targets` or `WQG_ALLOW_INTERNAL_TARGETS=true`.
 
 ## Output
 
 Artifacts written to the output directory:
 
 - `summary.json`
+- `summary.v2.json`
 - `report.html`
+- `action-plan.md`
 - `screenshots/*.png`
 - `diffs/*.png` (when baselines exist)
 - `axe.json`
 - `lighthouse.json`
+- `pages/*` (multi-target audits)
+- `trends/history.json` and `trends/dashboard.html` (when `trends.enabled` is true)
 
 Example summary snippet:
 
@@ -153,6 +179,7 @@ Example summary snippet:
 npm ci
 npx playwright install
 npm run check
+npm run security:audit
 npm run build
 npm run audit -- https://example.com
 ```

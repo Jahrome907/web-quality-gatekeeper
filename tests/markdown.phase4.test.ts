@@ -60,7 +60,7 @@ describe("phase4 markdown rendering", () => {
   it("renders trend ready state and deterministic page section ordering", () => {
     const markdown = formatSummaryAsMarkdown({
       $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-      schemaVersion: "2.0.0",
+      schemaVersion: "2.1.0",
       mode: "multi",
       overallStatus: "fail",
       startedAt: "2026-02-08T00:00:00.000Z",
@@ -115,7 +115,7 @@ describe("phase4 markdown rendering", () => {
   it("renders non-ready trend states compactly for PR-comment readability", () => {
     const markdown = formatSummaryAsMarkdown({
       $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-      schemaVersion: "2.0.0",
+      schemaVersion: "2.1.0",
       mode: "single",
       overallStatus: "pass",
       startedAt: "2026-02-08T00:00:00.000Z",
@@ -148,7 +148,7 @@ describe("phase4 markdown rendering", () => {
   it("maps legacy trend status aliases to canonical labels for compatibility rendering", () => {
     const markdown = formatSummaryAsMarkdown({
       $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-      schemaVersion: "2.0.0",
+      schemaVersion: "2.1.0",
       mode: "single",
       overallStatus: "pass",
       startedAt: "2026-02-08T00:00:00.000Z",

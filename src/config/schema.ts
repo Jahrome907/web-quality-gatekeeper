@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAbsolute } from "node:path";
 
 // Security limits to prevent DoS
 const MAX_SCREENSHOTS = 50;
@@ -12,12 +13,25 @@ const MAX_URL_TARGETS = 25;
 const MAX_TREND_HISTORY_PATH = 500;
 const MAX_TREND_SNAPSHOTS = 365;
 const MAX_GALLERY_SCREENSHOTS_PER_PATH = 60;
+const MAX_EXTENDS_REFERENCES = 8;
+const MAX_EXTENDS_REFERENCE_LENGTH = 300;
+const MAX_TREND_DASHBOARD_WINDOW = 365;
+const WINDOWS_DRIVE_PREFIX = /^[A-Za-z]:/;
+const WINDOWS_UNC_ABSOLUTE_PATH = /^\\\\/;
 export const DEFAULT_RETRY_COUNT = 1;
 export const DEFAULT_RETRY_DELAY_MS = 2000;
 export const DEFAULT_PIXELMATCH_INCLUDE_AA = false;
 export const DEFAULT_PIXELMATCH_THRESHOLD = 0.1;
 export const DEFAULT_SCREENSHOT_GALLERY_ENABLED = false;
 export const DEFAULT_SCREENSHOT_GALLERY_MAX_PER_PATH = 12;
+
+function isSafeRelativeTrendHistoryPath(path: string): boolean {
+  if (isAbsolute(path) || WINDOWS_DRIVE_PREFIX.test(path) || WINDOWS_UNC_ABSOLUTE_PATH.test(path)) {
+    return false;
+  }
+
+  return path.split(/[\\/]+/).every((segment) => segment.length === 0 || segment !== "..");
+}
 
 export const VisualIgnoreRegionSchema = z.object({
   x: z.number().int().nonnegative().max(100000),
@@ -56,8 +70,24 @@ export const UrlTargetSchema = z.object({
 
 export const TrendSettingsSchema = z.object({
   enabled: z.boolean().default(false),
-  historyDir: z.string().min(1).max(MAX_TREND_HISTORY_PATH).default(".wqg-history"),
-  maxSnapshots: z.number().int().positive().max(MAX_TREND_SNAPSHOTS).default(90)
+  historyDir: z
+    .string()
+    .min(1)
+    .max(MAX_TREND_HISTORY_PATH)
+    .refine(isSafeRelativeTrendHistoryPath, {
+      message: "Trend historyDir must be a relative path without '..' segments"
+    })
+    .default(".wqg-history"),
+  maxSnapshots: z.number().int().positive().max(MAX_TREND_SNAPSHOTS).default(90),
+  dashboard: z
+    .object({
+      window: z.number().int().positive().max(MAX_TREND_DASHBOARD_WINDOW).default(30)
+    })
+    .optional()
+});
+
+export const InsightSettingsSchema = z.object({
+  enabled: z.boolean().default(true)
 });
 
 export const ScreenshotGallerySchema = z.object({
@@ -71,6 +101,10 @@ export const ScreenshotGallerySchema = z.object({
 });
 
 export const ConfigSchema = z.object({
+  extends: z
+    .array(z.string().min(1).max(MAX_EXTENDS_REFERENCE_LENGTH))
+    .max(MAX_EXTENDS_REFERENCES)
+    .optional(),
   timeouts: z.object({
     navigationMs: z.number().int().positive().max(MAX_TIMEOUT_MS),
     actionMs: z.number().int().positive().max(MAX_TIMEOUT_MS),
@@ -126,10 +160,12 @@ export const ConfigSchema = z.object({
   }),
   screenshotGallery: ScreenshotGallerySchema.optional(),
   urls: z.array(UrlTargetSchema).min(1).max(MAX_URL_TARGETS).optional(),
-  trends: TrendSettingsSchema.optional()
+  trends: TrendSettingsSchema.optional(),
+  insights: InsightSettingsSchema.optional()
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
 export type ScreenshotDefinition = z.infer<typeof ScreenshotSchema>;
 export type UrlTarget = z.infer<typeof UrlTargetSchema>;
 export type TrendSettings = z.infer<typeof TrendSettingsSchema>;
+export type InsightSettings = z.infer<typeof InsightSettingsSchema>;

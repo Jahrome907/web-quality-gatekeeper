@@ -79,6 +79,9 @@ describe("phase4 trend lifecycle", () => {
     expect(second.summaryV2.trend.metrics?.failedPages.delta).toBe(1);
     expect(second.summaryV2.trend.metrics?.a11yViolations.delta).toBe(2);
     expect(second.summaryV2.trend.pages[0]?.a11yViolations.delta).toBe(2);
+    expect(second.summaryV2.trend.pages[0]?.performanceScore.current).toBeNull();
+    expect(second.summaryV2.trend.pages[0]?.performanceScore.delta).toBeNull();
+    expect(second.summaryV2.trend.pages[0]?.maxMismatchRatio.current).toBeNull();
     expect(second.summaryV2.trend.pages[0]?.statusChanged).toBe(true);
   });
 

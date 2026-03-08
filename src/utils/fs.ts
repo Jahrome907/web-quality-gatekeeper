@@ -1,5 +1,6 @@
-import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
-import { dirname, resolve, relative, isAbsolute } from "node:path";
+import { randomUUID } from "node:crypto";
+import { copyFile, mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 /**
  * Validates that a target path is safely within a base directory.
@@ -53,15 +54,32 @@ export async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+async function writeFileAtomic(path: string, content: string): Promise<void> {
+  const outputDir = dirname(path);
+  await ensureDir(outputDir);
+
+  const tempPath = join(outputDir, `.${basename(path)}.${process.pid}.${randomUUID()}.tmp`);
+
+  try {
+    await writeFile(tempPath, content, "utf8");
+    await rename(tempPath, path);
+  } catch (error) {
+    try {
+      await unlink(tempPath);
+    } catch {
+      // Best effort cleanup only.
+    }
+    throw error;
+  }
+}
+
 export async function writeJson(path: string, data: unknown): Promise<void> {
-  await ensureDir(dirname(path));
   const content = JSON.stringify(data, null, 2);
-  await writeFile(path, content, "utf8");
+  await writeFileAtomic(path, content);
 }
 
 export async function writeText(path: string, content: string): Promise<void> {
-  await ensureDir(dirname(path));
-  await writeFile(path, content, "utf8");
+  await writeFileAtomic(path, content);
 }
 
 export async function copyFileSafe(source: string, destination: string): Promise<void> {

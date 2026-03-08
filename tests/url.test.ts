@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { UsageError, validateUrl } from "../src/utils/url.js";
+import { UsageError, classifyTargetUrl, isInternalIpAddress, validateUrl } from "../src/utils/url.js";
 
 describe("validateUrl edge cases", () => {
   it("normalizes trailing slash", () => {
@@ -49,5 +49,27 @@ describe("validateUrl edge cases", () => {
   it("rejects non-http schemes", () => {
     expect(() => validateUrl("ws://example.com/socket")).toThrow("Invalid URL");
     expect(() => validateUrl("data:text/plain,hello")).toThrow("Invalid URL");
+    expect(() => validateUrl("httpx://example.com")).toThrow("Invalid URL");
+    expect(() => validateUrl("httpsx://example.com")).toThrow("Invalid URL");
+  });
+
+  it("detects private IPv4 ranges in IP classifier", () => {
+    expect(isInternalIpAddress("10.0.0.12")).toBe(true);
+    expect(isInternalIpAddress("172.31.255.254")).toBe(true);
+    expect(isInternalIpAddress("192.168.12.34")).toBe(true);
+    expect(isInternalIpAddress("8.8.8.8")).toBe(false);
+  });
+
+  it("detects private IPv6 ranges in IP classifier", () => {
+    expect(isInternalIpAddress("::1")).toBe(true);
+    expect(isInternalIpAddress("fe80::1")).toBe(true);
+    expect(isInternalIpAddress("fc00::abcd")).toBe(true);
+    expect(isInternalIpAddress("2606:4700:4700::1111")).toBe(false);
+  });
+
+  it("classifies literal internal targets without DNS lookups", async () => {
+    const result = await classifyTargetUrl("http://127.0.0.1:8080");
+    expect(result.isInternal).toBe(true);
+    expect(result.reason).toBe("literal");
   });
 });

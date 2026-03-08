@@ -159,6 +159,58 @@ describe("playwright runner", () => {
     ).rejects.toThrow("browser launch failed");
   });
 
+  it("cleans up browser resources when initial navigation fails", async () => {
+    const page = createPageDouble();
+    page.goto.mockRejectedValue(new Error("navigation failed"));
+    const closePage = vi.fn().mockResolvedValue(undefined);
+    const closeContext = vi.fn().mockResolvedValue(undefined);
+    const closeBrowser = vi.fn().mockResolvedValue(undefined);
+
+    const newPage = vi.fn().mockResolvedValue({
+      ...page,
+      close: closePage
+    });
+    const newContext = vi.fn().mockResolvedValue({
+      addCookies: vi.fn().mockResolvedValue(undefined),
+      newPage,
+      close: closeContext
+    });
+    mockLaunch.mockResolvedValue({
+      newContext,
+      close: closeBrowser
+    });
+
+    const logger = { debug: vi.fn() };
+    const { openPage } = await import("../src/runner/playwright.js");
+
+    await expect(
+      openPage(
+        "https://example.com",
+        {
+          timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+          playwright: {
+            viewport: { width: 1280, height: 720 },
+            userAgent: "wqg/3.0.0",
+            locale: "en-US",
+            colorScheme: "light"
+          },
+          screenshots: [{ name: "home", path: "/", fullPage: true }],
+          lighthouse: {
+            budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+            formFactor: "desktop"
+          },
+          visual: { threshold: 0.01 },
+          toggles: { a11y: true, perf: true, visual: true }
+        } as never,
+        logger as never
+      )
+    ).rejects.toThrow("navigation failed");
+
+    expect(closePage).toHaveBeenCalledTimes(1);
+    expect(closeContext).toHaveBeenCalledTimes(1);
+    expect(closeBrowser).toHaveBeenCalledTimes(1);
+  });
+
   it("captures configured screenshots deterministically", async () => {
     const page = createPageDouble();
 

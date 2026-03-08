@@ -1,12 +1,13 @@
 import path from "node:path";
 import { readdir, readFile, unlink } from "node:fs/promises";
-import type { Config, TrendSettings, UrlTarget } from "../config/schema.js";
+import type { Config, UrlTarget } from "../config/schema.js";
 import { ensureDir, pathExists, writeJson } from "../utils/fs.js";
-import { validateUrl, UsageError } from "../utils/url.js";
+import { classifyTargetUrl, UsageError } from "../utils/url.js";
 import type { StepStatus, Summary, SummaryV2 } from "../report/summary.js";
 
 const DEFAULT_TREND_HISTORY_DIR = ".wqg-history";
 const DEFAULT_TREND_MAX_SNAPSHOTS = 90;
+const DEFAULT_TREND_DASHBOARD_WINDOW = 30;
 
 type WarningLogger = {
   warn: (message: string) => void;
@@ -29,7 +30,7 @@ export interface TargetAuditResult {
 }
 
 export interface TrendNumericDelta {
-  current: number;
+  current: number | null;
   previous: number | null;
   delta: number | null;
 }
@@ -62,6 +63,28 @@ export interface TrendDeltaSummary {
     visualFailures: TrendNumericDelta;
   } | null;
   pages: TrendPageDelta[];
+  history: {
+    window: number;
+    points: TrendHistoryPoint[];
+  } | null;
+  insights: TrendInsight[];
+}
+
+export interface TrendHistoryPoint {
+  startedAt: string;
+  overallStatus: OverallStatus;
+  durationMs: number;
+  failedPages: number;
+  a11yViolations: number;
+  performanceBudgetFailures: number;
+  visualFailures: number;
+}
+
+export interface TrendInsight {
+  id: string;
+  severity: "high" | "medium" | "low";
+  title: string;
+  recommendation: string;
 }
 
 export interface SummaryV2Rollup {
@@ -119,9 +142,18 @@ export interface AuditSummaryV2 {
     v1SchemaVersion: string;
     note: string;
   };
+  artifacts: {
+    summary: string;
+    summaryV2: string;
+    report: string;
+    trendDashboardHtml: string | null;
+    trendHistoryJson: string | null;
+    actionPlanMd: string | null;
+  };
   rollup: SummaryV2Rollup;
   pages: PageSummaryEntry[];
   trend: TrendDeltaSummary;
+  insights: SummaryV2["insights"];
 }
 
 export interface LoadedTrendSnapshot {
@@ -129,6 +161,13 @@ export interface LoadedTrendSnapshot {
   path: string | null;
   hadCorruptSnapshot: boolean;
   hadIncompatibleSnapshot: boolean;
+}
+
+export interface ResolvedTrendSettings {
+  enabled: boolean;
+  historyDir: string;
+  maxSnapshots: number;
+  dashboardWindow: number;
 }
 
 export function toRelative(outDir: string, filePath: string): string {
@@ -152,33 +191,83 @@ function toTrendDelta(current: number, previous: number | null): TrendNumericDel
   };
 }
 
-export function resolveTrendSettings(config: Config): Required<TrendSettings> {
+function toNullableTrendDelta(current: number | null, previous: number | null): TrendNumericDelta {
+  if (current === null) {
+    return {
+      current: null,
+      previous,
+      delta: null
+    };
+  }
+  return toTrendDelta(current, previous);
+}
+
+export function resolveTrendSettings(config: Config): ResolvedTrendSettings {
   return {
     enabled: config.trends?.enabled ?? false,
     historyDir: config.trends?.historyDir ?? DEFAULT_TREND_HISTORY_DIR,
-    maxSnapshots: config.trends?.maxSnapshots ?? DEFAULT_TREND_MAX_SNAPSHOTS
+    maxSnapshots: config.trends?.maxSnapshots ?? DEFAULT_TREND_MAX_SNAPSHOTS,
+    dashboardWindow: config.trends?.dashboard?.window ?? DEFAULT_TREND_DASHBOARD_WINDOW
   };
 }
 
-function normalizeTarget(raw: string, logger: WarningLogger): string {
-  const { url, isInternal } = validateUrl(raw);
-  if (isInternal) {
-    const hostname = new URL(url).hostname;
-    logger.warn(
-      `Auditing internal network address (${hostname}). ` +
-        `Ensure this is intentional. See SECURITY.md for SSRF guidance.`
-    );
-  }
-  return url;
+interface TargetResolutionPolicy {
+  allowInternalTargets: boolean;
+  blockInternalTargets: boolean;
 }
 
-export function resolveTargets(
+async function normalizeTarget(
+  raw: string,
+  logger: WarningLogger,
+  policy: TargetResolutionPolicy
+): Promise<string> {
+  const classification = await classifyTargetUrl(raw);
+  const resolvedSuffix =
+    classification.reason === "dns" && classification.resolvedAddresses.length > 0
+      ? ` (resolved: ${classification.resolvedAddresses.join(", ")})`
+      : "";
+
+  if (!policy.allowInternalTargets && policy.blockInternalTargets && classification.isInternal) {
+    throw new UsageError(
+      `Blocked internal target: ${classification.hostname}${resolvedSuffix}. ` +
+        "Set --allow-internal-targets or WQG_ALLOW_INTERNAL_TARGETS=true to override."
+    );
+  }
+
+  if (!policy.allowInternalTargets && policy.blockInternalTargets && classification.resolutionFailed) {
+    throw new UsageError(
+      `Blocked unresolved target in sensitive mode: ${classification.hostname}. ` +
+        "DNS resolution failed during SSRF safety checks. " +
+        "Set --allow-internal-targets or WQG_ALLOW_INTERNAL_TARGETS=true to override."
+    );
+  }
+
+  if (classification.resolutionFailed) {
+    logger.warn(
+      `Could not resolve ${classification.hostname} during SSRF safety checks. ` +
+        "Proceeding because this run is not in sensitive mode."
+    );
+  }
+
+  if (!classification.isInternal) {
+    return classification.url;
+  }
+
+  logger.warn(
+    `Auditing internal network address (${classification.hostname}${resolvedSuffix}). ` +
+      `Ensure this is intentional. See SECURITY.md for SSRF guidance.`
+  );
+  return classification.url;
+}
+
+export async function resolveTargets(
   inputUrl: string | undefined,
   config: Config,
   outDir: string,
   baselineDir: string,
-  logger: WarningLogger
-): ResolvedAuditTarget[] {
+  logger: WarningLogger,
+  policy: TargetResolutionPolicy
+): Promise<ResolvedAuditTarget[]> {
   const configuredTargets: UrlTarget[] = config.urls ?? [];
   if (configuredTargets.length === 0 && !inputUrl) {
     throw new UsageError("URL argument is required when config.urls is not configured");
@@ -195,8 +284,8 @@ export function resolveTargets(
         ];
 
   const isMulti = sourceTargets.length > 1;
-  return sourceTargets.map((target, index) => {
-    const normalizedUrl = normalizeTarget(target.url, logger);
+  return Promise.all(sourceTargets.map(async (target, index) => {
+    const normalizedUrl = await normalizeTarget(target.url, logger, policy);
     const slugBase = `${String(index + 1).padStart(2, "0")}-${toSlug(target.name)}`;
     const targetOutDir = isMulti ? path.join(outDir, "pages", slugBase) : outDir;
     const targetBaselineDir = isMulti ? path.join(baselineDir, "pages", slugBase) : baselineDir;
@@ -208,7 +297,71 @@ export function resolveTargets(
       outDir: targetOutDir,
       baselineDir: targetBaselineDir
     };
-  });
+  }));
+}
+
+function toHistoryPoint(snapshot: AuditSummaryV2): TrendHistoryPoint {
+  return {
+    startedAt: snapshot.startedAt,
+    overallStatus: snapshot.overallStatus,
+    durationMs: snapshot.durationMs,
+    failedPages: snapshot.rollup.failedPages,
+    a11yViolations: snapshot.rollup.a11yViolations,
+    performanceBudgetFailures: snapshot.rollup.performanceBudgetFailures,
+    visualFailures: snapshot.rollup.visualFailures
+  };
+}
+
+function buildTrendInsights(points: TrendHistoryPoint[]): TrendInsight[] {
+  if (points.length < 2) {
+    return [];
+  }
+
+  const insights: TrendInsight[] = [];
+  const latest = points[points.length - 1]!;
+  const previous = points[points.length - 2]!;
+
+  if (latest.a11yViolations > previous.a11yViolations) {
+    insights.push({
+      id: "trend:a11y-regression",
+      severity: "high",
+      title: "Accessibility violations increased",
+      recommendation: "Prioritize top accessibility remediations for impacted pages."
+    });
+  }
+
+  if (latest.performanceBudgetFailures > previous.performanceBudgetFailures) {
+    insights.push({
+      id: "trend:perf-regression",
+      severity: "medium",
+      title: "Performance budget failures increased",
+      recommendation: "Address high-savings Lighthouse opportunities before tightening budgets."
+    });
+  }
+
+  if (latest.visualFailures > previous.visualFailures) {
+    insights.push({
+      id: "trend:visual-regression",
+      severity: "medium",
+      title: "Visual mismatches increased",
+      recommendation: "Review diff artifacts and update baselines only for intentional UI changes."
+    });
+  }
+
+  const flipCount = points.slice(1).reduce((sum, point, index) => {
+    const prior = points[index]!;
+    return sum + (prior.overallStatus !== point.overallStatus ? 1 : 0);
+  }, 0);
+  if (flipCount >= 2) {
+    insights.push({
+      id: "trend:flaky-gate",
+      severity: "low",
+      title: "Gate status has flipped multiple times",
+      recommendation: "Investigate unstable tests/pages and reduce high-variance checks."
+    });
+  }
+
+  return insights;
 }
 
 function aggregateStepStatus(statuses: StepStatus[]): StepStatus {
@@ -341,13 +494,51 @@ export async function loadLatestTrendSnapshot(
   };
 }
 
+export async function loadTrendHistoryPoints(
+  historyDir: string,
+  logger: WarningLogger,
+  window: number
+): Promise<TrendHistoryPoint[]> {
+  if (!(await pathExists(historyDir))) {
+    return [];
+  }
+
+  const entries = await readdir(historyDir, { withFileTypes: true });
+  const snapshotFiles = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".summary.v2.json"))
+    .map((entry) => entry.name)
+    .sort((left, right) => left.localeCompare(right))
+    .slice(-window);
+
+  const points: TrendHistoryPoint[] = [];
+  for (const fileName of snapshotFiles) {
+    try {
+      const absolutePath = path.join(historyDir, fileName);
+      const raw = await readFile(absolutePath, "utf8");
+      const parsed = JSON.parse(raw) as unknown;
+      if (isAuditSummaryV2(parsed)) {
+        points.push(toHistoryPoint(parsed));
+      }
+    } catch {
+      logger.warn(`Ignoring unreadable trend history snapshot: ${fileName}`);
+    }
+  }
+
+  return points;
+}
+
 export function buildTrendSummary(
   current: AuditSummaryV2,
   previous: LoadedTrendSnapshot,
   outDir: string,
   historyDir: string,
-  enabled: boolean
+  enabled: boolean,
+  historyPoints: TrendHistoryPoint[],
+  dashboardWindow: number
 ): TrendDeltaSummary {
+  const historyWithCurrent = [...historyPoints, toHistoryPoint(current)].slice(-dashboardWindow);
+  const trendInsights = buildTrendInsights(historyWithCurrent);
+
   if (!enabled) {
     return {
       status: "disabled",
@@ -355,7 +546,9 @@ export function buildTrendSummary(
       previousSnapshotPath: null,
       message: null,
       metrics: null,
-      pages: []
+      pages: [],
+      history: null,
+      insights: []
     };
   }
 
@@ -377,7 +570,12 @@ export function buildTrendSummary(
       previousSnapshotPath: null,
       message,
       metrics: null,
-      pages: []
+      pages: [],
+      history: {
+        window: dashboardWindow,
+        points: historyWithCurrent
+      },
+      insights: trendInsights
     };
   }
 
@@ -395,12 +593,12 @@ export function buildTrendSummary(
       url: page.url,
       statusChanged: Boolean(previousPage && previousPage.overallStatus !== page.overallStatus),
       a11yViolations: toTrendDelta(page.metrics.a11yViolations, previousPage?.metrics.a11yViolations ?? null),
-      performanceScore: toTrendDelta(
-        page.metrics.performanceScore ?? 0,
+      performanceScore: toNullableTrendDelta(
+        page.metrics.performanceScore,
         previousPage?.metrics.performanceScore ?? null
       ),
-      maxMismatchRatio: toTrendDelta(
-        page.metrics.maxMismatchRatio ?? 0,
+      maxMismatchRatio: toNullableTrendDelta(
+        page.metrics.maxMismatchRatio,
         previousPage?.metrics.maxMismatchRatio ?? null
       )
     };
@@ -425,7 +623,12 @@ export function buildTrendSummary(
       ),
       visualFailures: toTrendDelta(current.rollup.visualFailures, previousSnapshot.rollup.visualFailures)
     },
-    pages: pageDeltas
+    pages: pageDeltas,
+    history: {
+      window: dashboardWindow,
+      points: historyWithCurrent
+    },
+    insights: trendInsights
   };
 }
 

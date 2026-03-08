@@ -110,4 +110,39 @@ describe("loadConfig", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("supports policy overlays and extends chains", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "wqg-cfg-"));
+    const cfgPath = path.join(dir, "config.json");
+    await writeFile(
+      cfgPath,
+      JSON.stringify({
+        extends: ["policy:docs"],
+        timeouts: { navigationMs: 25000, actionMs: 9000, waitAfterLoadMs: 800 },
+        playwright: {
+          viewport: { width: 1280, height: 720 },
+          userAgent: "custom-agent",
+          locale: "en-US",
+          colorScheme: "light"
+        },
+        screenshots: [{ name: "override", path: "/", fullPage: true }],
+        lighthouse: {
+          budgets: { performance: 0.81, lcpMs: 2400, cls: 0.1, tbtMs: 200 },
+          formFactor: "desktop"
+        },
+        visual: { threshold: 0.01 },
+        toggles: { a11y: true, perf: true, visual: true }
+      })
+    );
+
+    try {
+      const config = await loadConfig(cfgPath, { policy: "marketing" });
+      expect(config.screenshots[0]?.name).toBe("override");
+      expect(config.urls).toBeUndefined();
+      expect(config.trends?.dashboard?.window).toBe(45);
+      expect(config.insights?.enabled).toBe(true);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

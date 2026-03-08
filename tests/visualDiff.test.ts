@@ -165,6 +165,40 @@ describe("runVisualDiff", () => {
     }
   });
 
+  it("backfills checksum manifest for existing baselines without reset", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+
+    const baseline = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    const current = new PNG({ width: 2, height: 2 });
+    current.data.fill(255);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger
+      );
+
+      expect(summary.failed).toBe(false);
+      const manifestRaw = await readFile(path.join(baselineDir, "baseline-manifest.json"), "utf8");
+      const manifest = JSON.parse(manifestRaw) as { checksums: Record<string, string> };
+      expect(manifest.checksums["home.png"]).toHaveLength(64);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("handles dimension mismatch by normalizing to max width and height", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();
@@ -317,7 +351,92 @@ describe("runVisualDiff", () => {
     }
   });
 
-  it.todo(
-    "ignore regions mask excluded areas before mismatch calculation [Owner: Agent 1] [Tracking: VISDIFF-IGNORE-REGIONS-TODO] [Issue: unassigned] [Acceptance: close when runVisualDiff applies configured ignoreRegions masks and this test proves masked pixels do not contribute to mismatchRatio]"
-  );
+  it("masks ignore regions so excluded pixels do not contribute to mismatch", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+
+    const baseline = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    const current = new PNG({ width: 2, height: 2 });
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        {
+          ignoreRegions: [
+            { x: 0, y: 0, width: 1, height: 1 },
+            { x: 10, y: 10, width: 5, height: 5 }
+          ]
+        }
+      );
+
+      expect(summary.failed).toBe(false);
+      expect(summary.results[0]?.mismatchRatio).toBe(0);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("applies configured pixelmatch threshold", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+
+    const baseline = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    const current = new PNG({ width: 2, height: 2 });
+    current.data.fill(255);
+    setPixel(current, 0, 0, [200, 200, 200, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+
+    try {
+      const lowSensitivity = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        1,
+        logger,
+        {
+          pixelmatch: { threshold: 0 }
+        }
+      );
+      const highSensitivity = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        1,
+        logger,
+        {
+          pixelmatch: { threshold: 1 }
+        }
+      );
+
+      expect(lowSensitivity.results[0]?.mismatchRatio).toBeGreaterThan(0);
+      expect(highSensitivity.results[0]?.mismatchRatio).toBeLessThanOrEqual(
+        lowSensitivity.results[0]?.mismatchRatio ?? 1
+      );
+      expect(highSensitivity.results[0]?.mismatchRatio).toBe(0);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
 });

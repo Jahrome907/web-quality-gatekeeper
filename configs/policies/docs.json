@@ -1,0 +1,19 @@
+{
+  "screenshots": [
+    { "name": "docs-home", "path": "/docs", "fullPage": true },
+    { "name": "getting-started", "path": "/docs/getting-started", "fullPage": true },
+    { "name": "api-reference", "path": "/docs/api", "fullPage": true }
+  ],
+  "lighthouse": {
+    "budgets": { "performance": 0.8, "lcpMs": 2600, "cls": 0.12, "tbtMs": 220 },
+    "formFactor": "desktop"
+  },
+  "visual": { "threshold": 0.015 },
+  "trends": {
+    "enabled": true,
+    "historyDir": ".wqg-history",
+    "maxSnapshots": 90,
+    "dashboard": { "window": 45 }
+  },
+  "insights": { "enabled": true }
+}

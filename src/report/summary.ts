@@ -7,7 +7,7 @@ export const SCHEMA_VERSION = "1.1.0";
 export const SUMMARY_SCHEMA_URI =
   "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json";
 
-export const SCHEMA_VERSION_V2 = "2.0.0";
+export const SCHEMA_VERSION_V2 = "2.2.0";
 export const SUMMARY_SCHEMA_URI_V2 =
   "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json";
 
@@ -25,6 +25,31 @@ export interface ArtifactPaths {
 
 export interface ArtifactPathsV2 extends ArtifactPaths {
   summaryV2: string;
+}
+
+export type InsightSource = "a11y" | "perf" | "visual" | "runtime" | "trend";
+export type InsightSeverity = "critical" | "high" | "medium" | "low";
+
+export interface InsightReference {
+  label: string;
+  url: string;
+}
+
+export interface RemediationInsight {
+  id: string;
+  source: InsightSource;
+  severity: InsightSeverity;
+  title: string;
+  why: string;
+  evidence: string[];
+  remediation: string[];
+  verification: string[];
+  expectedImpact: string;
+  references: InsightReference[];
+}
+
+export interface InsightsSummary {
+  recommendations: RemediationInsight[];
 }
 
 export interface Summary {
@@ -68,6 +93,7 @@ export interface SummaryV2 {
   performance: LighthouseSummary | null;
   visual: VisualDiffSummary | null;
   runtimeSignals: RuntimeSignalSummary;
+  insights?: InsightsSummary | null;
 }
 
 export interface SummaryOptions {
@@ -180,6 +206,7 @@ export function buildSummaryV2(params: {
   performance: LighthouseSummary | null;
   visual: VisualDiffSummary | null;
   runtimeSignals: RuntimeSignalSummary;
+  insights?: InsightsSummary | null;
   artifacts: ArtifactPathsV2;
   options: SummaryOptions;
 }): SummaryV2 {
@@ -204,6 +231,7 @@ export function buildSummaryV2(params: {
     a11y: params.a11y,
     performance: params.performance,
     visual: params.visual,
-    runtimeSignals: params.runtimeSignals
+    runtimeSignals: params.runtimeSignals,
+    insights: params.insights ?? null
   };
 }

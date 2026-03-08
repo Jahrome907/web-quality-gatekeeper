@@ -3,7 +3,7 @@ import type { Summary, SummaryV2, StepStatus } from "./summary.js";
 type OverallStatus = "pass" | "fail";
 
 interface TrendNumericDelta {
-  current: number;
+  current: number | null;
   previous: number | null;
   delta: number | null;
 }
@@ -83,6 +83,7 @@ interface AggregateSummaryV2Like {
   rollup: SummaryV2Rollup;
   pages: PageSummaryEntry[];
   trend: TrendDeltaSummary;
+  insights?: SummaryV2["insights"];
 }
 
 const BADGE_COLORS: Record<StepStatus | OverallStatus, string> = {
@@ -98,7 +99,10 @@ function badge(label: string, status: StepStatus | OverallStatus): string {
   return `![${label}: ${status.toUpperCase()}](https://img.shields.io/badge/${encodedLabel}-${encodedStatus}-${color})`;
 }
 
-function formatNumber(value: number, digits: number = 2): string {
+function formatNumber(value: number | null, digits: number = 2): string {
+  if (value === null || !Number.isFinite(value)) {
+    return "n/a";
+  }
   return Number(value.toFixed(digits)).toString();
 }
 
@@ -216,6 +220,24 @@ function renderTrendSection(lines: string[], trend: TrendDeltaSummary): void {
   }
 }
 
+function renderInsightsSection(lines: string[], details: SummaryV2): void {
+  const recommendations = details.insights?.recommendations ?? [];
+  if (recommendations.length === 0) {
+    return;
+  }
+
+  lines.push("### Action Plan");
+  lines.push("");
+  lines.push("| Priority | Source | Severity | Recommendation | Expected impact |");
+  lines.push("|---:|---|---|---|---|");
+  recommendations.slice(0, 10).forEach((item, index) => {
+    lines.push(
+      `| ${index + 1} | ${item.source} | ${item.severity} | ${item.title} | ${item.expectedImpact} |`
+    );
+  });
+  lines.push("");
+}
+
 function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
   const lines: string[] = [];
 
@@ -243,6 +265,19 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
   lines.push("");
 
   renderTrendSection(lines, summary.trend);
+
+  if (summary.insights?.recommendations?.length) {
+    lines.push("## Action Plan");
+    lines.push("");
+    lines.push("| Priority | Source | Severity | Recommendation | Expected impact |");
+    lines.push("|---:|---|---|---|---|");
+    summary.insights.recommendations.slice(0, 10).forEach((item, index) => {
+      lines.push(
+        `| ${index + 1} | ${item.source} | ${item.severity} | ${item.title} | ${item.expectedImpact} |`
+      );
+    });
+    lines.push("");
+  }
 
   lines.push("## Pages");
   lines.push("");
@@ -356,6 +391,7 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
     lines.push(`| Failed requests | ${details.runtimeSignals.network.failedRequests} |`);
     lines.push(`| Network requests | ${details.runtimeSignals.network.totalRequests} |`);
     lines.push("");
+    renderInsightsSection(lines, details);
   }
 
   return lines.join("\n");

@@ -721,15 +721,21 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
   const root = summary as unknown as Record<string, unknown>;
   const runtimeSignals = toRecord(root.runtimeSignals);
   const runtimeNetwork = toRecord(runtimeSignals?.network);
+  const insightsRecord = toRecord((summary as unknown as Record<string, unknown>).insights);
+  const insightRecommendations = Array.isArray(insightsRecord?.recommendations)
+    ? insightsRecord.recommendations
+        .map((entry) => toRecord(entry))
+        .filter((entry): entry is Record<string, unknown> => entry !== null)
+    : [];
 
   // Executive summary.
   const a11yRows = a11y
     ? `
-      <tr><th>Total violations</th><td>${a11y.violations}</td></tr>
-      <tr><th>Critical</th><td>${a11y.countsByImpact.critical}</td></tr>
-      <tr><th>Serious</th><td>${a11y.countsByImpact.serious}</td></tr>
-      <tr><th>Moderate</th><td>${a11y.countsByImpact.moderate}</td></tr>
-      <tr><th>Minor</th><td>${a11y.countsByImpact.minor}</td></tr>
+      <tr><th scope="row">Total violations</th><td>${a11y.violations}</td></tr>
+      <tr><th scope="row">Critical</th><td>${a11y.countsByImpact.critical}</td></tr>
+      <tr><th scope="row">Serious</th><td>${a11y.countsByImpact.serious}</td></tr>
+      <tr><th scope="row">Moderate</th><td>${a11y.countsByImpact.moderate}</td></tr>
+      <tr><th scope="row">Minor</th><td>${a11y.countsByImpact.minor}</td></tr>
     `
     : `<tr><td colspan="2">Skipped</td></tr>`;
 
@@ -1076,6 +1082,57 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
           .join("")
       : "";
 
+  const insightMarkup =
+    insightRecommendations.length > 0
+      ? insightRecommendations
+          .slice(0, 10)
+          .map((insight, index) => {
+            const title = toStringValue(insight.title) ?? `Recommendation ${index + 1}`;
+            const source = toStringValue(insight.source) ?? "unknown";
+            const severity = (toStringValue(insight.severity) ?? "low").toLowerCase();
+            const why = toStringValue(insight.why) ?? "No rationale provided.";
+            const expectedImpact = toStringValue(insight.expectedImpact) ?? "No impact estimate provided.";
+            const remediationList = Array.isArray(insight.remediation)
+              ? insight.remediation
+                  .map((step) => toStringValue(step))
+                  .filter((step): step is string => Boolean(step))
+                  .map((step) => `<li>${escapeHtml(step)}</li>`)
+                  .join("")
+              : "";
+            const evidenceList = Array.isArray(insight.evidence)
+              ? insight.evidence
+                  .map((item) => toStringValue(item))
+                  .filter((item): item is string => Boolean(item))
+                  .map((item) => `<li>${escapeHtml(item)}</li>`)
+                  .join("")
+              : "";
+            return `
+              <article class="violation-item">
+                <div class="violation-content">
+                  <p>
+                    <span class="rule-id">${escapeHtml(title)}</span>
+                    <span class="impact-badge ${escapeHtml(severity)}">${escapeHtml(severity)}</span>
+                    <span class="node-count">${escapeHtml(source)}</span>
+                  </p>
+                  <p>${escapeHtml(why)}</p>
+                  <p class="violation-help"><strong>Expected impact:</strong> ${escapeHtml(expectedImpact)}</p>
+                  ${
+                    evidenceList.length > 0
+                      ? `<p><strong>Evidence</strong></p><ul class="node-list">${evidenceList}</ul>`
+                      : ""
+                  }
+                  ${
+                    remediationList.length > 0
+                      ? `<p><strong>Remediation</strong></p><ul class="node-list">${remediationList}</ul>`
+                      : ""
+                  }
+                </div>
+              </article>
+            `;
+          })
+          .join("")
+      : `<p class="muted">No remediation recommendations were generated for this run.</p>`;
+
   return `<!doctype html>
 <html lang="en" data-report-view="detailed">
 <head>
@@ -1217,6 +1274,12 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       padding: 8px 14px;
       cursor: pointer;
       font: inherit;
+    }
+
+    .theme-toggle:focus-visible,
+    .view-toggle:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--accent) 68%, transparent);
+      outline-offset: 2px;
     }
 
     .view-toggle-group {
@@ -2284,6 +2347,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     <nav class="jump-nav" aria-label="Report sections">
       <ul class="jump-nav-list">
         <li><a class="jump-nav-link" href="#overview">Overview</a></li>
+        <li><a class="jump-nav-link" href="#action-plan">Action Plan</a></li>
         <li><a class="jump-nav-link" href="#category-scores">Scores</a></li>
         <li><a class="jump-nav-link" href="#core-web-vitals">Vitals</a></li>
         <li><a class="jump-nav-link" href="#playwright-captures">Screenshots</a></li>
@@ -2306,6 +2370,16 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
           <button class="view-toggle" data-view-mode="simple" type="button" aria-pressed="false">Simple view</button>
           <button class="view-toggle" data-view-mode="detailed" type="button" aria-pressed="true">Detailed view</button>
         </div>
+        <button
+          id="shortcuts-toggle"
+          class="theme-toggle"
+          type="button"
+          aria-controls="shortcuts-overlay"
+          aria-expanded="false"
+          aria-haspopup="dialog"
+        >
+          Keyboard shortcuts
+        </button>
         <button id="copy-summary" class="theme-toggle" type="button" aria-label="Copy report summary to clipboard">Copy summary</button>
         <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false">Toggle dark mode</button>
       </div>
@@ -2327,6 +2401,12 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         <div class="summary-point">Visual step: ${statusPill(summary.steps.visual)}</div>
         <div class="summary-point">Captured screenshots: ${summary.screenshots.length}</div>
       </div>
+    </section>
+
+    <section id="action-plan" class="section card" data-view-section="simple">
+      <h2>Action Plan</h2>
+      <p class="muted">Prioritized remediation guidance generated from accessibility, performance, visual, and runtime failures.</p>
+      ${insightMarkup}
     </section>
 
     <div class="grid">
@@ -2428,11 +2508,11 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       <table>
         <thead>
           <tr>
-            <th>Opportunity</th>
-            <th>Score</th>
-            <th>Savings (ms)</th>
-            <th>Savings (bytes)</th>
-            <th>Display value</th>
+            <th scope="col">Opportunity</th>
+            <th scope="col">Score</th>
+            <th scope="col">Savings (ms)</th>
+            <th scope="col">Savings (bytes)</th>
+            <th scope="col">Display value</th>
           </tr>
         </thead>
         <tbody>
@@ -2467,7 +2547,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
           }
           <table>
             <thead>
-              <tr><th>Message</th><th>Source</th><th>Location</th></tr>
+              <tr><th scope="col">Message</th><th scope="col">Source</th><th scope="col">Location</th></tr>
             </thead>
             <tbody>${consoleRows}</tbody>
           </table>
@@ -2482,7 +2562,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
           }
           <table>
             <thead>
-              <tr><th>Message</th><th>Source</th><th>Location</th></tr>
+              <tr><th scope="col">Message</th><th scope="col">Source</th><th scope="col">Location</th></tr>
             </thead>
             <tbody>${jsRows}</tbody>
           </table>
@@ -2509,10 +2589,10 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       <table>
         <thead>
           <tr>
-            <th>Resource type</th>
-            <th>Transfer size</th>
-            <th>Requests</th>
-            <th>Share</th>
+            <th scope="col">Resource type</th>
+            <th scope="col">Transfer size</th>
+            <th scope="col">Requests</th>
+            <th scope="col">Share</th>
           </tr>
         </thead>
         <tbody>
@@ -2536,12 +2616,12 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       <h2 style="margin:0 0 16px;font-size:18px;">Keyboard Shortcuts</h2>
       <table>
         <tbody>
-          <tr><th><kbd>?</kbd></th><td>Show this help</td></tr>
-          <tr><th><kbd>t</kbd></th><td>Toggle dark / light mode</td></tr>
-          <tr><th><kbd>s</kbd></th><td>Switch to simple view</td></tr>
-          <tr><th><kbd>d</kbd></th><td>Switch to detailed view</td></tr>
-          <tr><th><kbd>c</kbd></th><td>Copy report summary</td></tr>
-          <tr><th><kbd>Esc</kbd></th><td>Close overlays</td></tr>
+          <tr><th scope="row"><kbd>?</kbd></th><td>Show this help</td></tr>
+          <tr><th scope="row"><kbd>t</kbd></th><td>Toggle dark / light mode</td></tr>
+          <tr><th scope="row"><kbd>s</kbd></th><td>Switch to simple view</td></tr>
+          <tr><th scope="row"><kbd>d</kbd></th><td>Switch to detailed view</td></tr>
+          <tr><th scope="row"><kbd>c</kbd></th><td>Copy report summary</td></tr>
+          <tr><th scope="row"><kbd>Esc</kbd></th><td>Close overlays</td></tr>
         </tbody>
       </table>
     </div>
@@ -2552,6 +2632,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       const viewKey = "wqg-view";
       const root = document.documentElement;
       const themeButton = document.getElementById("theme-toggle");
+      const shortcutsButton = document.getElementById("shortcuts-toggle");
       const copyButton = document.getElementById("copy-summary");
       const viewButtons = Array.from(document.querySelectorAll("[data-view-mode]"));
       const gaugeButtons = Array.from(document.querySelectorAll(".gauge-trigger"));
@@ -2784,6 +2865,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         if (!shortcutsOverlay) return;
         shortcutsOverlay.setAttribute("hidden", "true");
         shortcutsOverlay.setAttribute("aria-hidden", "true");
+        if (shortcutsButton) shortcutsButton.setAttribute("aria-expanded", "false");
         if (lastFocused && typeof lastFocused.focus === "function") lastFocused.focus();
       };
 
@@ -2792,9 +2874,18 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         lastFocused = document.activeElement;
         shortcutsOverlay.removeAttribute("hidden");
         shortcutsOverlay.setAttribute("aria-hidden", "false");
+        if (shortcutsButton) shortcutsButton.setAttribute("aria-expanded", "true");
         const closeBtn = shortcutsOverlay.querySelector(".lightbox-close");
         if (closeBtn) closeBtn.focus();
       };
+
+      if (shortcutsButton) {
+        shortcutsButton.addEventListener("click", () => {
+          if (!shortcutsOverlay) return;
+          if (shortcutsOverlay.hasAttribute("hidden")) openShortcuts();
+          else closeShortcuts();
+        });
+      }
 
       if (shortcutsOverlay) {
         shortcutsOverlay.addEventListener("click", (event) => {

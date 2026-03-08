@@ -1,0 +1,18 @@
+{
+  "screenshots": [
+    { "name": "home-hero", "path": "/", "fullPage": true },
+    { "name": "pricing-table", "path": "/pricing", "fullPage": true },
+    { "name": "contact-form", "path": "/contact", "fullPage": true }
+  ],
+  "lighthouse": {
+    "budgets": { "performance": 0.85, "lcpMs": 2200, "cls": 0.1, "tbtMs": 180 },
+    "formFactor": "desktop"
+  },
+  "trends": {
+    "enabled": true,
+    "historyDir": ".wqg-history",
+    "maxSnapshots": 90,
+    "dashboard": { "window": 30 }
+  },
+  "insights": { "enabled": true }
+}

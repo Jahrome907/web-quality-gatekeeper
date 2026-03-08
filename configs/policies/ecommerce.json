@@ -1,0 +1,20 @@
+{
+  "screenshots": [
+    { "name": "home", "path": "/", "fullPage": true },
+    { "name": "product", "path": "/product", "fullPage": true },
+    { "name": "cart", "path": "/cart", "fullPage": true },
+    { "name": "checkout", "path": "/checkout", "fullPage": true }
+  ],
+  "lighthouse": {
+    "budgets": { "performance": 0.82, "lcpMs": 2300, "cls": 0.08, "tbtMs": 200 },
+    "formFactor": "mobile"
+  },
+  "visual": { "threshold": 0.01 },
+  "trends": {
+    "enabled": true,
+    "historyDir": ".wqg-history",
+    "maxSnapshots": 120,
+    "dashboard": { "window": 30 }
+  },
+  "insights": { "enabled": true }
+}

@@ -1,8 +1,4 @@
-import { createRequire } from "node:module";
 import type { Config } from "./schema.js";
-
-const require = createRequire(import.meta.url);
-const pkg = require("../../package.json") as { version: string };
 
 export const defaultConfig: Config = {
   timeouts: {
@@ -15,7 +11,7 @@ export const defaultConfig: Config = {
       width: 1280,
       height: 720
     },
-    userAgent: `wqg/${pkg.version}`,
+    userAgent: "wqg",
     locale: "en-US",
     colorScheme: "light"
   },
@@ -27,8 +23,8 @@ export const defaultConfig: Config = {
     }
   ],
   screenshotGallery: {
-    enabled: true,
-    maxScreenshotsPerPath: 20
+    enabled: false,
+    maxScreenshotsPerPath: 12
   },
   lighthouse: {
     budgets: {
@@ -46,5 +42,16 @@ export const defaultConfig: Config = {
     a11y: true,
     perf: true,
     visual: true
+  },
+  trends: {
+    enabled: false,
+    historyDir: ".wqg-history",
+    maxSnapshots: 90,
+    dashboard: {
+      window: 30
+    }
+  },
+  insights: {
+    enabled: true
   }
 };

@@ -6,11 +6,15 @@
   <title>Web Quality Gatekeeper</title>
   <style>
     :root {
-      --bg: #f6f7fb;
-      --text: #1f2933;
-      --muted: #667085;
-      --accent: #2f80ed;
-      --border: #e4e7ec;
+      --bg: #f5f8ff;
+      --bg-deep: #eaf0ff;
+      --card: #ffffff;
+      --text: #1e2a3a;
+      --muted: #516074;
+      --accent: #1868db;
+      --accent-soft: #d9e7ff;
+      --border: #d6deeb;
+      --shadow: 0 18px 40px rgba(14, 29, 54, 0.08);
     }
 
     * {
@@ -21,48 +25,92 @@
 
     body {
       font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-      background: linear-gradient(120deg, #f6f7fb 0%, #eef3ff 60%, #fef6ee 100%);
+      line-height: 1.45;
+      background:
+        radial-gradient(circle at 20% 0%, #ffffff 0%, transparent 48%),
+        radial-gradient(circle at 86% 6%, rgba(24, 104, 219, 0.12) 0%, transparent 34%),
+        linear-gradient(135deg, var(--bg) 0%, var(--bg-deep) 56%, #fff5e9 100%);
       color: var(--text);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
+    .skip-link {
+      position: absolute;
+      left: 16px;
+      top: -44px;
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      z-index: 100;
+      transition: top 120ms ease;
+    }
+
+    .skip-link:focus {
+      top: 12px;
+      outline: 2px solid #fff;
+      outline-offset: 2px;
+    }
+
     .container {
-      max-width: 720px;
+      width: min(920px, 100%);
       margin: 0 auto;
-      padding: 48px 24px;
+      padding: 44px 24px 56px;
       flex: 1;
+    }
+
+    .hero {
+      background: color-mix(in srgb, var(--card) 94%, var(--accent-soft) 6%);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 28px;
     }
 
     h1 {
       font-size: 32px;
-      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
     }
 
     .tagline {
       color: var(--muted);
       font-size: 18px;
-      margin-bottom: 32px;
+      max-width: 62ch;
+    }
+
+    section {
+      margin-bottom: 26px;
+    }
+
+    h2 {
+      font-size: 22px;
+      margin-bottom: 12px;
     }
 
     .features {
+      list-style: none;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-bottom: 32px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
     }
 
     .feature {
-      background: #fff;
+      background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 8px 22px rgba(16, 30, 52, 0.05);
     }
 
     .feature h3 {
       font-size: 16px;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
 
     .feature p {
@@ -71,27 +119,59 @@
     }
 
     pre {
-      background: #1f2933;
-      color: #e4e7ec;
+      background: #172537;
+      color: #e6edf8;
       padding: 16px;
-      border-radius: 8px;
+      border-radius: 12px;
+      border: 1px solid #1e3b5f;
       overflow-x: auto;
       font-size: 14px;
-      margin-bottom: 24px;
+      box-shadow: 0 10px 24px rgba(10, 20, 34, 0.2);
     }
 
     a {
       color: var(--accent);
+      text-decoration-thickness: 1.5px;
+      text-underline-offset: 2px;
+    }
+
+    a:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    .repo-link {
+      color: var(--muted);
+      font-size: 15px;
     }
 
     footer {
       text-align: center;
-      padding: 24px;
+      padding: 20px 24px 28px;
       color: var(--muted);
       font-size: 14px;
+      border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+      background: color-mix(in srgb, #fff 72%, var(--bg) 28%);
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 760px) {
+      .container {
+        padding: 30px 16px 44px;
+      }
+
+      .hero {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
       .features {
         grid-template-columns: 1fr;
       }
@@ -99,37 +179,53 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Web Quality Gatekeeper</h1>
-    <p class="tagline">Automated quality gates for web projects — accessibility, performance, and visual regression in one CLI.</p>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <main id="main-content" class="container">
+    <header class="hero">
+      <h1>Web Quality Gatekeeper</h1>
+      <p class="tagline">Automated quality gates for web projects — accessibility, performance, and visual regression in one CLI.</p>
+    </header>
 
-    <div class="features">
-      <div class="feature">
-        <h3>Playwright Smoke</h3>
-        <p>Headless browser screenshots with deterministic rendering.</p>
-      </div>
-      <div class="feature">
-        <h3>axe Accessibility</h3>
-        <p>WCAG compliance scanning with severity counts.</p>
-      </div>
-      <div class="feature">
-        <h3>Lighthouse Perf</h3>
-        <p>Budget enforcement for score, LCP, CLS, and TBT.</p>
-      </div>
-      <div class="feature">
-        <h3>Visual Regression</h3>
-        <p>Pixel-level diff against committed baselines.</p>
-      </div>
-    </div>
+    <section aria-labelledby="features-title">
+      <h2 id="features-title">Core Checks</h2>
+      <ul class="features">
+        <li class="feature">
+          <h3>Playwright Smoke</h3>
+          <p>Headless browser screenshots with deterministic rendering.</p>
+        </li>
+        <li class="feature">
+          <h3>axe Accessibility</h3>
+          <p>WCAG compliance scanning with severity counts.</p>
+        </li>
+        <li class="feature">
+          <h3>Lighthouse Perf</h3>
+          <p>Budget enforcement for score, LCP, CLS, and TBT.</p>
+        </li>
+        <li class="feature">
+          <h3>Visual Regression</h3>
+          <p>Pixel-level diff against committed baselines.</p>
+        </li>
+        <li class="feature">
+          <h3>Security-Aware Target Policy</h3>
+          <p>Blocks internal/private targets in CI or authenticated runs unless explicitly allowed.</p>
+        </li>
+        <li class="feature">
+          <h3>Runtime Vulnerability Gate</h3>
+          <p>CI enforces high/critical runtime dependency audits with expiring exceptions.</p>
+        </li>
+      </ul>
+    </section>
 
-    <h2>Quickstart</h2>
-    <pre><code>npm ci
+    <section aria-labelledby="quickstart-title">
+      <h2 id="quickstart-title">Quickstart</h2>
+      <pre><code>npm ci
 npx playwright install
 npm run build
 npx wqg audit https://example.com</code></pre>
+    </section>
 
-    <p>See the <a href="https://github.com/Jahrome907/web-quality-gatekeeper">GitHub repository</a> for full documentation.</p>
-  </div>
+    <p class="repo-link">See the <a href="https://github.com/Jahrome907/web-quality-gatekeeper">GitHub repository</a> for full documentation.</p>
+  </main>
   <footer>
     MIT &middot; <a href="https://github.com/Jahrome907">Jahrome907</a>
   </footer>

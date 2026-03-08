@@ -19,6 +19,52 @@ const FIXTURE_DIR = path.join(ROOT, "tests", "fixtures", "site");
 const TEST_CONFIG = path.join(ROOT, "tests", "fixtures", "integration-config.json");
 const SUMMARY_SCHEMA = path.join(ROOT, "schemas", "summary.v1.json");
 
+interface CliResult {
+  status: number;
+  stdout: string;
+  stderr: string;
+}
+
+function normalizeOutput(output: string | Buffer | null | undefined): string {
+  if (typeof output === "string") {
+    return output;
+  }
+  if (output instanceof Buffer) {
+    return output.toString("utf8");
+  }
+  return "";
+}
+
+async function runCli(
+  args: string[],
+  timeout: number = 60000,
+  envOverrides: Record<string, string> = {}
+): Promise<CliResult> {
+  try {
+    const { stdout, stderr } = await execFileAsync("node", [CLI, ...args], {
+      cwd: ROOT,
+      timeout,
+      encoding: "utf8",
+      env: { ...process.env, NO_COLOR: "1", ...envOverrides }
+    });
+    return { status: 0, stdout, stderr };
+  } catch (error) {
+    const err = error as {
+      code?: number | string;
+      status?: number;
+      stdout?: string | Buffer;
+      stderr?: string | Buffer;
+    };
+    const status =
+      typeof err.code === "number" ? err.code : (err.status ?? 1);
+    return {
+      status,
+      stdout: normalizeOutput(err.stdout),
+      stderr: normalizeOutput(err.stderr)
+    };
+  }
+}
+
 /**
  * Starts a static file server for the fixture site.
  * Avoids any external network dependency.
@@ -87,6 +133,20 @@ describe("CLI integration", () => {
   let baseUrl: string;
   let outDir: string;
 
+  function buildAuditArgs(extraArgs: string[] = []): string[] {
+    return [
+      "audit",
+      baseUrl,
+      "--out", outDir,
+      "--no-fail-on-a11y",
+      "--no-fail-on-perf",
+      "--no-fail-on-visual",
+      "--config", TEST_CONFIG,
+      "--baseline-dir", path.join(outDir, "baselines"),
+      ...extraArgs
+    ];
+  }
+
   beforeAll(async () => {
     // Ensure CLI artifact is current for deterministic integration behavior.
     execFileSync("npm", ["run", "build"], {
@@ -113,23 +173,11 @@ describe("CLI integration", () => {
   });
 
   it("produces valid summary.json with expected schema", async () => {
-    // Run the CLI against the local fixture server.
-    // Uses async execFile so the event loop can serve fixture requests.
-    await execFileAsync("node", [
-      CLI,
-      "audit",
-      baseUrl,
-      "--out", outDir,
-      "--no-fail-on-a11y",
-      "--no-fail-on-perf",
-      "--no-fail-on-visual",
-      "--config", TEST_CONFIG,
-      "--baseline-dir", path.join(outDir, "baselines"),
-    ], {
-      cwd: ROOT,
-      timeout: 60000,
-      env: { ...process.env, NO_COLOR: "1" },
-    });
+    // Run the CLI against the local fixture server. Default/html mode should
+    // write artifacts without printing markdown/json payloads to stdout.
+    const run = await runCli(buildAuditArgs(), 60000);
+    expect(run.status).toBe(0);
+    expect(run.stdout.trim()).toBe("");
 
     // --- Assert artifact files exist ---
     const summaryPath = path.join(outDir, "summary.json");
@@ -187,20 +235,51 @@ describe("CLI integration", () => {
     }
   }, 90000);
 
-  it("returns exit code 2 for invalid URL", () => {
-    try {
-      execFileSync("node", [CLI, "audit", "not-a-url"], {
-        cwd: ROOT,
-        timeout: 10000,
-        env: { ...process.env, NO_COLOR: "1" },
-      });
-      expect.fail("should have thrown");
-    } catch (error) {
-      const err = error as { status: number; stderr: Buffer };
-      expect(err.status).toBe(2);
-      expect(err.stderr.toString()).toContain("Invalid URL");
-    }
+  it("returns exit code 2 for invalid URL", async () => {
+    const run = await runCli(["audit", "not-a-url"], 10000);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain("Invalid URL");
   }, 15000);
+
+  it("returns exit code 2 for invalid --format", async () => {
+    const run = await runCli(["audit", baseUrl, "--format", "xml"], 10000);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain("Invalid format: xml. Use json, html, or md");
+  }, 15000);
+
+  it("returns exit code 2 for malformed --header input", async () => {
+    const run = await runCli(["audit", baseUrl, "--header", "Authorization token"], 10000);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain(
+      'Invalid --header value: Authorization token. Expected "Name: Value".'
+    );
+  }, 15000);
+
+  it("returns exit code 2 for malformed --cookie input", async () => {
+    const run = await runCli(["audit", baseUrl, "--cookie", "session"], 10000);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain(
+      'Invalid --cookie value: session. Expected "name=value".'
+    );
+  }, 15000);
+
+  it("prints v1 JSON summary to stdout for --format json", async () => {
+    const run = await runCli(buildAuditArgs(["--format", "json"]), 60000);
+    expect(run.status).toBe(0);
+    const parsed = JSON.parse(run.stdout) as Record<string, unknown>;
+    expect(parsed).toHaveProperty("schemaVersion");
+    expect(parsed).toHaveProperty("$schema");
+    expect(parsed).toHaveProperty("overallStatus");
+    expect(parsed).toHaveProperty("artifacts");
+  }, 90000);
+
+  it("prints markdown summary to stdout for --format md", async () => {
+    const run = await runCli(buildAuditArgs(["--format", "md"]), 60000);
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain("# Web Quality Gatekeeper Report");
+    expect(run.stdout).toContain("| Step | Status | Badge |");
+    expect(() => JSON.parse(run.stdout)).toThrow();
+  }, 90000);
 
   it("prints version with --version flag", () => {
     const output = execFileSync("node", [CLI, "--version"], {
@@ -220,4 +299,41 @@ describe("CLI integration", () => {
     const html = await readFile(reportPath, "utf8");
     expect(html).toContain("Web Quality Gatekeeper");
   });
+
+  it("blocks internal targets in CI mode unless explicit override is provided", async () => {
+    const run = await runCli(
+      [
+        "audit",
+        baseUrl,
+        "--out",
+        outDir,
+        "--config",
+        TEST_CONFIG,
+        "--baseline-dir",
+        path.join(outDir, "baselines")
+      ],
+      60000,
+      { CI: "true", GITHUB_ACTIONS: "true" }
+    );
+
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain("Blocked internal target");
+
+    const overridden = await runCli(
+      [
+        "audit",
+        baseUrl,
+        "--out",
+        outDir,
+        "--config",
+        TEST_CONFIG,
+        "--baseline-dir",
+        path.join(outDir, "baselines"),
+        "--allow-internal-targets"
+      ],
+      60000,
+      { CI: "true", GITHUB_ACTIONS: "true" }
+    );
+    expect(overridden.status).toBe(0);
+  }, 90000);
 });

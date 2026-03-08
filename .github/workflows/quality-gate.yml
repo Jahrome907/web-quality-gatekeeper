@@ -12,6 +12,13 @@ on:
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
+    env:
+      # Opt in to non-blocking behavior when auditing remote URLs.
+      WQG_RELAXED_REMOTE: "false"
+      # Mark audits as sensitive when authenticated pages or private content are involved.
+      WQG_SENSITIVE_AUDIT: "false"
+      # Keep sensitive runs private by default; explicitly opt in to publish outputs.
+      WQG_ALLOW_SENSITIVE_OUTPUTS: "false"
     permissions:
       contents: read
       pull-requests: write
@@ -38,6 +45,9 @@ jobs:
       - name: Run checks
         run: npm run check
 
+      - name: Enforce runtime audit gate (high+critical)
+        run: npm run security:audit
+
       - name: Run coverage
         run: npm run test:coverage
 
@@ -63,7 +73,7 @@ jobs:
           if (override) {
             try {
               const url = new URL(override);
-              if (!url.protocol.startsWith('http')) {
+              if (url.protocol !== 'http:' && url.protocol !== 'https:') {
                 console.error('WQG_URL must use http or https protocol');
                 process.exit(1);
               }
@@ -89,30 +99,106 @@ jobs:
           npm run demo -- --port 4173 &
           npx wait-on http://localhost:4173
 
+      - name: Resolve audit policy
+        id: policy
+        env:
+          TARGET_MODE: ${{ steps.target.outputs.mode }}
+          WQG_RELAXED_REMOTE: ${{ env.WQG_RELAXED_REMOTE }}
+          WQG_SENSITIVE_AUDIT: ${{ env.WQG_SENSITIVE_AUDIT }}
+          WQG_ALLOW_SENSITIVE_OUTPUTS: ${{ env.WQG_ALLOW_SENSITIVE_OUTPUTS }}
+          SECRET_WQG_AUTH_HEADER: ${{ secrets.WQG_AUTH_HEADER }}
+          SECRET_WQG_AUTH_HEADERS: ${{ secrets.WQG_AUTH_HEADERS }}
+          SECRET_WQG_AUTH_COOKIE: ${{ secrets.WQG_AUTH_COOKIE }}
+          SECRET_WQG_AUTH_COOKIES: ${{ secrets.WQG_AUTH_COOKIES }}
+        run: |
+          as_bool() {
+            case "${1,,}" in
+              1|true|yes|on) return 0 ;;
+              *) return 1 ;;
+            esac
+          }
+
+          RELAXED_REMOTE=false
+          if [ "$TARGET_MODE" != "demo" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then
+            RELAXED_REMOTE=true
+          fi
+
+          HAS_AUTH=false
+          if [ -n "${WQG_AUTH_HEADER:-}" ] || [ -n "${WQG_AUTH_HEADERS:-}" ] || [ -n "${WQG_AUTH_COOKIE:-}" ] || [ -n "${WQG_AUTH_COOKIES:-}" ] || [ -n "${SECRET_WQG_AUTH_HEADER:-}" ] || [ -n "${SECRET_WQG_AUTH_HEADERS:-}" ] || [ -n "${SECRET_WQG_AUTH_COOKIE:-}" ] || [ -n "${SECRET_WQG_AUTH_COOKIES:-}" ]; then
+            HAS_AUTH=true
+          fi
+
+          SENSITIVE_AUDIT=false
+          if [ "$HAS_AUTH" = "true" ] || as_bool "${WQG_SENSITIVE_AUDIT:-}"; then
+            SENSITIVE_AUDIT=true
+          fi
+
+          ALLOW_SENSITIVE_OUTPUTS=false
+          if as_bool "${WQG_ALLOW_SENSITIVE_OUTPUTS:-}"; then
+            ALLOW_SENSITIVE_OUTPUTS=true
+          fi
+
+          PUBLISH_OUTPUTS=true
+          if [ "$SENSITIVE_AUDIT" = "true" ] && [ "$ALLOW_SENSITIVE_OUTPUTS" != "true" ]; then
+            PUBLISH_OUTPUTS=false
+            echo "::notice::Sensitive or authenticated audit detected. Artifact upload and PR comment are disabled by default."
+            echo "::notice::Set WQG_ALLOW_SENSITIVE_OUTPUTS=true to publish artifacts/comments for this run."
+          fi
+
+          if [ "$RELAXED_REMOTE" = "true" ]; then
+            echo "::notice::Remote audit is running in relaxed mode (non-blocking gates enabled)."
+          fi
+
+          echo "relaxed_remote=$RELAXED_REMOTE" >> "$GITHUB_OUTPUT"
+          echo "sensitive_audit=$SENSITIVE_AUDIT" >> "$GITHUB_OUTPUT"
+          echo "publish_outputs=$PUBLISH_OUTPUTS" >> "$GITHUB_OUTPUT"
+
       - name: Run audit
         env:
           AUDIT_URL: ${{ steps.target.outputs.url }}
           TARGET_MODE: ${{ steps.target.outputs.mode }}
+          RELAXED_REMOTE: ${{ steps.policy.outputs.relaxed_remote }}
+          SECRET_WQG_AUTH_HEADER: ${{ secrets.WQG_AUTH_HEADER }}
+          SECRET_WQG_AUTH_HEADERS: ${{ secrets.WQG_AUTH_HEADERS }}
+          SECRET_WQG_AUTH_COOKIE: ${{ secrets.WQG_AUTH_COOKIE }}
+          SECRET_WQG_AUTH_COOKIES: ${{ secrets.WQG_AUTH_COOKIES }}
         run: |
-          EXTRA=""
-          if [ "$TARGET_MODE" != "demo" ]; then
-            EXTRA="--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual"
+          if [ -z "${WQG_AUTH_HEADER:-}" ] && [ -n "${SECRET_WQG_AUTH_HEADER:-}" ]; then
+            export WQG_AUTH_HEADER="$SECRET_WQG_AUTH_HEADER"
+          fi
+          if [ -z "${WQG_AUTH_HEADERS:-}" ] && [ -n "${SECRET_WQG_AUTH_HEADERS:-}" ]; then
+            export WQG_AUTH_HEADERS="$SECRET_WQG_AUTH_HEADERS"
+          fi
+          if [ -z "${WQG_AUTH_COOKIE:-}" ] && [ -n "${SECRET_WQG_AUTH_COOKIE:-}" ]; then
+            export WQG_AUTH_COOKIE="$SECRET_WQG_AUTH_COOKIE"
+          fi
+          if [ -z "${WQG_AUTH_COOKIES:-}" ] && [ -n "${SECRET_WQG_AUTH_COOKIES:-}" ]; then
+            export WQG_AUTH_COOKIES="$SECRET_WQG_AUTH_COOKIES"
+          fi
+
+          ARGS=()
+          if [ "$RELAXED_REMOTE" = "true" ]; then
+            ARGS+=(--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual)
+          fi
+          if [ "$TARGET_MODE" = "demo" ]; then
+            ARGS+=(--allow-internal-targets)
           fi
           npm run audit -- "$AUDIT_URL" \
             --config configs/default.json \
             --out artifacts \
             --baseline-dir baselines \
-            $EXTRA
+            "${ARGS[@]}"
 
       - name: Upload artifacts
-        if: always()
+        if: always() && steps.policy.outputs.publish_outputs == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: wqg-artifacts
           path: artifacts
+          if-no-files-found: warn
 
       - name: Comment PR summary
-        if: always() && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+        if: always() && steps.policy.outputs.publish_outputs == 'true' && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
         uses: actions/github-script@v7
         with:
           script: |

@@ -21,8 +21,8 @@
     }
   ],
   "screenshotGallery": {
-    "enabled": true,
-    "maxScreenshotsPerPath": 20
+    "enabled": false,
+    "maxScreenshotsPerPath": 12
   },
   "lighthouse": {
     "budgets": {
@@ -40,5 +40,16 @@
     "a11y": true,
     "perf": true,
     "visual": true
+  },
+  "trends": {
+    "enabled": false,
+    "historyDir": ".wqg-history",
+    "maxSnapshots": 90,
+    "dashboard": {
+      "window": 30
+    }
+  },
+  "insights": {
+    "enabled": true
   }
 }

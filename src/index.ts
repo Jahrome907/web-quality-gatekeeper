@@ -4,9 +4,12 @@ import { loadConfig } from "./config/loadConfig.js";
 import { openPage, captureScreenshots } from "./runner/playwright.js";
 import { runAxeScan } from "./runner/axe.js";
 import { runLighthouseAudit } from "./runner/lighthouse.js";
-import { runVisualDiff } from "./runner/visualDiff.js";
+import { runVisualDiff, type VisualDiffRuntimeOptions } from "./runner/visualDiff.js";
 import * as summaryReport from "./report/summary.js";
 import { buildHtmlReport } from "./report/html.js";
+import { buildInsights } from "./report/insights.js";
+import { buildActionPlanMarkdown } from "./report/actionPlan.js";
+import { buildTrendDashboardHtml } from "./report/trendDashboard.js";
 import {
   ensureDir,
   validateOutputDirectory,
@@ -30,6 +33,7 @@ import {
   buildPageEntry,
   buildRollup,
   buildTrendSummary,
+  loadTrendHistoryPoints,
   loadLatestTrendSnapshot,
   resolveTargets,
   resolveTrendSettings,
@@ -47,7 +51,7 @@ const SUMMARY_SCHEMA_URI_V1_FALLBACK =
 const SUMMARY_SCHEMA_URI_V2_FALLBACK =
   "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json";
 const SCHEMA_VERSION_V1_FALLBACK = "1.1.0";
-const SCHEMA_VERSION_V2_FALLBACK = "2.0.0";
+const SCHEMA_VERSION_V2_FALLBACK = "2.2.0";
 
 type OverallStatus = "pass" | "fail";
 
@@ -65,15 +69,61 @@ export type {
 
 export interface AuditOptions {
   config: string;
+  policy?: string | null;
   out: string;
   baselineDir: string;
   setBaseline: boolean;
+  allowInternalTargets?: boolean;
   failOnA11y: boolean;
   failOnPerf: boolean;
   failOnVisual: boolean;
   verbose: boolean;
   format?: string;
   auth?: AuditAuth | null;
+}
+
+function isCiEnvironment(env: NodeJS.ProcessEnv = process.env): boolean {
+  const value = `${env.CI ?? env.GITHUB_ACTIONS ?? ""}`.toLowerCase();
+  return value === "1" || value === "true" || value === "yes" || value === "on";
+}
+
+function severityWeight(value: string): number {
+  switch (value) {
+    case "critical":
+      return 4;
+    case "high":
+      return 3;
+    case "medium":
+      return 2;
+    default:
+      return 1;
+  }
+}
+
+function aggregateRunInsights(results: TargetAuditResult[]): SummaryV2["insights"] {
+  const combined = results.flatMap((result) => result.summaryV2.insights?.recommendations ?? []);
+  if (combined.length === 0) {
+    return null;
+  }
+
+  const deduped = new Map<string, (typeof combined)[number]>();
+  combined.forEach((item) => {
+    deduped.set(item.id, item);
+  });
+
+  const recommendations = Array.from(deduped.values())
+    .sort((left, right) => {
+      const severity = severityWeight(right.severity) - severityWeight(left.severity);
+      if (severity !== 0) {
+        return severity;
+      }
+      return left.id.localeCompare(right.id);
+    })
+    .slice(0, 10);
+
+  return {
+    recommendations
+  };
 }
 
 async function runTargetAudit(params: {
@@ -121,13 +171,18 @@ async function runTargetAudit(params: {
     }
 
     if (config.toggles.visual) {
+      const visualDiffOptions: VisualDiffRuntimeOptions = {
+        ...(config.visual.pixelmatch ? { pixelmatch: config.visual.pixelmatch } : {}),
+        ...(config.visual.ignoreRegions ? { ignoreRegions: config.visual.ignoreRegions } : {})
+      };
       visualSummary = await runVisualDiff(
         screenshots,
         target.baselineDir,
         diffsDir,
         options.setBaseline,
         config.visual.threshold,
-        logger
+        logger,
+        visualDiffOptions
       );
     }
 
@@ -199,7 +254,7 @@ async function runTargetAudit(params: {
       }
     });
 
-    const summaryV2 = summaryReport.buildSummaryV2
+    const summaryV2Base = summaryReport.buildSummaryV2
       ? summaryReport.buildSummaryV2({
           url: target.url,
           startedAt,
@@ -229,9 +284,17 @@ async function runTargetAudit(params: {
           runtimeSignals: runtimeSignals.snapshot() as RuntimeSignalSummary
         } as SummaryV2);
 
+    const summaryV2: SummaryV2 =
+      config.insights?.enabled === false
+        ? summaryV2Base
+        : {
+            ...summaryV2Base,
+            insights: buildInsights(summaryV2Base)
+          };
+
     await writeJson(summaryPath, summary);
     await writeJson(summaryV2Path, summaryV2);
-    await writeText(reportPath, buildHtmlReport(summary));
+    await writeText(reportPath, buildHtmlReport(summaryV2));
 
     return {
       target,
@@ -255,8 +318,13 @@ export async function runAudit(
   validateOutputDirectory(baselineDir);
 
   const logger = createLogger(options.verbose);
-  const config = await loadConfig(configPath);
-  const targets = resolveTargets(url, config, outDir, baselineDir, logger);
+  const config = await loadConfig(configPath, {
+    policy: options.policy ?? null
+  });
+  const targets = await resolveTargets(url, config, outDir, baselineDir, logger, {
+    allowInternalTargets: options.allowInternalTargets ?? false,
+    blockInternalTargets: isCiEnvironment() || Boolean(options.auth)
+  });
 
   await ensureDir(outDir);
 
@@ -279,6 +347,7 @@ export async function runAudit(
   const overallStatus: OverallStatus = results.some((result) => result.summary.overallStatus === "fail")
     ? "fail"
     : "pass";
+  const runInsights = aggregateRunInsights(results);
 
   const compatibilitySummary: Summary = {
     ...results[0]!.summary,
@@ -306,7 +375,8 @@ export async function runAudit(
       summary: "summary.json",
       summaryV2: "summary.v2.json",
       report: "report.html"
-    }
+    },
+    insights: runInsights ?? results[0]!.summaryV2.insights ?? null
   };
   await writeText(path.join(outDir, "report.html"), buildHtmlReport(reportSummary));
 
@@ -317,6 +387,9 @@ export async function runAudit(
   const trendHistoryDir = path.isAbsolute(trendSettings.historyDir)
     ? trendSettings.historyDir
     : path.resolve(outDir, trendSettings.historyDir);
+  const trendHistoryJsonPath = path.join(outDir, "trends", "history.json");
+  const trendDashboardHtmlPath = path.join(outDir, "trends", "dashboard.html");
+  const actionPlanPath = path.join(outDir, "action-plan.md");
 
   if (trendSettings.enabled) {
     validateOutputDirectory(trendHistoryDir);
@@ -345,26 +418,55 @@ export async function runAudit(
       v1SchemaVersion: summaryReport.SCHEMA_VERSION ?? SCHEMA_VERSION_V1_FALLBACK,
       note: "summary.json remains v1-compatible. summary.v2.json contains multipage and trend fields."
     },
+    artifacts: {
+      summary: "summary.json",
+      summaryV2: "summary.v2.json",
+      report: "report.html",
+      trendDashboardHtml: null,
+      trendHistoryJson: null,
+      actionPlanMd: "action-plan.md"
+    },
     rollup,
     pages,
+    insights: runInsights,
     trend: {
       status: "disabled",
       historyDir: null,
       previousSnapshotPath: null,
       message: null,
       metrics: null,
-      pages: []
+      pages: [],
+      history: null,
+      insights: []
     }
   };
 
   if (trendSettings.enabled) {
+    const historyPoints = await loadTrendHistoryPoints(
+      trendHistoryDir,
+      logger,
+      trendSettings.dashboardWindow
+    );
     const previous = await loadLatestTrendSnapshot(trendHistoryDir, logger);
-    summaryV2.trend = buildTrendSummary(summaryV2, previous, outDir, trendHistoryDir, true);
+    summaryV2.trend = buildTrendSummary(
+      summaryV2,
+      previous,
+      outDir,
+      trendHistoryDir,
+      true,
+      historyPoints,
+      trendSettings.dashboardWindow
+    );
+    summaryV2.artifacts.trendHistoryJson = toRelative(outDir, trendHistoryJsonPath);
+    summaryV2.artifacts.trendDashboardHtml = toRelative(outDir, trendDashboardHtmlPath);
   }
 
   await writeJson(path.join(outDir, "summary.v2.json"), summaryV2);
+  await writeText(actionPlanPath, buildActionPlanMarkdown(summaryV2.insights ?? null));
 
   if (trendSettings.enabled) {
+    await writeJson(trendHistoryJsonPath, summaryV2.trend.history);
+    await writeText(trendDashboardHtmlPath, buildTrendDashboardHtml(summaryV2.trend));
     await writeTrendSnapshot(trendHistoryDir, summaryV2, trendSettings.maxSnapshots);
   }
 

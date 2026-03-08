@@ -32,6 +32,7 @@ jobs:
       - name: Verify package
         run: |
           npm run check
+          npm run security:audit
           npm run build
 
       - name: Smoke test packed tarball

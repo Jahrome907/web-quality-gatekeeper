@@ -17,6 +17,10 @@ inputs:
     description: "Directory for visual regression baselines"
     required: false
     default: "baselines"
+  policy:
+    description: "Built-in policy template name or policy config path"
+    required: false
+    default: ""
   fail-on-a11y:
     description: "Fail if accessibility violations are found"
     required: false
@@ -29,6 +33,10 @@ inputs:
     description: "Fail if visual diffs exceed threshold"
     required: false
     default: "true"
+  allow-internal-targets:
+    description: "Allow internal/private audit targets in CI or authenticated runs"
+    required: false
+    default: "false"
   headers:
     description: "Optional newline-delimited headers in Name: Value format"
     required: false
@@ -81,9 +89,11 @@ runs:
         INPUT_URL: ${{ inputs.url }}
         INPUT_CONFIG: ${{ inputs.config-path }}
         INPUT_BASELINE: ${{ inputs.baseline-dir }}
+        INPUT_POLICY: ${{ inputs.policy }}
         INPUT_A11Y: ${{ inputs.fail-on-a11y }}
         INPUT_PERF: ${{ inputs.fail-on-perf }}
         INPUT_VISUAL: ${{ inputs.fail-on-visual }}
+        INPUT_ALLOW_INTERNAL: ${{ inputs.allow-internal-targets }}
         INPUT_HEADERS: ${{ inputs.headers }}
         INPUT_COOKIES: ${{ inputs.cookies }}
       run: |
@@ -121,9 +131,11 @@ runs:
           "--baseline-dir" "$BASELINE_PATH"
           "--out" "$OUT_DIR"
         )
+        [[ -n "$INPUT_POLICY" ]] && ARGS+=("--policy" "$INPUT_POLICY")
         [[ "$INPUT_A11Y" != "true" ]] && ARGS+=("--no-fail-on-a11y")
         [[ "$INPUT_PERF" != "true" ]] && ARGS+=("--no-fail-on-perf")
         [[ "$INPUT_VISUAL" != "true" ]] && ARGS+=("--no-fail-on-visual")
+        [[ "$INPUT_ALLOW_INTERNAL" == "true" ]] && ARGS+=("--allow-internal-targets")
         if [[ -n "$INPUT_HEADERS" ]]; then
           while IFS= read -r header; do
             [[ -z "${header// }" ]] && continue

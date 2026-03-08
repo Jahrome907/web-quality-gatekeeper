@@ -37,7 +37,7 @@ vi.mock("../src/report/summary.js", () => ({
   buildSummary: mockBuildSummary,
   buildSummaryV2: mockBuildSummaryV2,
   SCHEMA_VERSION: "1.1.0",
-  SCHEMA_VERSION_V2: "2.0.0",
+  SCHEMA_VERSION_V2: "2.1.0",
   SUMMARY_SCHEMA_URI_V2:
     "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
   SUMMARY_SCHEMA_URI:
@@ -127,7 +127,7 @@ function createSummaryV2(overallStatus: "pass" | "fail"): SummaryV2 {
     ...createSummary(overallStatus),
     $schema:
       "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-    schemaVersion: "2.0.0",
+    schemaVersion: "2.1.0",
     artifacts: {
       ...createSummary(overallStatus).artifacts,
       summaryV2: "summary.v2.json"
@@ -140,7 +140,11 @@ function createFullConfig() {
   return {
     retries: { count: 2, delayMs: 50 },
     toggles: { a11y: true, perf: true, visual: true },
-    visual: { threshold: 0.01 }
+    visual: {
+      threshold: 0.01,
+      pixelmatch: { includeAA: true, threshold: 0.2 },
+      ignoreRegions: [{ x: 5, y: 5, width: 10, height: 10 }]
+    }
   };
 }
 
@@ -234,13 +238,25 @@ describe("runAudit orchestration", () => {
     expect(mockRunAxeScan).toHaveBeenCalledWith(expect.anything(), outDir, expect.anything(), expect.anything());
     expect(mockRunLighthouseAudit).toHaveBeenCalledTimes(1);
     expect(mockRunVisualDiff).toHaveBeenCalledTimes(1);
+    expect(mockRunVisualDiff).toHaveBeenCalledWith(
+      expect.any(Array),
+      baselineDir,
+      path.join(outDir, "diffs"),
+      false,
+      0.01,
+      expect.anything(),
+      {
+        pixelmatch: { includeAA: true, threshold: 0.2 },
+        ignoreRegions: [{ x: 5, y: 5, width: 10, height: 10 }]
+      }
+    );
     expect(close).toHaveBeenCalledTimes(1);
 
     expect(mockWriteJson).toHaveBeenCalledWith(path.join(outDir, "summary.json"), result.summary);
     expect(mockWriteJson).toHaveBeenCalledWith(
       path.join(outDir, "summary.v2.json"),
       expect.objectContaining({
-        schemaVersion: "2.0.0",
+        schemaVersion: "2.1.0",
         mode: "single",
         overallStatus: "pass",
         pages: expect.any(Array)

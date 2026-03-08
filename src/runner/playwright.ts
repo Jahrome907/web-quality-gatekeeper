@@ -1,5 +1,11 @@
 import path from "node:path";
-import { chromium, type Browser, type ConsoleMessage, type Page } from "playwright";
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type ConsoleMessage,
+  type Page
+} from "playwright";
 import type { Config, ScreenshotDefinition } from "../config/schema.js";
 import { ensureDir } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
@@ -221,6 +227,23 @@ async function applyStabilityOverrides(page: Page): Promise<void> {
   await page.emulateMedia({ reducedMotion: "reduce" });
 }
 
+async function closeQuietly(
+  resource: { close: () => Promise<void> } | null,
+  logger: Logger,
+  label: string
+): Promise<void> {
+  if (!resource) {
+    return;
+  }
+
+  try {
+    await resource.close();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    logger.debug(`Failed to close Playwright ${label}: ${message}`);
+  }
+}
+
 export async function openPage(
   url: string,
   config: Config,
@@ -230,42 +253,53 @@ export async function openPage(
   logger.debug("Launching Playwright browser");
   const browser = await chromium.launch({ headless: true });
   const extraHeaders = auth?.headers && Object.keys(auth.headers).length > 0 ? auth.headers : null;
-  const context = await browser.newContext({
-    viewport: config.playwright.viewport,
-    userAgent: config.playwright.userAgent,
-    locale: config.playwright.locale,
-    colorScheme: config.playwright.colorScheme,
-    ...(extraHeaders ? { extraHTTPHeaders: extraHeaders } : {})
-  });
+  let context: BrowserContext | null = null;
+  let page: Page | null = null;
 
-  if (auth?.cookies.length) {
-    await context.addCookies(
-      auth.cookies.map((cookie) => ({
-        name: cookie.name,
-        value: cookie.value,
-        url
-      }))
-    );
+  try {
+    context = await browser.newContext({
+      viewport: config.playwright.viewport,
+      userAgent: config.playwright.userAgent,
+      locale: config.playwright.locale,
+      colorScheme: config.playwright.colorScheme,
+      ...(extraHeaders ? { extraHTTPHeaders: extraHeaders } : {})
+    });
+
+    if (auth?.cookies.length) {
+      await context.addCookies(
+        auth.cookies.map((cookie) => ({
+          name: cookie.name,
+          value: cookie.value,
+          url
+        }))
+      );
+    }
+
+    const createdPage = await context.newPage();
+    page = createdPage;
+    const runtimeSignals = createRuntimeSignalCollector(createdPage);
+    createdPage.setDefaultNavigationTimeout(config.timeouts.navigationMs);
+    createdPage.setDefaultTimeout(config.timeouts.actionMs);
+
+    const retryCount = config.retries?.count ?? 1;
+    const retryDelayMs = config.retries?.delayMs ?? 2000;
+
+    logger.debug(`Navigating to ${url}`);
+    await retry(() => createdPage.goto(url, { waitUntil: "load" }), {
+      maxRetries: retryCount,
+      baseDelayMs: retryDelayMs,
+      logger
+    });
+    await applyStabilityOverrides(createdPage);
+    await createdPage.waitForTimeout(config.timeouts.waitAfterLoadMs);
+
+    return { browser, page: createdPage, runtimeSignals };
+  } catch (error) {
+    await closeQuietly(page, logger, "page");
+    await closeQuietly(context, logger, "context");
+    await closeQuietly(browser, logger, "browser");
+    throw error;
   }
-
-  const page = await context.newPage();
-  const runtimeSignals = createRuntimeSignalCollector(page);
-  page.setDefaultNavigationTimeout(config.timeouts.navigationMs);
-  page.setDefaultTimeout(config.timeouts.actionMs);
-
-  const retryCount = config.retries?.count ?? 1;
-  const retryDelayMs = config.retries?.delayMs ?? 2000;
-
-  logger.debug(`Navigating to ${url}`);
-  await retry(() => page.goto(url, { waitUntil: "load" }), {
-    maxRetries: retryCount,
-    baseDelayMs: retryDelayMs,
-    logger
-  });
-  await applyStabilityOverrides(page);
-  await page.waitForTimeout(config.timeouts.waitAfterLoadMs);
-
-  return { browser, page, runtimeSignals };
 }
 
 async function captureScreenshot(

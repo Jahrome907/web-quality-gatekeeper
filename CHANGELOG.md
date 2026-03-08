@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-03-08
+
+### Added
+
+- Prioritized remediation recommendations with action-plan output:
+  - run/page-level `insights` in `summary.v2.json`
+  - HTML “Action Plan” section
+  - `action-plan.md` artifact
+- Rolling trend dashboard outputs:
+  - `trends/history.json`
+  - `trends/dashboard.html`
+  - trend `history` and trend `insights` contract fields
+- First-class policy templates:
+  - built-in profiles: `marketing`, `docs`, `ecommerce`, `saas`
+  - CLI flags: `--policy <name|path>` and `--list-policies`
+  - config layering via `extends`
+- Public case-study reproducibility assets:
+  - ROI calculator script (`scripts/case-study/roi-from-summaries.mjs`)
+  - protocol doc (`docs/case-study/public-oss-repro.md`)
+
+### Changed
+
+- Summary v2 schema/version advanced to `2.2.0` with additive compatibility-preserving fields.
+- Policy templates are host-agnostic defaults (paths/budgets/toggles) and no longer hardcode `urls`.
+
 ## [3.0.0] - 2026-02-08
 
 ### Added
@@ -108,3 +133,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.3.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
+[3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0

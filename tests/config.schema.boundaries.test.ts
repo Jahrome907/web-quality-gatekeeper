@@ -266,4 +266,73 @@ describe("ConfigSchema boundaries", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("accepts trend settings with a safe relative historyDir", () => {
+    const parsed = ConfigSchema.parse({
+      ...createValidConfig(),
+      trends: {
+        enabled: true,
+        historyDir: "history/snapshots",
+        maxSnapshots: 30
+      }
+    });
+
+    expect(parsed.trends).toEqual({
+      enabled: true,
+      historyDir: "history/snapshots",
+      maxSnapshots: 30
+    });
+  });
+
+  it("rejects trend historyDir absolute paths", () => {
+    const result = ConfigSchema.safeParse({
+      ...createValidConfig(),
+      trends: {
+        enabled: true,
+        historyDir: "/tmp/history",
+        maxSnapshots: 10
+      }
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects trend historyDir traversal segments", () => {
+    const result = ConfigSchema.safeParse({
+      ...createValidConfig(),
+      trends: {
+        enabled: true,
+        historyDir: "../history",
+        maxSnapshots: 10
+      }
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects trend historyDir windows absolute paths", () => {
+    const result = ConfigSchema.safeParse({
+      ...createValidConfig(),
+      trends: {
+        enabled: true,
+        historyDir: "C:\\history",
+        maxSnapshots: 10
+      }
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects trend historyDir windows drive-prefixed paths", () => {
+    const result = ConfigSchema.safeParse({
+      ...createValidConfig(),
+      trends: {
+        enabled: true,
+        historyDir: "C:history",
+        maxSnapshots: 10
+      }
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

@@ -2,7 +2,7 @@
 
 This document freezes the `summary.v2.json` contract emitted by `src/index.ts`.
 
-- Current schema version: `2.0.0`
+- Current schema version: `2.2.0`
 - Schema URI: `https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json`
 - Local schema file: `schemas/summary.v2.json`
 
@@ -11,7 +11,7 @@ This document freezes the `summary.v2.json` contract emitted by `src/index.ts`.
 | Path | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `$schema` | `string` | Yes | Always the v2 schema URI. |
-| `schemaVersion` | `"2.0.0"` | Yes | Contract freeze point for this phase. |
+| `schemaVersion` | `"2.1.0"` | Yes | Contract freeze point for this phase. |
 | `toolVersion` | `string` | Yes | CLI/package semver string. |
 | `mode` | `"single" \| "multi"` | Yes | `single` for one target, `multi` for multiple targets. |
 | `overallStatus` | `"pass" \| "fail"` | Yes | Rollup status across pages. |
@@ -23,7 +23,9 @@ This document freezes the `summary.v2.json` contract emitted by `src/index.ts`.
 | `compatibility` | `object` | Yes | Documents v1 compatibility behavior. |
 | `rollup` | `object` | Yes | Aggregate counters across pages. |
 | `pages` | `array` | Yes | Per-page results with canonical details. |
-| `trend` | `object` | Yes | Trend comparison state and deltas. |
+| `artifacts` | `object` | Yes | Aggregate artifact pointers including trend/action-plan outputs. |
+| `trend` | `object` | Yes | Trend comparison state, history window, and actionable insights. |
+| `insights` | `object \| null` | Yes | Run-level prioritized remediation recommendations. |
 
 ## Page Entry Contract (`pages[]`)
 
@@ -175,7 +177,7 @@ When present, `performance` includes:
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-  "schemaVersion": "2.0.0",
+  "schemaVersion": "2.1.0",
   "toolVersion": "0.3.0",
   "mode": "single",
   "overallStatus": "pass",
@@ -186,7 +188,7 @@ When present, `performance` includes:
     "v1": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
     "v2": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
   },
-  "schemaVersions": { "v1": "1.1.0", "v2": "2.0.0" },
+  "schemaVersions": { "v1": "1.1.0", "v2": "2.1.0" },
   "compatibility": {
     "v1SummaryPath": "summary.json",
     "v1Schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
@@ -229,7 +231,7 @@ When present, `performance` includes:
       },
       "details": {
         "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-        "schemaVersion": "2.0.0",
+        "schemaVersion": "2.1.0",
         "toolVersion": "0.3.0",
         "overallStatus": "pass",
         "url": "https://example.com",
@@ -336,7 +338,7 @@ When present, `performance` includes:
 
 ## Semver Policy
 
-- `2.0.0` is the frozen base for this phase.
+- `2.1.0` is the frozen base for this phase.
 - Additive, backward-compatible changes increment minor version (`2.x+1.0`).
 - Breaking field/type/requiredness changes increment major version (`3.0.0`).
 
@@ -354,4 +356,6 @@ When present, `performance` includes:
 | `visual.pixelmatch.threshold` | `number` | `0.1` | `0..1` |
 | `visual.ignoreRegions[]` | `array` | `[]` | Max 25 regions; each region has integer `x,y >= 0`, integer `width,height > 0`, each `<= 100000` |
 
-Default values are applied by runtime fallback logic (`retries.*`) and schema defaults (`visual.pixelmatch.*`).
+Default values are applied by runtime fallback logic (`retries.*` and `visual.pixelmatch.*`).
+`runVisualDiff` applies `visual.pixelmatch.*` to `pixelmatch` options and masks `visual.ignoreRegions`
+before mismatch ratio calculation.

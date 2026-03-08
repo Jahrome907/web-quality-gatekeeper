@@ -1,8 +1,5 @@
 # Example: Using Web Quality Gatekeeper in your own repo.
 # Copy this file to .github/workflows/quality-gate.yml in your project.
-#
-# Prerequisites:
-#   - A deployed URL or a `demo` npm script that serves your site.
 
 name: Quality Gate
 
@@ -10,14 +7,25 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+env:
+  # Set to true for authenticated/private audits.
+  WQG_SENSITIVE_AUDIT: "false"
+  # Keep false for public repos unless publishing sensitive outputs is intentional.
+  WQG_ALLOW_SENSITIVE_OUTPUTS: "false"
+
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      # Run the quality gate against your deployed site
-      - uses: Jahrome907/web-quality-gatekeeper@v1
+      - name: Run quality gate (strict by default)
+        uses: Jahrome907/web-quality-gatekeeper@v1
         with:
           url: https://your-site.example.com
           # Optional authenticated audits (recommended to source from secrets)
@@ -27,11 +35,17 @@ jobs:
           #   session_id=${{ secrets.STAGING_SESSION_ID }}
           # Optional: customize thresholds via config
           # config-path: .quality-gate.json
-          # Optional: control which gates fail the build
-          # fail-on-a11y: "true"
-          # fail-on-perf: "true"
+          # Optional relaxed / non-blocking mode:
+          # fail-on-a11y: "false"
+          # fail-on-perf: "false"
           # fail-on-visual: "false"
+          # Optional internal/private target override (CI/authenticated runs block by default):
+          # allow-internal-targets: "true"
 
-      # Artifacts are uploaded automatically.
-      # Access summary.json, report.html, screenshots, and diffs
-      # in the Actions run artifacts tab.
+      - name: Upload artifacts
+        if: always() && (env.WQG_SENSITIVE_AUDIT != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        uses: actions/upload-artifact@v4
+        with:
+          name: wqg-artifacts
+          path: artifacts
+          if-no-files-found: warn
