@@ -45,7 +45,14 @@ async function runCli(
       cwd: ROOT,
       timeout,
       encoding: "utf8",
-      env: { ...process.env, NO_COLOR: "1", ...envOverrides }
+      env: {
+        ...process.env,
+        NO_COLOR: "1",
+        // Keep fixture-based integration tests deterministic under GitHub Actions.
+        CI: "false",
+        GITHUB_ACTIONS: "false",
+        ...envOverrides
+      }
     });
     return { status: 0, stdout, stderr };
   } catch (error) {
