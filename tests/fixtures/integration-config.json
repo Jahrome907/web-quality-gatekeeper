@@ -33,7 +33,6 @@
     "threshold": 0.01
   },
   "toggles": {
-    "a11y": true,
     "perf": false,
     "visual": false
   }

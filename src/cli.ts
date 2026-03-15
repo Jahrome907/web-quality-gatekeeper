@@ -41,7 +41,11 @@ program
   .option("--no-fail-on-a11y", "Do not fail on accessibility violations")
   .option("--no-fail-on-perf", "Do not fail on performance budget failures")
   .option("--no-fail-on-visual", "Do not fail on visual diffs")
-  .option("--format <type>", "Output format: json, html, or md", "html")
+  .option(
+    "--format <type>",
+    "Output format: html writes report.html, json prints summary.json-compatible output, md prints markdown",
+    "html"
+  )
   .option(
     "--header <header>",
     "Request header in `Name: Value` format. Can be repeated.",

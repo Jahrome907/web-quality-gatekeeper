@@ -145,4 +145,35 @@ describe("loadConfig", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("rejects non-array extends values instead of silently ignoring them", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "wqg-cfg-"));
+    const cfgPath = path.join(dir, "invalid-extends.json");
+    await writeFile(
+      cfgPath,
+      JSON.stringify({
+        extends: "policy:docs",
+        timeouts: { navigationMs: 25000, actionMs: 9000, waitAfterLoadMs: 800 },
+        playwright: {
+          viewport: { width: 1280, height: 720 },
+          userAgent: "custom-agent",
+          locale: "en-US",
+          colorScheme: "light"
+        },
+        screenshots: [{ name: "override", path: "/", fullPage: true }],
+        lighthouse: {
+          budgets: { performance: 0.81, lcpMs: 2400, cls: 0.1, tbtMs: 200 },
+          formFactor: "desktop"
+        },
+        visual: { threshold: 0.01 },
+        toggles: { a11y: true, perf: true, visual: true }
+      })
+    );
+
+    try {
+      await expect(loadConfig(cfgPath)).rejects.toThrow(/extends/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

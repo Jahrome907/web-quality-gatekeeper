@@ -19,6 +19,9 @@ This tool navigates to URLs and executes JavaScript in a browser context. **Only
 Internal/private target policy:
 
 - Internal/private targets are **blocked by default** when running in CI (`CI`/`GITHUB_ACTIONS`) or when authenticated inputs are supplied (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`).
+- Blocking applies to the requested URL, DNS resolution failures in sensitive
+  mode, redirect destinations, outbound browser HTTP(S) requests, and the
+  final URL audited by Lighthouse.
 - Internal/private targets remain warning-only in local non-auth runs for development workflows.
 - Override blocking only when intentional with `--allow-internal-targets` or `WQG_ALLOW_INTERNAL_TARGETS=true`.
 
@@ -29,7 +32,8 @@ The configuration file controls which paths are visited and screenshotted. Secur
 - **Screenshot paths** must be relative paths starting with `/` (no external URLs)
 - **Timeouts** are capped at 2 minutes to prevent resource exhaustion
 - **Screenshot count** is limited to 50 per audit
-- **Output directories** must be within the current working directory
+- **Output directories** must resolve within the current working directory even
+  when symlinks are involved
 
 ### CI/CD Security
 

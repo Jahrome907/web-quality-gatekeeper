@@ -8,17 +8,25 @@ export interface AuditAuth {
   cookies: AuthCookie[];
 }
 
+const HEADER_FORMAT_HINT =
+  'Expected "Name: Value", for example --header "Authorization: Bearer <token>". ' +
+  "Repeat --header for multiple values or use WQG_AUTH_HEADERS.";
+
+const COOKIE_FORMAT_HINT =
+  'Expected "name=value", for example --cookie "session_id=abc123". ' +
+  "Repeat --cookie for multiple values or use WQG_AUTH_COOKIES.";
+
 function parseHeaderEntry(entry: string): [string, string] {
   const trimmed = entry.trim();
   const separator = trimmed.indexOf(":");
   if (separator <= 0) {
-    throw new Error(`Invalid --header value: ${entry}. Expected "Name: Value".`);
+    throw new Error(`Invalid --header value: ${entry}. ${HEADER_FORMAT_HINT}`);
   }
 
   const name = trimmed.slice(0, separator).trim();
   const value = trimmed.slice(separator + 1).trim();
   if (!name || !value) {
-    throw new Error(`Invalid --header value: ${entry}. Expected "Name: Value".`);
+    throw new Error(`Invalid --header value: ${entry}. ${HEADER_FORMAT_HINT}`);
   }
 
   return [name, value];
@@ -29,13 +37,13 @@ function parseCookieEntry(entry: string): AuthCookie {
   const firstPair = trimmed.split(";")[0]?.trim() ?? "";
   const separator = firstPair.indexOf("=");
   if (separator <= 0) {
-    throw new Error(`Invalid --cookie value: ${entry}. Expected "name=value".`);
+    throw new Error(`Invalid --cookie value: ${entry}. ${COOKIE_FORMAT_HINT}`);
   }
 
   const name = firstPair.slice(0, separator).trim();
   const value = firstPair.slice(separator + 1).trim();
   if (!name || !value) {
-    throw new Error(`Invalid --cookie value: ${entry}. Expected "name=value".`);
+    throw new Error(`Invalid --cookie value: ${entry}. ${COOKIE_FORMAT_HINT}`);
   }
 
   return { name, value };

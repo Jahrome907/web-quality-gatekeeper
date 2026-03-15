@@ -1,6 +1,6 @@
 {
   "name": "web-quality-gatekeeper",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "Quality gate CLI and GitHub Action for Playwright, axe-core, Lighthouse, and visual diffs.",
   "author": "Jahrome907",
   "license": "MIT",
@@ -48,11 +48,21 @@
     "lint": "eslint .",
     "format": "prettier . --write",
     "typecheck": "tsc --noEmit",
+    "contracts:check": "vitest run tests/summary.contract-drift.test.ts",
     "check": "npm run typecheck && npm run lint && npm run test",
+    "validate:full": "npm run lint && npm run typecheck && npm test && npm run build && npm audit --omit=dev",
+    "smoke:pack": "node scripts/ci/pack-smoke.mjs",
+    "smoke:action": "node scripts/ci/local-action-smoke.mjs",
+    "release:dry-run": "node scripts/ci/release-dry-run.mjs",
     "security:audit": "node scripts/enforce-runtime-audit.mjs --exceptions configs/security/audit-exceptions.json",
+    "python:smoke": "python3 -m unittest discover -s tools/python/tests",
+    "bench:visual-diff": "node benchmarks/visual-diff-benchmark.mjs",
+    "native:visual-diff:build": "cargo build --manifest-path native/wqg-visual-diff-native-spike/Cargo.toml --release",
     "audit": "tsx src/cli.ts audit",
     "audit:ci": "tsx src/cli.ts audit --config configs/default.json --out artifacts --baseline-dir baselines --no-fail-on-a11y",
-    "case-study:roi": "node scripts/case-study/roi-from-summaries.mjs"
+    "case-study:fixture": "node scripts/case-study/run-fixture-case-study.mjs",
+    "case-study:roi": "node scripts/case-study/roi-from-summaries.mjs",
+    "case-study:provenance": "node scripts/case-study/write-provenance-manifest.mjs"
   },
   "engines": {
     "node": ">=20"
@@ -71,7 +81,8 @@
     "@sentry/node": {
       "minimatch": "10.2.4"
     },
-    "basic-ftp": "5.2.0"
+    "basic-ftp": "5.2.0",
+    "yauzl": "3.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",

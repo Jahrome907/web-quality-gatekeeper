@@ -144,13 +144,15 @@ export function resetPhase4Mocks(): void {
   vi.resetModules();
   vi.clearAllMocks();
 
-  mockOpenPage.mockResolvedValue({
+  mockOpenPage.mockImplementation(async (url: string) => ({
     browser: { close: vi.fn() },
     page: {},
     runtimeSignals: {
       snapshot: () => createRuntimeSignals()
-    }
-  });
+    },
+    resolvedUrl: url,
+    resolvedHostResolverRules: null
+  }));
 
   mockCaptureScreenshots.mockImplementation(async (_page, baseUrl: string, _config, screenshotsDir: string) => {
     return [

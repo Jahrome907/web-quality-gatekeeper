@@ -10,6 +10,22 @@ export const SUMMARY_SCHEMA_URI =
 export const SCHEMA_VERSION_V2 = "2.2.0";
 export const SUMMARY_SCHEMA_URI_V2 =
   "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json";
+export const SUMMARY_SCHEMA_POINTERS = {
+  v1: SUMMARY_SCHEMA_URI,
+  v2: SUMMARY_SCHEMA_URI_V2
+} as const;
+export const SUMMARY_SCHEMA_VERSIONS = {
+  v1: SCHEMA_VERSION,
+  v2: SCHEMA_VERSION_V2
+} as const;
+export const SUMMARY_ARTIFACT_NAMES = {
+  summary: "summary.json",
+  summaryV2: "summary.v2.json",
+  report: "report.html",
+  actionPlan: "action-plan.md"
+} as const;
+export const SUMMARY_V2_COMPATIBILITY_NOTE =
+  "summary.json remains v1-compatible. summary.v2.json contains multipage and trend fields.";
 
 export type StepStatus = "pass" | "fail" | "skipped";
 

@@ -18,12 +18,20 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 > The CLI writes `artifacts/report.html`, `artifacts/summary.json`, and `artifacts/summary.v2.json` by default.
 
 <p align="center">
-  <img src="assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
+  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/b28afeb84a54da81063131b728f2443a979baafd/assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
+</p>
+
+<p align="center">
+  Proof sample: inspect the published <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-report.html">fixture report</a>,
+  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-summary.v2.json">summary.v2.json</a>, and
+  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-proof-config.json">proof config</a>.
+  These artifacts were generated from <code>tests/fixtures/site</code> on March 12, 2026 from source commit <code>563ab26</code>.
 </p>
 
 ## Table of Contents
 
 - [Install](#install)
+- [Proof & Reproducibility](#proof--reproducibility)
 - [Features](#features)
 - [Quickstart](#quickstart)
 - [CLI Usage](#cli-usage)
@@ -35,6 +43,13 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 - [Development](#development)
 - [Tech Stack](#tech-stack)
 - [License](#license)
+
+## Proof & Reproducibility
+
+- Open the published sample [report.html](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-report.html) and [summary.v2.json](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-summary.v2.json).
+- Review the exact [proof config](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-proof-config.json) used for the published fixture run.
+- Reproduce the local fixture walkthrough from [docs/case-study-run.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/case-study-run.md).
+- See the public OSS evidence protocol in [docs/case-study/public-oss-repro.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/case-study/public-oss-repro.md).
 
 ## Features
 
@@ -83,12 +98,39 @@ Flags:
 - `--no-fail-on-a11y` disables a11y failure gate
 - `--no-fail-on-perf` disables performance budget gate
 - `--no-fail-on-visual` disables visual diff gate
-- `--format <json|html|md>` controls stdout/report format mode
+- `--format <json|html|md>` controls stdout mode (default: `html`)
 - `--header "Name: Value"` adds a request header (repeatable)
 - `--cookie "name=value"` adds a cookie (repeatable)
 - `--verbose` for debug logging
 
 Built-in policies are host-agnostic defaults (paths, budgets, toggles); the target host still comes from `wqg audit <url>` unless your config explicitly sets `urls`.
+
+### Output Formats
+
+On successful runs, `wqg audit` writes artifact files to `--out` (default: `artifacts`) regardless of output mode:
+
+- `summary.json`
+- `summary.v2.json`
+- `report.html`
+
+`--format` only changes the primary stdout payload:
+
+- `--format html` (default): in standard non-verbose usage, prints no report payload to stdout and writes `report.html` plus JSON summaries.
+- `--format json`: prints `summary.json` payload to stdout, still writes `report.html` and summary artifacts.
+- `--format md`: prints a Markdown report to stdout, still writes `report.html` and summary artifacts.
+
+Examples:
+
+```bash
+# Default (same as --format html): artifact-driven output, no stdout payload
+wqg audit https://example.com --out artifacts
+
+# JSON to stdout for scripting while still writing report artifacts
+wqg audit https://example.com --format json --out artifacts > summary.stdout.json
+
+# Markdown to stdout for terminal/PR paste while still writing report artifacts
+wqg audit https://example.com --format md --out artifacts > report.stdout.md
+```
 
 ## Baseline Workflow
 
@@ -179,10 +221,21 @@ Example summary snippet:
 npm ci
 npx playwright install
 npm run check
+npm run contracts:check
 npm run security:audit
+npm run smoke:pack
+npm run smoke:action
 npm run build
 npm run audit -- https://example.com
 ```
+
+Optional Python bundle analytics live in [tools/python/README.md](tools/python/README.md) and are intentionally outside the core CLI path.
+
+Maintainer references:
+
+- [Architecture Map](docs/engineering/ARCHITECTURE_MAP.md)
+- [Release Handoff](docs/engineering/RELEASE_HANDOFF.md)
+- [Testing Matrix](docs/testing-matrix.md)
 
 ## Tech Stack
 

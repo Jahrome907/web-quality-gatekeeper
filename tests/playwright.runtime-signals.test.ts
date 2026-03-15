@@ -26,6 +26,7 @@ function createPageHarness() {
     setDefaultNavigationTimeout: vi.fn(),
     setDefaultTimeout: vi.fn(),
     goto: vi.fn().mockResolvedValue(undefined),
+    url: vi.fn().mockReturnValue("https://example.com/"),
     addStyleTag: vi.fn().mockResolvedValue(undefined),
     emulateMedia: vi.fn().mockResolvedValue(undefined),
     waitForTimeout: vi.fn().mockResolvedValue(undefined)

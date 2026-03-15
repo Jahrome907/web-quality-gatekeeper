@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -41,6 +41,25 @@ describe("validateOutputDirectory", () => {
       } else {
         process.env.GITHUB_WORKSPACE = previous;
       }
+    }
+  });
+
+  it("rejects symlinked output paths that escape the workspace", async () => {
+    const originalCwd = process.cwd();
+    const workspace = await mkdtemp(path.join(tmpdir(), "wqg-fs-workspace-"));
+    const outside = await mkdtemp(path.join(tmpdir(), "wqg-fs-outside-"));
+
+    try {
+      await symlink(outside, path.join(workspace, "artifacts"), "dir");
+      process.chdir(workspace);
+
+      expect(() => validateOutputDirectory("artifacts")).toThrow(
+        "Output directory must be within the working directory or GITHUB_WORKSPACE"
+      );
+    } finally {
+      process.chdir(originalCwd);
+      await rm(workspace, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
     }
   });
 });

@@ -4,18 +4,28 @@ import {
   type Browser,
   type BrowserContext,
   type ConsoleMessage,
-  type Page
+  type Page,
+  type Request,
+  type Route
 } from "playwright";
 import type { Config, ScreenshotDefinition } from "../config/schema.js";
 import { ensureDir } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
+import {
+  isAuditableHttpUrl,
+  normalizeUrlHostname,
+  resolveAuditedTarget,
+  UsageError,
+  type TargetResolutionPolicy
+} from "../utils/url.js";
 
 const MAX_CONSOLE_MESSAGES = 200;
 const MAX_JS_ERRORS = 100;
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_SEGMENT_CAPTURE_POINTS = 200;
+const MAX_BROWSER_RELAUNCHES = 4;
 
 export interface ScreenshotResult {
   name: string;
@@ -64,6 +74,11 @@ export interface RuntimeSignalSummary {
 
 export interface RuntimeSignalCollector {
   snapshot: () => RuntimeSignalSummary;
+}
+
+export interface BrowserLaunchOptions {
+  hostResolverRules?: string | null;
+  targetPolicy?: TargetResolutionPolicy;
 }
 
 export function sanitizeName(name: string): string {
@@ -244,17 +259,125 @@ async function closeQuietly(
   }
 }
 
-export async function openPage(
-  url: string,
+interface OpenPageNavigationResult {
+  browser: Browser;
+  context: BrowserContext;
+  page: Page;
+  runtimeSignals: RuntimeSignalCollector;
+  resolvedTarget: { url: string; hostResolverRules: string | null } | null;
+}
+
+interface BlockedRequestState {
+  error: Error | null;
+}
+
+const blockedRequestStates = new WeakMap<Page, BlockedRequestState>();
+
+function toError(error: unknown, fallbackMessage: string): Error {
+  return error instanceof Error ? error : new Error(fallbackMessage);
+}
+
+function recordBlockedRequest(state: BlockedRequestState, error: unknown): void {
+  if (!state.error) {
+    state.error = toError(error, "Blocked outbound request");
+  }
+}
+
+function takeBlockedRequestError(state: BlockedRequestState | null | undefined): Error | null {
+  if (!state?.error) {
+    return null;
+  }
+
+  const blockedError = state.error;
+  state.error = null;
+  return blockedError;
+}
+
+async function runWithBlockedRequestHandling<T>(
+  page: Page,
+  action: () => Promise<T>
+): Promise<T> {
+  const state = blockedRequestStates.get(page);
+  if (!state) {
+    return action();
+  }
+
+  try {
+    const result = await action();
+    const blockedError = takeBlockedRequestError(state);
+    if (blockedError) {
+      throw blockedError;
+    }
+    return result;
+  } catch (error) {
+    throw takeBlockedRequestError(state) ?? toError(error, "Browser request failed");
+  }
+}
+
+function throwIfBlockedRequest(page: Page): void {
+  const blockedError = takeBlockedRequestError(blockedRequestStates.get(page));
+  if (blockedError) {
+    throw blockedError;
+  }
+}
+
+async function launchNavigatedPage(
+  navigationUrl: string,
+  launchHostResolverRules: string | null,
   config: Config,
   logger: Logger,
-  auth: AuditAuth | null = null
-): Promise<{ browser: Browser; page: Page; runtimeSignals: RuntimeSignalCollector }> {
+  auth: AuditAuth | null,
+  options: BrowserLaunchOptions,
+  initialTrustedHosts: Map<string, string | null>
+): Promise<OpenPageNavigationResult> {
   logger.debug("Launching Playwright browser");
-  const browser = await chromium.launch({ headless: true });
+  const launchArgs = launchHostResolverRules
+    ? [`--host-resolver-rules=${launchHostResolverRules}`]
+    : undefined;
+  const browser = await chromium.launch({
+    headless: true,
+    ...(launchArgs ? { args: launchArgs } : {})
+  });
   const extraHeaders = auth?.headers && Object.keys(auth.headers).length > 0 ? auth.headers : null;
   let context: BrowserContext | null = null;
   let page: Page | null = null;
+  const blockedRequestState: BlockedRequestState = { error: null };
+  const verifiedNavigationTargets = new Map<string, { url: string; hostResolverRules: string | null }>();
+  const trustedHostResolverRules = new Map(initialTrustedHosts);
+
+  const verifyNavigationTarget = async (targetUrl: string, contextLabel: string) => {
+    if (!options.targetPolicy) {
+      return null;
+    }
+
+    const existing = verifiedNavigationTargets.get(targetUrl);
+    if (existing) {
+      return existing;
+    }
+
+    const targetHostname = normalizeUrlHostname(targetUrl);
+    if (trustedHostResolverRules.has(targetHostname)) {
+      const trustedTarget = {
+        url: new URL(targetUrl).toString(),
+        hostResolverRules: trustedHostResolverRules.get(targetHostname) ?? null
+      };
+      verifiedNavigationTargets.set(targetUrl, trustedTarget);
+      verifiedNavigationTargets.set(trustedTarget.url, trustedTarget);
+      return trustedTarget;
+    }
+
+    const resolvedTarget = await resolveAuditedTarget(targetUrl, logger, options.targetPolicy, {
+      context: contextLabel
+    });
+    const verifiedTarget = {
+      url: resolvedTarget.url,
+      hostResolverRules: resolvedTarget.hostResolverRules
+    };
+    trustedHostResolverRules.set(resolvedTarget.classification.hostname, resolvedTarget.hostResolverRules);
+    verifiedNavigationTargets.set(targetUrl, verifiedTarget);
+    verifiedNavigationTargets.set(verifiedTarget.url, verifiedTarget);
+    return verifiedTarget;
+  };
 
   try {
     context = await browser.newContext({
@@ -270,13 +393,33 @@ export async function openPage(
         auth.cookies.map((cookie) => ({
           name: cookie.name,
           value: cookie.value,
-          url
+          url: navigationUrl
         }))
       );
     }
 
+    if (options.targetPolicy) {
+      await context.route("**", async (route: Route) => {
+        const request = route.request() as Request;
+        if (!isAuditableHttpUrl(request.url())) {
+          await route.continue();
+          return;
+        }
+
+        try {
+          const contextLabel = request.isNavigationRequest() ? "navigation target" : "request target";
+          await verifyNavigationTarget(request.url(), contextLabel);
+          await route.continue();
+        } catch (error) {
+          recordBlockedRequest(blockedRequestState, error);
+          await route.abort("blockedbyclient");
+        }
+      });
+    }
+
     const createdPage = await context.newPage();
     page = createdPage;
+    blockedRequestStates.set(createdPage, blockedRequestState);
     const runtimeSignals = createRuntimeSignalCollector(createdPage);
     createdPage.setDefaultNavigationTimeout(config.timeouts.navigationMs);
     createdPage.setDefaultTimeout(config.timeouts.actionMs);
@@ -284,22 +427,102 @@ export async function openPage(
     const retryCount = config.retries?.count ?? 1;
     const retryDelayMs = config.retries?.delayMs ?? 2000;
 
-    logger.debug(`Navigating to ${url}`);
-    await retry(() => createdPage.goto(url, { waitUntil: "load" }), {
-      maxRetries: retryCount,
-      baseDelayMs: retryDelayMs,
-      logger
-    });
-    await applyStabilityOverrides(createdPage);
-    await createdPage.waitForTimeout(config.timeouts.waitAfterLoadMs);
+    logger.debug(`Navigating to ${navigationUrl}`);
+    await retry(
+      () => runWithBlockedRequestHandling(createdPage, () => createdPage.goto(navigationUrl, { waitUntil: "load" })),
+      {
+        maxRetries: retryCount,
+        baseDelayMs: retryDelayMs,
+        logger,
+        isRetryable: (error) => !(error instanceof UsageError)
+      }
+    );
 
-    return { browser, page: createdPage, runtimeSignals };
+    return {
+      browser,
+      context,
+      page: createdPage,
+      runtimeSignals,
+      resolvedTarget: await verifyNavigationTarget(createdPage.url(), "final navigation target")
+    };
   } catch (error) {
     await closeQuietly(page, logger, "page");
     await closeQuietly(context, logger, "context");
     await closeQuietly(browser, logger, "browser");
     throw error;
   }
+}
+
+export async function openPage(
+  url: string,
+  config: Config,
+  logger: Logger,
+  auth: AuditAuth | null = null,
+  options: BrowserLaunchOptions = {}
+): Promise<{
+  browser: Browser;
+  page: Page;
+  runtimeSignals: RuntimeSignalCollector;
+  resolvedUrl: string;
+  resolvedHostResolverRules: string | null;
+}> {
+  const initialTrustedHosts = new Map<string, string | null>();
+  if (options.targetPolicy && options.hostResolverRules !== undefined) {
+    initialTrustedHosts.set(normalizeUrlHostname(url), options.hostResolverRules ?? null);
+  }
+
+  let currentLaunchHostResolverRules = options.hostResolverRules ?? null;
+  let navigation = await launchNavigatedPage(
+    url,
+    currentLaunchHostResolverRules,
+    config,
+    logger,
+    auth,
+    options,
+    initialTrustedHosts
+  );
+
+  let resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
+  let resolvedHostResolverRules = navigation.resolvedTarget?.hostResolverRules ?? null;
+
+  for (
+    let relaunchCount = 0;
+    options.targetPolicy && resolvedHostResolverRules !== currentLaunchHostResolverRules;
+    relaunchCount += 1
+  ) {
+    if (relaunchCount >= MAX_BROWSER_RELAUNCHES) {
+      throw new Error(`Playwright resolver pinning did not stabilize after ${MAX_BROWSER_RELAUNCHES + 1} launches.`);
+    }
+
+    logger.debug("Relaunching Playwright browser with landing host resolver rules");
+    await closeQuietly(navigation.page, logger, "page");
+    await closeQuietly(navigation.context, logger, "context");
+    await closeQuietly(navigation.browser, logger, "browser");
+    currentLaunchHostResolverRules = resolvedHostResolverRules;
+    navigation = await launchNavigatedPage(
+      resolvedUrl,
+      currentLaunchHostResolverRules,
+      config,
+      logger,
+      auth,
+      options,
+      new Map([[normalizeUrlHostname(resolvedUrl), currentLaunchHostResolverRules]])
+    );
+    resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
+    resolvedHostResolverRules = navigation.resolvedTarget?.hostResolverRules ?? null;
+  }
+
+  await applyStabilityOverrides(navigation.page);
+  await navigation.page.waitForTimeout(config.timeouts.waitAfterLoadMs);
+  throwIfBlockedRequest(navigation.page);
+
+  return {
+    browser: navigation.browser,
+    page: navigation.page,
+    runtimeSignals: navigation.runtimeSignals,
+    resolvedUrl,
+    resolvedHostResolverRules
+  };
 }
 
 async function captureScreenshot(
@@ -313,10 +536,12 @@ async function captureScreenshot(
 ): Promise<ScreenshotResult> {
   const url = resolveUrl(baseUrl, shot.path);
   logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
-  await retry(() => page.goto(url, { waitUntil: "load" }), {
+  throwIfBlockedRequest(page);
+  await retry(() => runWithBlockedRequestHandling(page, () => page.goto(url, { waitUntil: "load" })), {
     maxRetries: retryCount,
     baseDelayMs: retryDelayMs,
-    logger
+    logger,
+    isRetryable: (error) => !(error instanceof UsageError)
   });
   await applyStabilityOverrides(page);
 
@@ -327,6 +552,7 @@ async function captureScreenshot(
     await page.waitForTimeout(shot.waitForTimeoutMs);
   }
   await page.waitForTimeout(250);
+  throwIfBlockedRequest(page);
 
   const filename = `${sanitizeName(shot.name)}.png`;
   const filePath = path.join(outDir, filename);

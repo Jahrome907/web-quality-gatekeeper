@@ -2,7 +2,7 @@ import lighthouse from "lighthouse";
 import { launch } from "chrome-launcher";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import type { Config } from "../config/schema.js";
 import { writeJson } from "../utils/fs.js";
@@ -10,11 +10,22 @@ import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
 import { toCookieHeader } from "../utils/auth.js";
+import {
+  loadLighthousePuppeteer,
+  type PuppeteerBrowserLike,
+  type PuppeteerPageLike
+} from "./lighthousePuppeteer.js";
+import {
+  isAuditableHttpUrl,
+  normalizeUrlHostname,
+  resolveAuditedTarget,
+  UsageError,
+  type TargetResolutionPolicy
+} from "../utils/url.js";
 
 const requireSync = createRequire(import.meta.url);
 
 const MAX_OPPORTUNITIES = 10;
-const WINDOWS_DRIVE_PATH = /^[A-Za-z]:\\/;
 
 export interface LighthouseBudgets {
   performance: number;
@@ -85,6 +96,13 @@ interface LighthouseAuditLike {
 interface LighthouseLhrLike {
   categories?: Record<string, { score?: number | null }>;
   audits: Record<string, LighthouseAuditLike | undefined>;
+  finalDisplayedUrl?: string;
+  finalUrl?: string;
+}
+
+export interface LighthouseRunOptions {
+  hostResolverRules?: string | null;
+  targetPolicy?: TargetResolutionPolicy;
 }
 
 export function evaluateBudgets(
@@ -112,6 +130,10 @@ function toNumericValue(value: number | undefined): number {
 
 function toNullableNumeric(value: number | undefined): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function toError(error: unknown, fallbackMessage: string): Error {
+  return error instanceof Error ? error : new Error(fallbackMessage);
 }
 
 function categoryScore(lhr: LighthouseLhrLike, key: string): number {
@@ -181,26 +203,83 @@ function getChromeFlags(): string[] {
   return flags;
 }
 
-async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promise<() => void> {
+interface PortableLighthouseRuntime {
+  restore: () => Promise<void>;
+  userDataDir?: string;
+}
+
+async function closePuppeteerPage(page: PuppeteerPageLike | null, logger: Logger): Promise<void> {
+  if (!page) {
+    return;
+  }
+
+  try {
+    await page.close();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    logger.debug(`Failed to close Lighthouse page: ${message}`);
+  }
+}
+
+async function disconnectPuppeteerBrowser(
+  browser: PuppeteerBrowserLike | null,
+  logger: Logger
+): Promise<void> {
+  if (!browser) {
+    return;
+  }
+
+  try {
+    await browser.disconnect();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown error";
+    logger.debug(`Failed to disconnect Lighthouse browser: ${message}`);
+  }
+}
+
+async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promise<PortableLighthouseRuntime> {
   const previousLocalAppData = process.env.LOCALAPPDATA;
+  const previousTemp = process.env.TEMP;
+  const previousTmp = process.env.TMP;
 
   if (process.platform === "win32") {
-    return () => {};
+    return { restore: async () => {} };
   }
 
-  if (typeof previousLocalAppData === "string" && WINDOWS_DRIVE_PATH.test(previousLocalAppData)) {
-    const portableLocalAppData = path.join(outDir, ".lighthouse-localappdata");
-    await mkdir(portableLocalAppData, { recursive: true });
-    process.env.LOCALAPPDATA = portableLocalAppData;
-    logger.debug(`Remapped LOCALAPPDATA to ${portableLocalAppData} for portable Lighthouse execution`);
-  }
+  await mkdir(outDir, { recursive: true });
+  const runtimeRoot = await mkdtemp(path.join(outDir, ".lighthouse-runtime-"));
+  const portableLocalAppData = path.join(runtimeRoot, "localappdata");
+  const portableTemp = path.join(runtimeRoot, "temp");
+  const portableProfile = path.join(runtimeRoot, "profile");
+  await mkdir(portableLocalAppData, { recursive: true });
+  await mkdir(portableTemp, { recursive: true });
+  await mkdir(portableProfile, { recursive: true });
 
-  return () => {
-    if (previousLocalAppData === undefined) {
-      delete process.env.LOCALAPPDATA;
-      return;
+  process.env.LOCALAPPDATA = portableLocalAppData;
+  process.env.TEMP = portableTemp;
+  process.env.TMP = portableTemp;
+  logger.debug(`Using portable Lighthouse runtime root at ${runtimeRoot}`);
+
+  return {
+    userDataDir: portableProfile,
+    restore: async () => {
+      if (previousLocalAppData === undefined) {
+        delete process.env.LOCALAPPDATA;
+      } else {
+        process.env.LOCALAPPDATA = previousLocalAppData;
+      }
+      if (previousTemp === undefined) {
+        delete process.env.TEMP;
+      } else {
+        process.env.TEMP = previousTemp;
+      }
+      if (previousTmp === undefined) {
+        delete process.env.TMP;
+      } else {
+        process.env.TMP = previousTmp;
+      }
+      await rm(runtimeRoot, { recursive: true, force: true });
     }
-    process.env.LOCALAPPDATA = previousLocalAppData;
   };
 }
 
@@ -252,20 +331,104 @@ export async function runLighthouseAudit(
   outDir: string,
   config: Config,
   logger: Logger,
-  auth: AuditAuth | null = null
+  auth: AuditAuth | null = null,
+  options: LighthouseRunOptions = {}
 ): Promise<LighthouseSummary> {
   logger.debug("Running Lighthouse audit");
-  const restoreEnv = await applyPortableLighthouseEnv(outDir, logger);
+  const runtime = await applyPortableLighthouseEnv(outDir, logger);
+  const initialTarget =
+    options.targetPolicy
+      ? await resolveAuditedTarget(url, logger, options.targetPolicy, {
+          context: "Lighthouse target"
+        })
+      : null;
+  const effectiveHostResolverRules = options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
   const chromePath = resolveChromePath();
   if (chromePath) {
     logger.debug(`Using Chrome at: ${chromePath}`);
   }
   try {
+    const chromeFlags = getChromeFlags();
+    if (effectiveHostResolverRules) {
+      chromeFlags.push(`--host-resolver-rules=${effectiveHostResolverRules}`);
+    }
     const chrome = await launch({
-      chromeFlags: getChromeFlags(),
+      chromeFlags,
+      ...(runtime.userDataDir ? { userDataDir: runtime.userDataDir } : {}),
       ...(chromePath ? { chromePath } : {})
     });
+    let puppeteerBrowser: PuppeteerBrowserLike | null = null;
+    let puppeteerPage: PuppeteerPageLike | null = null;
+    let blockedRequestError: Error | null = null;
     try {
+      const verifiedNavigationTargets = new Map<string, { url: string; hostResolverRules: string | null }>();
+      const trustedHostResolverRules = new Map<string, string | null>();
+
+      if (initialTarget) {
+        trustedHostResolverRules.set(initialTarget.classification.hostname, effectiveHostResolverRules);
+      }
+
+      const verifyNavigationTarget = async (targetUrl: string, contextLabel: string) => {
+        if (!options.targetPolicy) {
+          return null;
+        }
+
+        const existing = verifiedNavigationTargets.get(targetUrl);
+        if (existing) {
+          return existing;
+        }
+
+        const targetHostname = normalizeUrlHostname(targetUrl);
+        if (trustedHostResolverRules.has(targetHostname)) {
+          const trustedTarget = {
+            url: new URL(targetUrl).toString(),
+            hostResolverRules: trustedHostResolverRules.get(targetHostname) ?? null
+          };
+          verifiedNavigationTargets.set(targetUrl, trustedTarget);
+          verifiedNavigationTargets.set(trustedTarget.url, trustedTarget);
+          return trustedTarget;
+        }
+
+        const resolvedTarget = await resolveAuditedTarget(targetUrl, logger, options.targetPolicy, {
+          context: contextLabel
+        });
+        const verifiedTarget = {
+          url: resolvedTarget.url,
+          hostResolverRules: resolvedTarget.hostResolverRules
+        };
+        trustedHostResolverRules.set(resolvedTarget.classification.hostname, resolvedTarget.hostResolverRules);
+        verifiedNavigationTargets.set(targetUrl, verifiedTarget);
+        verifiedNavigationTargets.set(verifiedTarget.url, verifiedTarget);
+        return verifiedTarget;
+      };
+
+      if (options.targetPolicy) {
+        const puppeteer = await loadLighthousePuppeteer();
+        puppeteerBrowser = await puppeteer.connect({
+          browserURL: `http://127.0.0.1:${chrome.port}`,
+          defaultViewport: null
+        });
+        puppeteerPage = await puppeteerBrowser.newPage();
+        await puppeteerPage.setRequestInterception(true);
+        puppeteerPage.on("request", async (request) => {
+          if (!isAuditableHttpUrl(request.url())) {
+            await request.continue();
+            return;
+          }
+
+          try {
+            const contextLabel = request.isNavigationRequest()
+              ? "Lighthouse navigation target"
+              : "Lighthouse request target";
+            await verifyNavigationTarget(request.url(), contextLabel);
+            await request.continue();
+          } catch (error) {
+            blockedRequestError ??= toError(error, "Blocked Lighthouse request");
+            await request.abort("blockedbyclient");
+          }
+        });
+      }
+
       const retryCount = config.retries?.count ?? 1;
       const retryDelayMs = config.retries?.delayMs ?? 2000;
       const isMobile = config.lighthouse.formFactor === "mobile";
@@ -284,33 +447,63 @@ export async function runLighthouseAudit(
           };
 
       const lhHeaders = buildLighthouseHeaders(auth);
+      const runnerFlags = {
+        port: chrome.port,
+        output: "json" as const,
+        logLevel: "error" as const,
+        onlyCategories: ["performance", "accessibility", "best-practices", "seo"],
+        ...(lhHeaders ? { extraHeaders: lhHeaders } : {})
+      };
+      const lighthouseConfig = {
+        extends: "lighthouse:default",
+        settings: {
+          formFactor: config.lighthouse.formFactor,
+          screenEmulation
+        }
+      };
+
       const runnerResult = await retry(
-        () =>
-          lighthouse(
-            url,
-            {
-              port: chrome.port,
-              output: "json",
-              logLevel: "error",
-              onlyCategories: ["performance", "accessibility", "best-practices", "seo"],
-              ...(lhHeaders ? { extraHeaders: lhHeaders } : {})
-            },
-            {
-              extends: "lighthouse:default",
-              settings: {
-                formFactor: config.lighthouse.formFactor,
-                screenEmulation
-              }
+        async () => {
+          try {
+            const result = puppeteerPage
+              ? await lighthouse(url, runnerFlags, lighthouseConfig, puppeteerPage as never)
+              : await lighthouse(url, runnerFlags, lighthouseConfig);
+            if (blockedRequestError) {
+              throw blockedRequestError;
             }
-          ),
-        { maxRetries: retryCount, baseDelayMs: retryDelayMs, logger }
+            return result;
+          } catch (error) {
+            throw blockedRequestError ?? toError(error, "Lighthouse run failed");
+          }
+        },
+        {
+          maxRetries: retryCount,
+          baseDelayMs: retryDelayMs,
+          logger,
+          isRetryable: (error) => !(error instanceof UsageError)
+        }
       );
+
+      if (blockedRequestError) {
+        throw blockedRequestError;
+      }
 
       if (!runnerResult?.lhr) {
         throw new Error("Lighthouse did not return a result");
       }
 
       const lhr = runnerResult.lhr as LighthouseLhrLike;
+      const finalNavigationUrl =
+        typeof lhr.finalDisplayedUrl === "string"
+          ? lhr.finalDisplayedUrl
+          : typeof lhr.finalUrl === "string"
+            ? lhr.finalUrl
+            : url;
+      if (options.targetPolicy) {
+        if (normalizeUrlHostname(finalNavigationUrl) !== normalizeUrlHostname(url)) {
+          await verifyNavigationTarget(finalNavigationUrl, "final Lighthouse target");
+        }
+      }
       const lcpAudit = lhr.audits["largest-contentful-paint"];
       const clsAudit = lhr.audits["cumulative-layout-shift"];
       const tbtAudit = lhr.audits["total-blocking-time"];
@@ -345,9 +538,11 @@ export async function runLighthouseAudit(
         opportunities: extractOpportunities(lhr)
       };
     } finally {
+      await closePuppeteerPage(puppeteerPage, logger);
+      await disconnectPuppeteerBrowser(puppeteerBrowser, logger);
       await chrome.kill();
     }
   } finally {
-    restoreEnv();
+    await runtime.restore();
   }
 }

@@ -6,12 +6,30 @@ This document freezes the `summary.v2.json` contract emitted by `src/index.ts`.
 - Schema URI: `https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json`
 - Local schema file: `schemas/summary.v2.json`
 
+## Source Of Truth
+
+Use this order when implementation and docs disagree:
+
+1. `src/index.ts` aggregate summary emission
+2. `src/report/summary.ts` per-page v2 detail emission
+3. `schemas/summary.v2.json`
+4. Contract tests covering runtime output and schema validation
+5. Documentation such as this contract file and `docs/migrations/summary-v2.md`
+
+## Automated Drift Gate
+
+Run `npm run contracts:check` to verify that:
+
+- shared runtime schema pointers and versions still match `schemas/summary.v2.json`
+- the aggregate `summary.v2.json` contract emitted by `src/index.ts` still points at the canonical runtime constants
+- this contract doc and the compatibility baseline still reference the current URI and version
+
 ## Top-Level Contract
 
 | Path | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `$schema` | `string` | Yes | Always the v2 schema URI. |
-| `schemaVersion` | `"2.1.0"` | Yes | Contract freeze point for this phase. |
+| `schemaVersion` | `"2.2.0"` | Yes | Contract freeze point for this phase. |
 | `toolVersion` | `string` | Yes | CLI/package semver string. |
 | `mode` | `"single" \| "multi"` | Yes | `single` for one target, `multi` for multiple targets. |
 | `overallStatus` | `"pass" \| "fail"` | Yes | Rollup status across pages. |
@@ -170,14 +188,18 @@ When present, `performance` includes:
 - `pages[].details.artifacts.summaryV2` and `pages[].artifacts.summaryV2`
   point to the per-page v2 summary path.
 
-## Canonical Examples
+## Illustrative Snippets
 
-### 1) Single-page pass (`summary.v2.json`)
+The JSON blocks below are partial examples meant to highlight field placement.
+They are not full schema fixtures. Treat the tables above, `schemas/summary.v2.json`,
+and `npm run contracts:check` as the authoritative contract gate.
+
+### 1) Single-page pass snippet (`summary.v2.json`)
 
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-  "schemaVersion": "2.1.0",
+  "schemaVersion": "2.2.0",
   "toolVersion": "0.3.0",
   "mode": "single",
   "overallStatus": "pass",
@@ -188,7 +210,7 @@ When present, `performance` includes:
     "v1": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
     "v2": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
   },
-  "schemaVersions": { "v1": "1.1.0", "v2": "2.1.0" },
+  "schemaVersions": { "v1": "1.1.0", "v2": "2.2.0" },
   "compatibility": {
     "v1SummaryPath": "summary.json",
     "v1Schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
@@ -231,7 +253,7 @@ When present, `performance` includes:
       },
       "details": {
         "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-        "schemaVersion": "2.1.0",
+        "schemaVersion": "2.2.0",
         "toolVersion": "0.3.0",
         "overallStatus": "pass",
         "url": "https://example.com",
@@ -276,7 +298,7 @@ When present, `performance` includes:
 }
 ```
 
-### 2) Multi-page mixed status (`summary.v2.json`)
+### 2) Multi-page mixed status snippet (`summary.v2.json`)
 
 ```json
 {
@@ -296,7 +318,7 @@ When present, `performance` includes:
 }
 ```
 
-### 3) Null sections with ready trend state (`summary.v2.json`)
+### 3) Null sections with ready trend state snippet (`summary.v2.json`)
 
 ```json
 {
@@ -338,7 +360,7 @@ When present, `performance` includes:
 
 ## Semver Policy
 
-- `2.1.0` is the frozen base for this phase.
+- `2.2.0` is the frozen base for this phase.
 - Additive, backward-compatible changes increment minor version (`2.x+1.0`).
 - Breaking field/type/requiredness changes increment major version (`3.0.0`).
 

@@ -2,7 +2,7 @@ import path from "node:path";
 import { readdir, readFile, unlink } from "node:fs/promises";
 import type { Config, UrlTarget } from "../config/schema.js";
 import { ensureDir, pathExists, writeJson } from "../utils/fs.js";
-import { classifyTargetUrl, UsageError } from "../utils/url.js";
+import { resolveAuditedTarget, type TargetResolutionPolicy, UsageError } from "../utils/url.js";
 import type { StepStatus, Summary, SummaryV2 } from "../report/summary.js";
 
 const DEFAULT_TREND_HISTORY_DIR = ".wqg-history";
@@ -21,6 +21,7 @@ export interface ResolvedAuditTarget {
   url: string;
   outDir: string;
   baselineDir: string;
+  hostResolverRules: string | null;
 }
 
 export interface TargetAuditResult {
@@ -211,55 +212,6 @@ export function resolveTrendSettings(config: Config): ResolvedTrendSettings {
   };
 }
 
-interface TargetResolutionPolicy {
-  allowInternalTargets: boolean;
-  blockInternalTargets: boolean;
-}
-
-async function normalizeTarget(
-  raw: string,
-  logger: WarningLogger,
-  policy: TargetResolutionPolicy
-): Promise<string> {
-  const classification = await classifyTargetUrl(raw);
-  const resolvedSuffix =
-    classification.reason === "dns" && classification.resolvedAddresses.length > 0
-      ? ` (resolved: ${classification.resolvedAddresses.join(", ")})`
-      : "";
-
-  if (!policy.allowInternalTargets && policy.blockInternalTargets && classification.isInternal) {
-    throw new UsageError(
-      `Blocked internal target: ${classification.hostname}${resolvedSuffix}. ` +
-        "Set --allow-internal-targets or WQG_ALLOW_INTERNAL_TARGETS=true to override."
-    );
-  }
-
-  if (!policy.allowInternalTargets && policy.blockInternalTargets && classification.resolutionFailed) {
-    throw new UsageError(
-      `Blocked unresolved target in sensitive mode: ${classification.hostname}. ` +
-        "DNS resolution failed during SSRF safety checks. " +
-        "Set --allow-internal-targets or WQG_ALLOW_INTERNAL_TARGETS=true to override."
-    );
-  }
-
-  if (classification.resolutionFailed) {
-    logger.warn(
-      `Could not resolve ${classification.hostname} during SSRF safety checks. ` +
-        "Proceeding because this run is not in sensitive mode."
-    );
-  }
-
-  if (!classification.isInternal) {
-    return classification.url;
-  }
-
-  logger.warn(
-    `Auditing internal network address (${classification.hostname}${resolvedSuffix}). ` +
-      `Ensure this is intentional. See SECURITY.md for SSRF guidance.`
-  );
-  return classification.url;
-}
-
 export async function resolveTargets(
   inputUrl: string | undefined,
   config: Config,
@@ -285,7 +237,7 @@ export async function resolveTargets(
 
   const isMulti = sourceTargets.length > 1;
   return Promise.all(sourceTargets.map(async (target, index) => {
-    const normalizedUrl = await normalizeTarget(target.url, logger, policy);
+    const normalizedTarget = await resolveAuditedTarget(target.url, logger, policy);
     const slugBase = `${String(index + 1).padStart(2, "0")}-${toSlug(target.name)}`;
     const targetOutDir = isMulti ? path.join(outDir, "pages", slugBase) : outDir;
     const targetBaselineDir = isMulti ? path.join(baselineDir, "pages", slugBase) : baselineDir;
@@ -293,9 +245,10 @@ export async function resolveTargets(
     return {
       index,
       name: target.name,
-      url: normalizedUrl,
+      url: normalizedTarget.url,
       outDir: targetOutDir,
-      baselineDir: targetBaselineDir
+      baselineDir: targetBaselineDir,
+      hostResolverRules: normalizedTarget.hostResolverRules
     };
   }));
 }
@@ -310,6 +263,54 @@ function toHistoryPoint(snapshot: AuditSummaryV2): TrendHistoryPoint {
     performanceBudgetFailures: snapshot.rollup.performanceBudgetFailures,
     visualFailures: snapshot.rollup.visualFailures
   };
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNullableFiniteNumber(value: unknown): value is number | null {
+  return value === null || isFiniteNumber(value);
+}
+
+function isOverallStatus(value: unknown): value is OverallStatus {
+  return value === "pass" || value === "fail";
+}
+
+function isTrendPageSummaryCandidate(value: unknown): value is {
+  name: string;
+  url: string;
+  overallStatus: OverallStatus;
+  metrics: {
+    a11yViolations: number;
+    performanceScore: number | null;
+    maxMismatchRatio: number | null;
+  };
+} {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as {
+    name?: unknown;
+    url?: unknown;
+    overallStatus?: unknown;
+    metrics?: {
+      a11yViolations?: unknown;
+      performanceScore?: unknown;
+      maxMismatchRatio?: unknown;
+    };
+  };
+
+  return (
+    typeof candidate.name === "string" &&
+    typeof candidate.url === "string" &&
+    isOverallStatus(candidate.overallStatus) &&
+    Boolean(candidate.metrics) &&
+    isFiniteNumber(candidate.metrics?.a11yViolations) &&
+    isNullableFiniteNumber(candidate.metrics?.performanceScore) &&
+    isNullableFiniteNumber(candidate.metrics?.maxMismatchRatio)
+  );
 }
 
 function buildTrendInsights(points: TrendHistoryPoint[]): TrendInsight[] {
@@ -434,12 +435,35 @@ function isAuditSummaryV2(value: unknown): value is AuditSummaryV2 {
   if (!value || typeof value !== "object") {
     return false;
   }
-  const candidate = value as Partial<AuditSummaryV2>;
+  const candidate = value as {
+    schemaVersion?: unknown;
+    startedAt?: unknown;
+    overallStatus?: unknown;
+    durationMs?: unknown;
+    pages?: unknown[];
+    rollup?: {
+      pageCount?: unknown;
+      failedPages?: unknown;
+      a11yViolations?: unknown;
+      performanceBudgetFailures?: unknown;
+      visualFailures?: unknown;
+    };
+  };
+
   return (
     typeof candidate.schemaVersion === "string" &&
     candidate.schemaVersion.startsWith("2.") &&
+    typeof candidate.startedAt === "string" &&
+    isOverallStatus(candidate.overallStatus) &&
+    isFiniteNumber(candidate.durationMs) &&
     Array.isArray(candidate.pages) &&
-    Boolean(candidate.rollup && typeof candidate.rollup.pageCount === "number")
+    candidate.pages.every((page) => isTrendPageSummaryCandidate(page)) &&
+    Boolean(candidate.rollup) &&
+    isFiniteNumber(candidate.rollup?.pageCount) &&
+    isFiniteNumber(candidate.rollup?.failedPages) &&
+    isFiniteNumber(candidate.rollup?.a11yViolations) &&
+    isFiniteNumber(candidate.rollup?.performanceBudgetFailures) &&
+    isFiniteNumber(candidate.rollup?.visualFailures)
   );
 }
 
@@ -518,6 +542,8 @@ export async function loadTrendHistoryPoints(
       const parsed = JSON.parse(raw) as unknown;
       if (isAuditSummaryV2(parsed)) {
         points.push(toHistoryPoint(parsed));
+      } else {
+        logger.warn(`Ignoring incompatible trend history snapshot: ${fileName}`);
       }
     } catch {
       logger.warn(`Ignoring unreadable trend history snapshot: ${fileName}`);
@@ -651,6 +677,13 @@ export async function writeTrendSnapshot(
     if (!oldest) {
       break;
     }
-    await unlink(path.join(historyDir, oldest));
+    try {
+      await unlink(path.join(historyDir, oldest));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+      // A concurrent cleanup may remove the same snapshot between readdir and unlink.
+    }
   }
 }

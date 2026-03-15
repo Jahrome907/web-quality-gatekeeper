@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import http from "node:http";
+import type { Server } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
+// @ts-expect-error -- CI helper script is tested via its runtime ESM entrypoint.
+import { cleanupRepoRootNoise, closeFixtureServer, startFixtureServer } from "../scripts/ci/_shared.mjs";
 
 const require = createRequire(import.meta.url);
 const Ajv2020 = require("ajv/dist/2020");
@@ -15,7 +17,6 @@ const execFileAsync = promisify(execFile);
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const CLI = path.join(ROOT, "dist", "cli.js");
-const FIXTURE_DIR = path.join(ROOT, "tests", "fixtures", "site");
 const TEST_CONFIG = path.join(ROOT, "tests", "fixtures", "integration-config.json");
 const SUMMARY_SCHEMA = path.join(ROOT, "schemas", "summary.v1.json");
 
@@ -72,44 +73,6 @@ async function runCli(
   }
 }
 
-/**
- * Starts a static file server for the fixture site.
- * Avoids any external network dependency.
- */
-function startFixtureServer(): Promise<{ server: http.Server; url: string }> {
-  return new Promise((resolve) => {
-    const server = http.createServer((req, res) => {
-      const filePath = path.join(FIXTURE_DIR, req.url === "/" ? "index.html" : req.url!);
-      if (!existsSync(filePath)) {
-        res.writeHead(404);
-        res.end("Not Found");
-        return;
-      }
-      const ext = path.extname(filePath);
-      const contentType = ext === ".html" ? "text/html" : "application/octet-stream";
-      res.writeHead(200, { "Content-Type": contentType });
-      res.end(readFileSync(filePath));
-    });
-
-    server.listen(0, "127.0.0.1", () => {
-      const addr = server.address() as { port: number };
-      resolve({ server, url: `http://127.0.0.1:${addr.port}` });
-    });
-  });
-}
-
-function closeFixtureServer(server: http.Server): Promise<void> {
-  return new Promise((resolve, reject) => {
-    server.close((error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve();
-    });
-  });
-}
-
 function toV1CompatibilityShape(summary: Record<string, unknown>): Record<string, unknown> {
   const normalized = { ...summary };
 
@@ -136,25 +99,30 @@ function toV1CompatibilityShape(summary: Record<string, unknown>): Record<string
 }
 
 describe("CLI integration", () => {
-  let server: http.Server;
+  let server: Server;
   let baseUrl: string;
   let outDir: string;
 
   function buildAuditArgs(extraArgs: string[] = []): string[] {
+    return buildAuditArgsWithOut(outDir, extraArgs);
+  }
+
+  function buildAuditArgsWithOut(targetOutDir: string, extraArgs: string[] = []): string[] {
     return [
       "audit",
       baseUrl,
-      "--out", outDir,
+      "--out", targetOutDir,
       "--no-fail-on-a11y",
       "--no-fail-on-perf",
       "--no-fail-on-visual",
       "--config", TEST_CONFIG,
-      "--baseline-dir", path.join(outDir, "baselines"),
+      "--baseline-dir", path.join(targetOutDir, "baselines"),
       ...extraArgs
     ];
   }
 
   beforeAll(async () => {
+    await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-int-"] });
     // Ensure CLI artifact is current for deterministic integration behavior.
     execFileSync("npm", ["run", "build"], {
       cwd: ROOT,
@@ -246,6 +214,14 @@ describe("CLI integration", () => {
     const run = await runCli(["audit", "not-a-url"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain("Invalid URL");
+    expect(run.stderr).toContain("Expected an absolute http:// or https:// URL");
+  }, 15000);
+
+  it("returns exit code 2 for unsupported URL protocols with actionable guidance", async () => {
+    const run = await runCli(["audit", "ws://example.com/socket"], 10000);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain("Invalid URL");
+    expect(run.stderr).toContain("Use http:// or https:// URLs only.");
   }, 15000);
 
   it("returns exit code 2 for invalid --format", async () => {
@@ -258,7 +234,7 @@ describe("CLI integration", () => {
     const run = await runCli(["audit", baseUrl, "--header", "Authorization token"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain(
-      'Invalid --header value: Authorization token. Expected "Name: Value".'
+      'Invalid --header value: Authorization token. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
     );
   }, 15000);
 
@@ -266,26 +242,70 @@ describe("CLI integration", () => {
     const run = await runCli(["audit", baseUrl, "--cookie", "session"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain(
-      'Invalid --cookie value: session. Expected "name=value".'
+      'Invalid --cookie value: session. Expected "name=value", for example --cookie "session_id=abc123".'
     );
   }, 15000);
 
   it("prints v1 JSON summary to stdout for --format json", async () => {
-    const run = await runCli(buildAuditArgs(["--format", "json"]), 60000);
-    expect(run.status).toBe(0);
-    const parsed = JSON.parse(run.stdout) as Record<string, unknown>;
-    expect(parsed).toHaveProperty("schemaVersion");
-    expect(parsed).toHaveProperty("$schema");
-    expect(parsed).toHaveProperty("overallStatus");
-    expect(parsed).toHaveProperty("artifacts");
+    const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-format-json-"));
+    const modeOutDir = path.join(modeRoot, "artifacts");
+
+    try {
+      const run = await runCli(buildAuditArgsWithOut(modeOutDir, ["--format", "json"]), 60000);
+      expect(run.status).toBe(0);
+      const parsed = JSON.parse(run.stdout) as Record<string, unknown>;
+      expect(parsed).toHaveProperty("schemaVersion");
+      expect(parsed).toHaveProperty("$schema");
+      expect(parsed).toHaveProperty("overallStatus");
+      expect(parsed).toHaveProperty("artifacts");
+
+      expect(existsSync(path.join(modeOutDir, "summary.json"))).toBe(true);
+      expect(existsSync(path.join(modeOutDir, "summary.v2.json"))).toBe(true);
+      expect(existsSync(path.join(modeOutDir, "report.html"))).toBe(true);
+    } finally {
+      await rm(modeRoot, { recursive: true, force: true });
+    }
   }, 90000);
 
   it("prints markdown summary to stdout for --format md", async () => {
-    const run = await runCli(buildAuditArgs(["--format", "md"]), 60000);
-    expect(run.status).toBe(0);
-    expect(run.stdout).toContain("# Web Quality Gatekeeper Report");
-    expect(run.stdout).toContain("| Step | Status | Badge |");
-    expect(() => JSON.parse(run.stdout)).toThrow();
+    const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-format-md-"));
+    const modeOutDir = path.join(modeRoot, "artifacts");
+
+    try {
+      const run = await runCli(buildAuditArgsWithOut(modeOutDir, ["--format", "md"]), 60000);
+      expect(run.status).toBe(0);
+      expect(run.stdout).toContain("# Web Quality Gatekeeper Report");
+      expect(run.stdout).toContain("| Step | Status | Badge |");
+      expect(() => JSON.parse(run.stdout)).toThrow();
+
+      expect(existsSync(path.join(modeOutDir, "summary.json"))).toBe(true);
+      expect(existsSync(path.join(modeOutDir, "summary.v2.json"))).toBe(true);
+      expect(existsSync(path.join(modeOutDir, "report.html"))).toBe(true);
+    } finally {
+      await rm(modeRoot, { recursive: true, force: true });
+    }
+  }, 90000);
+
+  it("keeps stdout clean and writes html report for --format html", async () => {
+    const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-format-html-"));
+    const modeOutDir = path.join(modeRoot, "artifacts");
+
+    try {
+      const run = await runCli(buildAuditArgsWithOut(modeOutDir, ["--format", "html"]), 60000);
+      expect(run.status).toBe(0);
+      expect(run.stdout.trim()).toBe("");
+
+      const reportPath = path.join(modeOutDir, "report.html");
+      expect(existsSync(reportPath)).toBe(true);
+      expect(existsSync(path.join(modeOutDir, "summary.json"))).toBe(true);
+      expect(existsSync(path.join(modeOutDir, "summary.v2.json"))).toBe(true);
+
+      const html = await readFile(reportPath, "utf8");
+      expect(html).toContain("<html");
+      expect(html).toContain("Web Quality Gatekeeper");
+    } finally {
+      await rm(modeRoot, { recursive: true, force: true });
+    }
   }, 90000);
 
   it("prints version with --version flag", () => {
@@ -343,4 +363,151 @@ describe("CLI integration", () => {
     );
     expect(overridden.status).toBe(0);
   }, 90000);
+
+  it("supports config-driven multi-target audits and emits aggregate v2 pages", async () => {
+    const multiRoot = await mkdtemp(path.join(ROOT, ".tmp-int-multi-"));
+    const multiOutDir = path.join(multiRoot, "artifacts");
+    const multiConfigPath = path.join(multiRoot, "multi-target.config.json");
+
+    try {
+      const baseConfig = JSON.parse(readFileSync(TEST_CONFIG, "utf8")) as Record<string, unknown>;
+      baseConfig.urls = [
+        { name: "landing", url: baseUrl },
+        { name: "pricing", url: `${baseUrl}/pricing.html` }
+      ];
+
+      await writeFile(multiConfigPath, JSON.stringify(baseConfig, null, 2), "utf8");
+
+      const run = await runCli(
+        [
+          "audit",
+          "--config",
+          multiConfigPath,
+          "--out",
+          multiOutDir,
+          "--baseline-dir",
+          path.join(multiRoot, "baselines"),
+          "--no-fail-on-a11y",
+          "--no-fail-on-perf",
+          "--no-fail-on-visual",
+          "--allow-internal-targets"
+        ],
+        90000
+      );
+
+      expect(run.status).toBe(0);
+
+      const summaryV2Path = path.join(multiOutDir, "summary.v2.json");
+      expect(existsSync(summaryV2Path), "summary.v2.json should exist").toBe(true);
+
+      const summaryV2 = JSON.parse(await readFile(summaryV2Path, "utf8")) as {
+        mode: string;
+        pages: Array<{ name: string; url: string; artifacts: { summaryV2: string } }>;
+        rollup: { pageCount: number };
+      };
+
+      expect(summaryV2.mode).toBe("multi");
+      expect(summaryV2.rollup.pageCount).toBe(2);
+      expect(summaryV2.pages.map((page) => page.name)).toEqual(["landing", "pricing"]);
+      expect(summaryV2.pages.map((page) => page.url)).toEqual([
+        `${baseUrl}/`,
+        `${baseUrl}/pricing.html`
+      ]);
+      expect(summaryV2.pages.every((page) => page.artifacts.summaryV2.endsWith("summary.v2.json"))).toBe(
+        true
+      );
+    } finally {
+      await rm(multiRoot, { recursive: true, force: true });
+    }
+  }, 90000);
+
+  it("surfaces invalid config inheritance as a CLI failure instead of silently continuing", async () => {
+    const invalidRoot = await mkdtemp(path.join(ROOT, ".tmp-int-invalid-config-"));
+    const invalidOutDir = path.join(invalidRoot, "artifacts");
+    const invalidConfigPath = path.join(invalidRoot, "invalid-extends.config.json");
+
+    try {
+      const baseConfig = JSON.parse(readFileSync(TEST_CONFIG, "utf8")) as Record<string, unknown>;
+      baseConfig.extends = "policy:docs";
+
+      await writeFile(invalidConfigPath, JSON.stringify(baseConfig, null, 2), "utf8");
+
+      const run = await runCli(
+        [
+          "audit",
+          baseUrl,
+          "--config",
+          invalidConfigPath,
+          "--out",
+          invalidOutDir,
+          "--baseline-dir",
+          path.join(invalidRoot, "baselines")
+        ],
+        20000
+      );
+
+      expect(run.status).toBe(1);
+      expect(run.stderr).toContain("extends");
+    } finally {
+      await rm(invalidRoot, { recursive: true, force: true });
+    }
+  }, 30000);
+
+  it("emits trend artifacts and transitions from no_previous to ready across repeated CLI runs", async () => {
+    const trendRoot = await mkdtemp(path.join(ROOT, ".tmp-int-trend-"));
+    const trendOutDir = path.join(trendRoot, "artifacts");
+    const trendConfigPath = path.join(trendRoot, "trend.config.json");
+
+    try {
+      const baseConfig = JSON.parse(readFileSync(TEST_CONFIG, "utf8")) as Record<string, unknown>;
+      baseConfig.trends = {
+        enabled: true,
+        historyDir: ".wqg-history",
+        maxSnapshots: 5,
+        dashboard: {
+          window: 5
+        }
+      };
+
+      await writeFile(trendConfigPath, JSON.stringify(baseConfig, null, 2), "utf8");
+
+      const args = [
+        "audit",
+        baseUrl,
+        "--config",
+        trendConfigPath,
+        "--out",
+        trendOutDir,
+        "--baseline-dir",
+        path.join(trendRoot, "baselines"),
+        "--no-fail-on-a11y",
+        "--no-fail-on-perf",
+        "--no-fail-on-visual",
+        "--allow-internal-targets"
+      ];
+
+      const firstRun = await runCli(args, 90000);
+      expect(firstRun.status).toBe(0);
+
+      const firstSummaryV2 = JSON.parse(
+        await readFile(path.join(trendOutDir, "summary.v2.json"), "utf8")
+      ) as { trend: { status: string }; artifacts: { trendHistoryJson: string | null; trendDashboardHtml: string | null } };
+      expect(firstSummaryV2.trend.status).toBe("no_previous");
+      expect(firstSummaryV2.artifacts.trendHistoryJson).toBe("trends/history.json");
+      expect(firstSummaryV2.artifacts.trendDashboardHtml).toBe("trends/dashboard.html");
+      expect(existsSync(path.join(trendOutDir, "trends", "history.json"))).toBe(true);
+      expect(existsSync(path.join(trendOutDir, "trends", "dashboard.html"))).toBe(true);
+
+      const secondRun = await runCli(args, 90000);
+      expect(secondRun.status).toBe(0);
+
+      const secondSummaryV2 = JSON.parse(
+        await readFile(path.join(trendOutDir, "summary.v2.json"), "utf8")
+      ) as { trend: { status: string; history: { points: unknown[] } | null } };
+      expect(secondSummaryV2.trend.status).toBe("ready");
+      expect(secondSummaryV2.trend.history?.points.length).toBeGreaterThanOrEqual(2);
+    } finally {
+      await rm(trendRoot, { recursive: true, force: true });
+    }
+  }, 180000);
 });
