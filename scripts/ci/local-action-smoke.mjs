@@ -6,6 +6,7 @@ import {
   ROOT,
   cleanupRepoRootNoise,
   closeFixtureServer,
+  ensureRepoBuild,
   readActionRunBlock,
   runChecked,
   startFixtureServer
@@ -17,7 +18,7 @@ async function runLocalActionSmoke() {
   let fixtureServer = null;
 
   try {
-    await runChecked("npm", ["run", "build"]);
+    await ensureRepoBuild();
 
     await mkdir(path.join(workspace, "tests"), { recursive: true });
     await cp(path.join(ROOT, "tests", "fixtures"), path.join(workspace, "tests", "fixtures"), {

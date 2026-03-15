@@ -7,7 +7,7 @@ import type { Server } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 // @ts-expect-error -- CI helper script is tested via its runtime ESM entrypoint.
-import { cleanupRepoRootNoise, closeFixtureServer, startFixtureServer } from "../scripts/ci/_shared.mjs";
+import { cleanupRepoRootNoise, closeFixtureServer, ensureRepoBuild, startFixtureServer } from "../scripts/ci/_shared.mjs";
 
 const require = createRequire(import.meta.url);
 const Ajv2020 = require("ajv/dist/2020");
@@ -34,6 +34,21 @@ function normalizeOutput(output: string | Buffer | null | undefined): string {
     return output.toString("utf8");
   }
   return "";
+}
+
+function extractExitStatus(error: {
+  code?: number | string;
+  status?: number;
+}): number {
+  if (typeof error.code === "number") {
+    return error.code;
+  }
+
+  if (typeof error.code === "string" && /^\d+$/.test(error.code)) {
+    return Number.parseInt(error.code, 10);
+  }
+
+  return error.status ?? 1;
 }
 
 async function runCli(
@@ -63,10 +78,8 @@ async function runCli(
       stdout?: string | Buffer;
       stderr?: string | Buffer;
     };
-    const status =
-      typeof err.code === "number" ? err.code : (err.status ?? 1);
     return {
-      status,
+      status: extractExitStatus(err),
       stdout: normalizeOutput(err.stdout),
       stderr: normalizeOutput(err.stderr)
     };
@@ -124,12 +137,7 @@ describe("CLI integration", () => {
   beforeAll(async () => {
     await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-int-"] });
     // Ensure CLI artifact is current for deterministic integration behavior.
-    execFileSync("npm", ["run", "build"], {
-      cwd: ROOT,
-      timeout: 120000,
-      env: { ...process.env, NO_COLOR: "1" },
-      stdio: "pipe"
-    });
+    await ensureRepoBuild();
 
     const fixture = await startFixtureServer();
     server = fixture.server;

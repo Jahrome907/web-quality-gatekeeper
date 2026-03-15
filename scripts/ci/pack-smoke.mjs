@@ -2,7 +2,14 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
-import { ROOT, cleanupRepoRootNoise, closeFixtureServer, runChecked, startFixtureServer } from "./_shared.mjs";
+import {
+  ROOT,
+  cleanupRepoRootNoise,
+  closeFixtureServer,
+  ensureRepoBuild,
+  runChecked,
+  startFixtureServer
+} from "./_shared.mjs";
 
 function assertTarballEntries(tarballEntries) {
   const requiredEntries = [
@@ -47,7 +54,7 @@ async function runPackSmoke() {
   let fixtureServer = null;
 
   try {
-    await runChecked("npm", ["run", "build"]);
+    await ensureRepoBuild();
     const { stdout: tarballStdout } = await runChecked("npm", [
       "pack",
       "--silent",

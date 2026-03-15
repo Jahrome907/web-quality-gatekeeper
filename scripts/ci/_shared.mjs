@@ -5,7 +5,7 @@ import { URL, fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync, readFileSync } from "node:fs";
-import { readdir, rm, stat } from "node:fs/promises";
+import { mkdir, readdir, rm, stat } from "node:fs/promises";
 
 const execFileAsync = promisify(execFile);
 
@@ -13,6 +13,9 @@ export const ROOT = path.resolve(fileURLToPath(new URL("../..", import.meta.url)
 export const FIXTURE_DIR = path.join(ROOT, "tests", "fixtures", "site");
 export const ACTION_PATH = path.join(ROOT, "action.yml");
 export const STALE_REPO_ROOT_CLEANUP_AGE_MS = 60 * 60 * 1000;
+const BUILD_LOCK_DIR = path.join(ROOT, ".tmp-build-lock");
+const BUILD_LOCK_POLL_MS = 200;
+const BUILD_LOCK_TIMEOUT_MS = 120000;
 
 const LEAKED_PATH_PATTERNS = [
   /^C:\\Users\\.*\\AppData\\Local\\lighthouse\.\d+$/,
@@ -81,6 +84,45 @@ export async function runChecked(command, args, options = {}) {
     throw new Error(
       `Command failed: ${command} ${args.join(" ")}${details ? `\n${details}` : ""}`
     );
+  }
+}
+
+function hasBuiltArtifacts() {
+  return existsSync(path.join(ROOT, "dist", "cli.js")) && existsSync(path.join(ROOT, "dist", "index.js"));
+}
+
+async function acquireBuildLock(timeoutMs = BUILD_LOCK_TIMEOUT_MS) {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      await mkdir(BUILD_LOCK_DIR);
+      return;
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "EEXIST") {
+        await new Promise((resolve) => globalThis.setTimeout(resolve, BUILD_LOCK_POLL_MS));
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw new Error(`Timed out waiting for repo build lock at ${BUILD_LOCK_DIR}`);
+}
+
+export async function ensureRepoBuild() {
+  if (hasBuiltArtifacts()) {
+    return;
+  }
+
+  await acquireBuildLock();
+  try {
+    if (hasBuiltArtifacts()) {
+      return;
+    }
+    await runChecked("npm", ["run", "build"]);
+  } finally {
+    await rm(BUILD_LOCK_DIR, { recursive: true, force: true });
   }
 }
 
