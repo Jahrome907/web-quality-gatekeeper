@@ -44,6 +44,9 @@ describe("validateUrl edge cases", () => {
 
   it("throws UsageError for malformed URLs", () => {
     expect(() => validateUrl("http://")).toThrow(UsageError);
+    expect(() => validateUrl("http://")).toThrow(
+      "Expected an absolute http:// or https:// URL"
+    );
   });
 
   it("rejects non-http schemes", () => {
@@ -51,12 +54,17 @@ describe("validateUrl edge cases", () => {
     expect(() => validateUrl("data:text/plain,hello")).toThrow("Invalid URL");
     expect(() => validateUrl("httpx://example.com")).toThrow("Invalid URL");
     expect(() => validateUrl("httpsx://example.com")).toThrow("Invalid URL");
+    expect(() => validateUrl("ws://example.com/socket")).toThrow(
+      "Use http:// or https:// URLs only."
+    );
   });
 
   it("detects private IPv4 ranges in IP classifier", () => {
     expect(isInternalIpAddress("10.0.0.12")).toBe(true);
+    expect(isInternalIpAddress("100.64.12.34")).toBe(true);
     expect(isInternalIpAddress("172.31.255.254")).toBe(true);
     expect(isInternalIpAddress("192.168.12.34")).toBe(true);
+    expect(isInternalIpAddress("198.18.0.42")).toBe(true);
     expect(isInternalIpAddress("8.8.8.8")).toBe(false);
   });
 

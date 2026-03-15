@@ -12,6 +12,16 @@ body:
     attributes:
       label: Version
       description: Output of `wqg --version` or commit SHA
+  - type: dropdown
+    attributes:
+      label: Surface
+      description: Where did you hit the issue?
+      options:
+        - CLI
+        - GitHub Action
+        - Workflow / CI
+        - Docs / Examples
+        - Packaged install
   - type: textarea
     attributes:
       label: Steps to reproduce
@@ -32,3 +42,7 @@ body:
     attributes:
       label: Logs or artifacts
       description: Include summary.json or relevant logs if possible
+  - type: textarea
+    attributes:
+      label: Config or policy snippet
+      description: Share the smallest relevant config, policy, or workflow snippet if the issue depends on custom inputs

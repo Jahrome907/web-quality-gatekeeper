@@ -1,10 +1,16 @@
+import { mkdtemp, mkdir, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockLookup } = vi.hoisted(() => ({
+  mockLookup: vi.fn()
+}));
 const mockLighthouse = vi.fn();
 const mockLaunch = vi.fn();
 const mockRetry = vi.fn();
 const mockWriteJson = vi.fn();
+const mockLoadLighthousePuppeteer = vi.fn();
 
 vi.mock("lighthouse", () => ({
   default: mockLighthouse
@@ -12,8 +18,14 @@ vi.mock("lighthouse", () => ({
 vi.mock("chrome-launcher", () => ({
   launch: mockLaunch
 }));
+vi.mock("../src/runner/lighthousePuppeteer.js", () => ({
+  loadLighthousePuppeteer: mockLoadLighthousePuppeteer
+}));
 vi.mock("../src/utils/retry.js", () => ({
   retry: mockRetry
+}));
+vi.mock("node:dns/promises", () => ({
+  lookup: mockLookup
 }));
 vi.mock("../src/utils/fs.js", async () => {
   const actual = await vi.importActual("../src/utils/fs.js");
@@ -34,9 +46,41 @@ function createBaseConfig(overrides?: Partial<Record<string, unknown>>) {
   };
 }
 
+function createPuppeteerHarness() {
+  let requestHandler:
+    | ((request: {
+        isNavigationRequest: () => boolean;
+        url: () => string;
+        continue: () => Promise<void>;
+        abort: (errorCode?: string) => Promise<void>;
+      }) => Promise<void>)
+    | null = null;
+  const page = {
+    setRequestInterception: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn().mockImplementation((event, handler) => {
+      if (event === "request") {
+        requestHandler = handler;
+      }
+    }),
+    close: vi.fn().mockResolvedValue(undefined)
+  };
+  const browser = {
+    newPage: vi.fn().mockResolvedValue(page),
+    disconnect: vi.fn().mockResolvedValue(undefined)
+  };
+
+  return {
+    page,
+    browser,
+    connect: vi.fn().mockResolvedValue(browser),
+    getRequestHandler: () => requestHandler
+  };
+}
+
 describe("lighthouse runner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLookup.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
     mockRetry.mockImplementation(async (fn: () => unknown) => fn());
   });
 
@@ -95,11 +139,14 @@ describe("lighthouse runner", () => {
       ttiMs: 3000.2,
       ttfbMs: 110.1
     });
-    expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
-      maxRetries: 2,
-      baseDelayMs: 50,
-      logger: { debug: expect.any(Function) }
-    });
+    expect(mockRetry).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        maxRetries: 2,
+        baseDelayMs: 50,
+        logger: { debug: expect.any(Function) }
+      })
+    );
     expect(mockWriteJson).toHaveBeenCalledWith(
       path.join("/tmp/artifacts", "lighthouse.json"),
       expect.any(Object)
@@ -359,14 +406,306 @@ describe("lighthouse runner", () => {
     }
   });
 
-  it("remaps Windows-style LOCALAPPDATA on non-Windows hosts and restores it after run", async () => {
+  it("pins DNS resolution in Chrome flags when host resolver rules are provided", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        categories: {
+          performance: { score: 0.95 }
+        },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+        }
+      }
+    });
+
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await runLighthouseAudit(
+      "https://example.com",
+      "/tmp/artifacts",
+      createBaseConfig() as never,
+      { debug: vi.fn() } as never,
+      null,
+      {
+        hostResolverRules: "MAP example.com 203.0.113.10"
+      }
+    );
+
+    expect(mockLaunch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chromeFlags: expect.arrayContaining(["--host-resolver-rules=MAP example.com 203.0.113.10"])
+      })
+    );
+  });
+
+  it("blocks internal Lighthouse redirects before the request is continued in sensitive mode", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({
+      connect: puppeteer.connect
+    });
+    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    const requestAbort = vi.fn().mockResolvedValue(undefined);
+    mockLighthouse.mockImplementation(async () => {
+      const requestHandler = puppeteer.getRequestHandler();
+      if (!requestHandler) {
+        throw new Error("request handler not registered");
+      }
+      await requestHandler({
+        isNavigationRequest: () => true,
+        url: () => "http://127.0.0.1:4010/",
+        continue: requestContinue,
+        abort: requestAbort
+      });
+      throw new Error("lighthouse navigation failed");
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never,
+        null,
+        {
+          targetPolicy: {
+            allowInternalTargets: false,
+            blockInternalTargets: true
+          }
+        }
+      )
+    ).rejects.toThrow("Blocked internal Lighthouse navigation target");
+
+    expect(requestContinue).not.toHaveBeenCalled();
+    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
+    expect(puppeteer.page.setRequestInterception).toHaveBeenCalledWith(true);
+    expect(puppeteer.page.close).toHaveBeenCalledTimes(1);
+    expect(puppeteer.browser.disconnect).toHaveBeenCalledTimes(1);
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks internal Lighthouse subresource requests in sensitive mode", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({
+      connect: puppeteer.connect
+    });
+    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    const requestAbort = vi.fn().mockResolvedValue(undefined);
+    mockLighthouse.mockImplementation(async () => {
+      const requestHandler = puppeteer.getRequestHandler();
+      if (!requestHandler) {
+        throw new Error("request handler not registered");
+      }
+      await requestHandler({
+        isNavigationRequest: () => false,
+        url: () => "http://127.0.0.1:4010/private-script.js",
+        continue: requestContinue,
+        abort: requestAbort
+      });
+      return {
+        lhr: {
+          categories: {
+            performance: { score: 0.95 }
+          },
+          audits: {
+            "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+            "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+            "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+          }
+        }
+      };
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never,
+        null,
+        {
+          targetPolicy: {
+            allowInternalTargets: false,
+            blockInternalTargets: true
+          }
+        }
+      )
+    ).rejects.toThrow("Blocked internal Lighthouse request target");
+
+    expect(requestContinue).not.toHaveBeenCalled();
+    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
+    expect(puppeteer.page.close).toHaveBeenCalledTimes(1);
+    expect(puppeteer.browser.disconnect).toHaveBeenCalledTimes(1);
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-resolve the final Lighthouse URL when it stays on the original host", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({
+      connect: puppeteer.connect
+    });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        finalDisplayedUrl: "https://example.com/dashboard",
+        categories: {
+          performance: { score: 0.95 }
+        },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+        }
+      }
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never,
+        null,
+        {
+          hostResolverRules: "MAP example.com 203.0.113.10",
+          targetPolicy: {
+            allowInternalTargets: false,
+            blockInternalTargets: true
+          }
+        }
+      )
+    ).resolves.toMatchObject({
+      metrics: expect.any(Object)
+    });
+
+    expect(logger.warn).not.toHaveBeenCalled();
+    expect(puppeteer.page.setRequestInterception).toHaveBeenCalledWith(true);
+    expect(puppeteer.page.close).toHaveBeenCalledTimes(1);
+    expect(puppeteer.browser.disconnect).toHaveBeenCalledTimes(1);
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-resolves newly discovered Lighthouse hosts on repeated requests in sensitive mode", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({
+      connect: puppeteer.connect
+    });
+    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    const requestAbort = vi.fn().mockResolvedValue(undefined);
+
+    mockLookup.mockImplementation(async (hostname: string) => {
+      if (hostname === "example.com") {
+        return [{ address: "203.0.113.10", family: 4 }];
+      }
+      if (hostname === "cdn.example.net") {
+        return [{ address: "203.0.113.20", family: 4 }];
+      }
+      return [{ address: "203.0.113.30", family: 4 }];
+    });
+
+    mockLighthouse.mockImplementation(async () => {
+      const requestHandler = puppeteer.getRequestHandler();
+      if (!requestHandler) {
+        throw new Error("request handler not registered");
+      }
+
+      await requestHandler({
+        isNavigationRequest: () => false,
+        url: () => "https://cdn.example.net/app.js",
+        continue: requestContinue,
+        abort: requestAbort
+      });
+      await requestHandler({
+        isNavigationRequest: () => false,
+        url: () => "https://cdn.example.net/app.js",
+        continue: requestContinue,
+        abort: requestAbort
+      });
+
+      return {
+        lhr: {
+          categories: {
+            performance: { score: 0.95 }
+          },
+          audits: {
+            "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+            "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+            "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+          }
+        }
+      };
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never,
+        null,
+        {
+          hostResolverRules: "MAP example.com 203.0.113.10",
+          targetPolicy: {
+            allowInternalTargets: false,
+            blockInternalTargets: true
+          }
+        }
+      )
+    ).resolves.toMatchObject({
+      metrics: expect.any(Object)
+    });
+
+    expect(requestContinue).toHaveBeenCalledTimes(2);
+    expect(requestAbort).not.toHaveBeenCalled();
+    expect(mockLookup).toHaveBeenCalledTimes(3);
+    expect(mockLookup.mock.calls.map((call) => call[0])).toEqual([
+      "example.com",
+      "cdn.example.net",
+      "cdn.example.net"
+    ]);
+  });
+
+  it("uses a deterministic portable runtime on non-Windows hosts and cleans it up", async () => {
     const previousLocalAppData = process.env.LOCALAPPDATA;
-    process.env.LOCALAPPDATA = "C:\\Users\\Joey\\AppData\\Local";
+    const previousTemp = process.env.TEMP;
+    const previousTmp = process.env.TMP;
+    delete process.env.LOCALAPPDATA;
+    delete process.env.TEMP;
+    delete process.env.TMP;
+
+    const outDir = await mkdtemp(path.join(tmpdir(), "wqg-lh-runtime-"));
+    await mkdir(outDir, { recursive: true });
 
     const kill = vi.fn().mockResolvedValue(undefined);
     let launchLocalAppData: string | undefined;
+    let launchTemp: string | undefined;
+    let launchTmp: string | undefined;
+    let launchUserDataDir: string | undefined;
     mockLaunch.mockImplementation(async () => {
       launchLocalAppData = process.env.LOCALAPPDATA;
+      launchTemp = process.env.TEMP;
+      launchTmp = process.env.TMP;
       return { port: 9222, kill };
     });
     mockLighthouse.mockResolvedValue({
@@ -386,15 +725,21 @@ describe("lighthouse runner", () => {
       const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
       await runLighthouseAudit(
         "https://example.com",
-        "/tmp/artifacts",
+        outDir,
         createBaseConfig() as never,
         { debug: vi.fn() } as never
       );
 
       if (process.platform === "win32") {
-        expect(launchLocalAppData).toBe("C:\\Users\\Joey\\AppData\\Local");
+        expect(launchLocalAppData).toBeUndefined();
       } else {
-        expect(launchLocalAppData).toBe(path.join("/tmp/artifacts", ".lighthouse-localappdata"));
+        launchUserDataDir = mockLaunch.mock.calls[0]?.[0]?.userDataDir;
+        expect(launchLocalAppData).toMatch(new RegExp(`^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/localappdata$`));
+        expect(launchTemp).toMatch(new RegExp(`^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/temp$`));
+        expect(launchTmp).toBe(launchTemp);
+        expect(launchUserDataDir).toMatch(new RegExp(`^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/profile$`));
+        const entries = await readdir(outDir);
+        expect(entries.some((entry) => entry.startsWith(".lighthouse-runtime-"))).toBe(false);
       }
     } finally {
       if (previousLocalAppData === undefined) {
@@ -402,6 +747,17 @@ describe("lighthouse runner", () => {
       } else {
         process.env.LOCALAPPDATA = previousLocalAppData;
       }
+      if (previousTemp === undefined) {
+        delete process.env.TEMP;
+      } else {
+        process.env.TEMP = previousTemp;
+      }
+      if (previousTmp === undefined) {
+        delete process.env.TMP;
+      } else {
+        process.env.TMP = previousTmp;
+      }
+      await rm(outDir, { recursive: true, force: true });
     }
   });
 

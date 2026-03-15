@@ -58,10 +58,12 @@ runs:
   using: "composite"
   steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        persist-credentials: false
 
     - name: Setup Node
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
       with:
         node-version: 20
         cache: npm
@@ -71,10 +73,17 @@ runs:
       shell: bash
       run: npm ci --ignore-scripts
 
-    - name: Install Playwright browsers
+    - name: Install Playwright browsers (Linux)
+      if: runner.os == 'Linux'
       working-directory: ${{ github.action_path }}
       shell: bash
       run: npx playwright install --with-deps chromium
+
+    - name: Install Playwright browsers (macOS/Windows)
+      if: runner.os != 'Linux'
+      working-directory: ${{ github.action_path }}
+      shell: bash
+      run: npx playwright install chromium
 
     - name: Build
       working-directory: ${{ github.action_path }}
@@ -121,8 +130,41 @@ runs:
           printf '%s\n' "$workspace_candidate"
         }
 
+        resolve_policy_reference() {
+          local candidate="$1"
+          local trimmed
+          trimmed="${candidate#"${candidate%%[![:space:]]*}"}"
+          trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+          if [[ -z "$trimmed" ]]; then
+            printf '%s\n' "$trimmed"
+            return
+          fi
+
+          local by_prefix="$trimmed"
+          local had_policy_prefix="false"
+          if [[ "$trimmed" == policy:* ]]; then
+            had_policy_prefix="true"
+            by_prefix="${trimmed#policy:}"
+          fi
+
+          case "$by_prefix" in
+            marketing|docs|ecommerce|saas)
+              # Preserve built-in policy names so runtime can resolve them internally.
+              printf '%s\n' "$trimmed"
+              ;;
+            *)
+              if [[ "$had_policy_prefix" == "true" ]]; then
+                printf '%s\n' "$(resolve_workspace_path "$by_prefix")"
+              else
+                printf '%s\n' "$(resolve_workspace_path "$trimmed")"
+              fi
+              ;;
+          esac
+        }
+
         CONFIG_PATH="$(resolve_config_path "$INPUT_CONFIG")"
         BASELINE_PATH="$(resolve_workspace_path "$INPUT_BASELINE")"
+        POLICY_REFERENCE="$(resolve_policy_reference "$INPUT_POLICY")"
         OUT_DIR="${GITHUB_WORKSPACE}/artifacts"
 
         ARGS=(
@@ -131,7 +173,7 @@ runs:
           "--baseline-dir" "$BASELINE_PATH"
           "--out" "$OUT_DIR"
         )
-        [[ -n "$INPUT_POLICY" ]] && ARGS+=("--policy" "$INPUT_POLICY")
+        [[ -n "$POLICY_REFERENCE" ]] && ARGS+=("--policy" "$POLICY_REFERENCE")
         [[ "$INPUT_A11Y" != "true" ]] && ARGS+=("--no-fail-on-a11y")
         [[ "$INPUT_PERF" != "true" ]] && ARGS+=("--no-fail-on-perf")
         [[ "$INPUT_VISUAL" != "true" ]] && ARGS+=("--no-fail-on-visual")

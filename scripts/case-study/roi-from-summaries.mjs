@@ -14,22 +14,51 @@ function toNumber(value, fallback = 0) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function toFiniteNumberOrNull(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function average(values) {
+  if (values.length === 0) {
+    return null;
+  }
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return Number((total / values.length).toFixed(4));
+}
+
 function extract(summary) {
   const rollup = summary?.rollup ?? {};
-  const firstPage = Array.isArray(summary?.pages) && summary.pages.length > 0 ? summary.pages[0] : null;
-  const perf = firstPage?.details?.performance?.metrics ?? {};
+  const pages = Array.isArray(summary?.pages) ? summary.pages : [];
+  const performanceScores = [];
+  const lcpValues = [];
+
+  for (const page of pages) {
+    const metrics = page?.details?.performance?.metrics ?? {};
+    const performanceScore = toFiniteNumberOrNull(metrics.performanceScore);
+    const lcpMs = toFiniteNumberOrNull(metrics.lcpMs);
+    if (performanceScore !== null) {
+      performanceScores.push(performanceScore);
+    }
+    if (lcpMs !== null) {
+      lcpValues.push(lcpMs);
+    }
+  }
+
   return {
     overallStatus: String(summary?.overallStatus ?? "unknown"),
     failedPages: toNumber(rollup.failedPages),
     a11yViolations: toNumber(rollup.a11yViolations),
     performanceBudgetFailures: toNumber(rollup.performanceBudgetFailures),
     visualFailures: toNumber(rollup.visualFailures),
-    performanceScore: toNumber(perf.performanceScore, 0),
-    lcpMs: toNumber(perf.lcpMs, 0)
+    performanceScore: average(performanceScores),
+    lcpMs: average(lcpValues)
   };
 }
 
 function delta(current, previous) {
+  if (current === null || previous === null) {
+    return null;
+  }
   return Number((current - previous).toFixed(4));
 }
 

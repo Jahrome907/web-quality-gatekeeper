@@ -796,7 +796,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         <li>Performance score: <strong>${categoryScores?.performance !== undefined ? `${Math.round(categoryScores.performance * 100)}/100` : "n/a"}</strong></li>
         <li>LCP: <strong>${escapeHtml(formatMs(vitalValues.lcp))}</strong>, CLS: <strong>${escapeHtml(formatRatio(vitalValues.cls))}</strong>, TBT: <strong>${escapeHtml(formatMs(vitalValues.tbt))}</strong></li>
         <li>FCP: <strong>${escapeHtml(formatMs(vitalValues.fcp))}</strong>, TTFB: <strong>${escapeHtml(formatMs(vitalValues.ttfb))}</strong></li>
-        <li>Budget checks: <strong>${perf?.budgetResults ? `${perf.budgetResults.performance ? "Perf OK" : "Perf Fail"}, ${perf.budgetResults.lcp ? "LCP OK" : "LCP Fail"}, ${perf.budgetResults.cls ? "CLS OK" : "CLS Fail"}, ${perf.budgetResults.tbt ? "TBT OK" : "TBT Fail"}` : "n/a"}</strong></li>
+        <li>Budget checks: <strong>${perf?.budgetResults ? `${perf.budgetResults.performance ? "Performance pass" : "Performance fail"}, ${perf.budgetResults.lcp ? "LCP pass" : "LCP fail"}, ${perf.budgetResults.cls ? "CLS pass" : "CLS fail"}, ${perf.budgetResults.tbt ? "TBT pass" : "TBT fail"}` : "n/a"}</strong></li>
       </ul>
     </article>
     <article id="gauge-detail-accessibility" class="gauge-detail card" hidden aria-live="polite">

@@ -2,6 +2,17 @@ name: Feature request
 description: Suggest an improvement or new feature
 labels: ["enhancement"]
 body:
+  - type: dropdown
+    attributes:
+      label: Primary surface
+      description: Which part of the project would this improve?
+      options:
+        - CLI
+        - GitHub Action
+        - Reports / Artifacts
+        - Workflows / CI
+        - Docs / Examples
+        - Packaging / Distribution
   - type: textarea
     attributes:
       label: Problem
@@ -15,3 +26,7 @@ body:
   - type: textarea
     attributes:
       label: Alternatives considered
+  - type: textarea
+    attributes:
+      label: Adoption impact
+      description: Note any compatibility, migration, or maintainer-workflow impact you expect

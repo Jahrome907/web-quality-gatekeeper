@@ -5,6 +5,14 @@ export class UsageError extends Error {
   exitCode = 2;
 }
 
+function invalidUrlMessage(raw: string): string {
+  return `Invalid URL: ${raw}. Expected an absolute http:// or https:// URL, for example https://example.com/.`;
+}
+
+function unsupportedProtocolMessage(raw: string): string {
+  return `Invalid URL: ${raw}. Use http:// or https:// URLs only.`;
+}
+
 const LOCAL_HOST_PATTERNS = [
   /^localhost$/i,
   /^localhost\.localdomain$/i
@@ -19,10 +27,12 @@ const INTERNAL_HOST_PATTERNS = [
 const INTERNAL_IP_BLOCK_LIST = new BlockList();
 INTERNAL_IP_BLOCK_LIST.addAddress("0.0.0.0", "ipv4");
 INTERNAL_IP_BLOCK_LIST.addSubnet("10.0.0.0", 8, "ipv4");
+INTERNAL_IP_BLOCK_LIST.addSubnet("100.64.0.0", 10, "ipv4");
 INTERNAL_IP_BLOCK_LIST.addSubnet("127.0.0.0", 8, "ipv4");
 INTERNAL_IP_BLOCK_LIST.addSubnet("169.254.0.0", 16, "ipv4");
 INTERNAL_IP_BLOCK_LIST.addSubnet("172.16.0.0", 12, "ipv4");
 INTERNAL_IP_BLOCK_LIST.addSubnet("192.168.0.0", 16, "ipv4");
+INTERNAL_IP_BLOCK_LIST.addSubnet("198.18.0.0", 15, "ipv4");
 INTERNAL_IP_BLOCK_LIST.addAddress("::", "ipv6");
 INTERNAL_IP_BLOCK_LIST.addAddress("::1", "ipv6");
 INTERNAL_IP_BLOCK_LIST.addSubnet("fc00::", 7, "ipv6");
@@ -30,6 +40,19 @@ INTERNAL_IP_BLOCK_LIST.addSubnet("fe80::", 10, "ipv6");
 
 function normalizeHostname(hostname: string): string {
   return hostname.replace(/^\[(.*)\]$/, "$1").toLowerCase();
+}
+
+export function normalizeUrlHostname(raw: string): string {
+  return normalizeHostname(new URL(validateUrl(raw).url).hostname);
+}
+
+export function isAuditableHttpUrl(raw: string): boolean {
+  try {
+    const protocol = new URL(raw).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 function isLocalHostname(hostname: string): boolean {
@@ -65,6 +88,16 @@ export interface TargetClassification {
   resolutionFailed: boolean;
   reason: "literal" | "dns" | "none";
   resolvedAddresses: string[];
+  pinnedAddress: string | null;
+}
+
+export interface TargetResolutionPolicy {
+  allowInternalTargets: boolean;
+  blockInternalTargets: boolean;
+}
+
+export interface WarningLogger {
+  warn: (message: string) => void;
 }
 
 async function resolveHostAddresses(
@@ -95,11 +128,11 @@ export function validateUrl(raw: string): { url: string; isInternal: boolean } {
   try {
     parsed = new URL(raw);
   } catch {
-    throw new UsageError(`Invalid URL: ${raw}`);
+    throw new UsageError(invalidUrlMessage(raw));
   }
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new UsageError(`Invalid URL: ${raw}`);
+    throw new UsageError(unsupportedProtocolMessage(raw));
   }
 
   const internal = isInternalHost(parsed.hostname);
@@ -116,12 +149,17 @@ export async function classifyTargetUrl(raw: string): Promise<TargetClassificati
       isInternal: true,
       resolutionFailed: false,
       reason: "literal",
-      resolvedAddresses: []
+      resolvedAddresses: [],
+      pinnedAddress: null
     };
   }
 
   const { addresses: resolvedAddresses, resolutionFailed } = await resolveHostAddresses(hostname);
   const hasInternalResolvedAddress = resolvedAddresses.some((address) => isInternalIpAddress(address));
+  const pinnedAddress =
+    resolutionFailed || hasInternalResolvedAddress || isInternalHost(hostname)
+      ? null
+      : resolvedAddresses.find((address) => isIP(address) === 4) ?? resolvedAddresses[0] ?? null;
 
   return {
     url: validated.url,
@@ -129,6 +167,71 @@ export async function classifyTargetUrl(raw: string): Promise<TargetClassificati
     isInternal: hasInternalResolvedAddress,
     resolutionFailed,
     reason: hasInternalResolvedAddress ? "dns" : "none",
-    resolvedAddresses
+    resolvedAddresses,
+    pinnedAddress
+  };
+}
+
+export function buildHostResolverRules(hostname: string, pinnedAddress: string | null): string | null {
+  if (!pinnedAddress || isIP(hostname) !== 0) {
+    return null;
+  }
+
+  return `MAP ${normalizeHostname(hostname)} ${pinnedAddress}`;
+}
+
+function formatResolvedSuffix(classification: TargetClassification): string {
+  return classification.reason === "dns" && classification.resolvedAddresses.length > 0
+    ? ` (resolved: ${classification.resolvedAddresses.join(", ")})`
+    : "";
+}
+
+export async function resolveAuditedTarget(
+  raw: string,
+  logger: WarningLogger,
+  policy: TargetResolutionPolicy,
+  options: { context?: string } = {}
+): Promise<{
+  url: string;
+  hostResolverRules: string | null;
+  classification: TargetClassification;
+}> {
+  const classification = await classifyTargetUrl(raw);
+  const context = options.context ?? "target";
+  const resolvedSuffix = formatResolvedSuffix(classification);
+
+  if (!policy.allowInternalTargets && policy.blockInternalTargets && classification.isInternal) {
+    throw new UsageError(
+      `Blocked internal ${context}: ${classification.hostname}${resolvedSuffix}. ` +
+        "Set --allow-internal-targets or WQG_ALLOW_INTERNAL_TARGETS=true to override."
+    );
+  }
+
+  if (!policy.allowInternalTargets && policy.blockInternalTargets && classification.resolutionFailed) {
+    throw new UsageError(
+      `Blocked unresolved ${context} in sensitive mode: ${classification.hostname}. ` +
+        "DNS resolution failed during SSRF safety checks. " +
+        "Set --allow-internal-targets or WQG_ALLOW_INTERNAL_TARGETS=true to override."
+    );
+  }
+
+  if (classification.resolutionFailed) {
+    logger.warn(
+      `Could not resolve ${classification.hostname} during SSRF safety checks for the ${context}. ` +
+        "Proceeding because this run is not in sensitive mode."
+    );
+  }
+
+  if (classification.isInternal) {
+    logger.warn(
+      `Auditing internal network ${context} (${classification.hostname}${resolvedSuffix}). ` +
+        "Ensure this is intentional. See SECURITY.md for SSRF guidance."
+    );
+  }
+
+  return {
+    url: classification.url,
+    hostResolverRules: buildHostResolverRules(classification.hostname, classification.pinnedAddress),
+    classification
   };
 }

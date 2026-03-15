@@ -1,6 +1,40 @@
 import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { copyFile, mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+
+function resolveExistingPath(path: string): string {
+  try {
+    return realpathSync.native(path);
+  } catch {
+    return resolve(path);
+  }
+}
+
+function resolveSymlinkAwarePath(targetPath: string): string {
+  const resolvedTarget = resolve(targetPath);
+  const missingSegments: string[] = [];
+  let current = resolvedTarget;
+
+  while (true) {
+    try {
+      const existingPath = realpathSync.native(current);
+      return missingSegments.reduce((acc, segment) => join(acc, segment), existingPath);
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (err.code !== "ENOENT") {
+        throw err;
+      }
+
+      const parent = dirname(current);
+      if (parent === current) {
+        return resolvedTarget;
+      }
+      missingSegments.unshift(basename(current));
+      current = parent;
+    }
+  }
+}
 
 /**
  * Validates that a target path is safely within a base directory.
@@ -23,14 +57,14 @@ export function validatePathWithinBase(targetPath: string, baseDir: string): voi
  */
 export function validateOutputDirectory(outDir: string): void {
   const cwd = process.cwd();
-  const resolvedOut = resolve(outDir);
+  const resolvedOut = resolveSymlinkAwarePath(outDir);
   const allowedBases = [cwd];
   if (process.env.GITHUB_WORKSPACE) {
     allowedBases.push(process.env.GITHUB_WORKSPACE);
   }
 
   const isAllowed = allowedBases.some((base) => {
-    const relativePath = relative(resolve(base), resolvedOut);
+    const relativePath = relative(resolveExistingPath(base), resolvedOut);
     return !relativePath.startsWith("..") && !isAbsolute(relativePath);
   });
 

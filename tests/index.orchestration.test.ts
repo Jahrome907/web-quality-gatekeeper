@@ -3,6 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RuntimeSignalSummary } from "../src/runner/playwright.js";
 import type { Summary, SummaryV2 } from "../src/report/summary.js";
 
+const { mockLookup } = vi.hoisted(() => ({
+  mockLookup: vi.fn()
+}));
 const mockLoadConfig = vi.fn();
 const mockOpenPage = vi.fn();
 const mockCaptureScreenshots = vi.fn();
@@ -37,7 +40,23 @@ vi.mock("../src/report/summary.js", () => ({
   buildSummary: mockBuildSummary,
   buildSummaryV2: mockBuildSummaryV2,
   SCHEMA_VERSION: "1.1.0",
-  SCHEMA_VERSION_V2: "2.1.0",
+  SCHEMA_VERSION_V2: "2.2.0",
+  SUMMARY_SCHEMA_POINTERS: {
+    v1: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
+    v2: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
+  },
+  SUMMARY_SCHEMA_VERSIONS: {
+    v1: "1.1.0",
+    v2: "2.2.0"
+  },
+  SUMMARY_ARTIFACT_NAMES: {
+    summary: "summary.json",
+    summaryV2: "summary.v2.json",
+    report: "report.html",
+    actionPlan: "action-plan.md"
+  },
+  SUMMARY_V2_COMPATIBILITY_NOTE:
+    "summary.json remains v1-compatible. summary.v2.json contains multipage and trend fields.",
   SUMMARY_SCHEMA_URI_V2:
     "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
   SUMMARY_SCHEMA_URI:
@@ -51,6 +70,9 @@ vi.mock("../src/utils/fs.js", () => ({
   writeJson: mockWriteJson,
   writeText: mockWriteText,
   validateOutputDirectory: mockValidateOutputDirectory
+}));
+vi.mock("node:dns/promises", () => ({
+  lookup: mockLookup
 }));
 
 function createRuntimeSignals(): RuntimeSignalSummary {
@@ -127,7 +149,7 @@ function createSummaryV2(overallStatus: "pass" | "fail"): SummaryV2 {
     ...createSummary(overallStatus),
     $schema:
       "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-    schemaVersion: "2.1.0",
+    schemaVersion: "2.2.0",
     artifacts: {
       ...createSummary(overallStatus).artifacts,
       summaryV2: "summary.v2.json"
@@ -148,10 +170,16 @@ function createFullConfig() {
   };
 }
 
+function isCiLike(): boolean {
+  const value = `${process.env.CI ?? process.env.GITHUB_ACTIONS ?? ""}`.toLowerCase();
+  return value === "1" || value === "true" || value === "yes" || value === "on";
+}
+
 describe("runAudit orchestration", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    mockLookup.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
     mockBuildHtmlReport.mockReturnValue("<html>report</html>");
     mockBuildSummary.mockReturnValue(createSummary("pass"));
     mockBuildSummaryV2.mockReturnValue(createSummaryV2("pass"));
@@ -166,7 +194,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://www.example.com/",
+      resolvedHostResolverRules: "MAP www.example.com 203.0.113.11"
     });
     mockCaptureScreenshots.mockResolvedValue([
       {
@@ -237,6 +267,20 @@ describe("runAudit orchestration", () => {
     expect(mockValidateOutputDirectory).toHaveBeenCalledTimes(2);
     expect(mockRunAxeScan).toHaveBeenCalledWith(expect.anything(), outDir, expect.anything(), expect.anything());
     expect(mockRunLighthouseAudit).toHaveBeenCalledTimes(1);
+    expect(mockRunLighthouseAudit).toHaveBeenCalledWith(
+      "https://www.example.com/",
+      outDir,
+      expect.any(Object),
+      expect.anything(),
+      null,
+      expect.objectContaining({
+        hostResolverRules: "MAP www.example.com 203.0.113.11",
+        targetPolicy: {
+          allowInternalTargets: false,
+          blockInternalTargets: isCiLike()
+        }
+      })
+    );
     expect(mockRunVisualDiff).toHaveBeenCalledTimes(1);
     expect(mockRunVisualDiff).toHaveBeenCalledWith(
       expect.any(Array),
@@ -256,7 +300,7 @@ describe("runAudit orchestration", () => {
     expect(mockWriteJson).toHaveBeenCalledWith(
       path.join(outDir, "summary.v2.json"),
       expect.objectContaining({
-        schemaVersion: "2.1.0",
+        schemaVersion: "2.2.0",
         mode: "single",
         overallStatus: "pass",
         pages: expect.any(Array)
@@ -265,6 +309,7 @@ describe("runAudit orchestration", () => {
     expect(mockWriteText).toHaveBeenCalledWith(path.join(outDir, "report.html"), "<html>report</html>");
 
     const summaryArgs = mockBuildSummary.mock.calls[0]![0];
+    expect(summaryArgs.url).toBe("https://example.com/");
     expect(summaryArgs.screenshots[0].path).toBe("screenshots/home.png");
     expect(summaryArgs.a11y.reportPath).toBe("axe.json");
     expect(summaryArgs.performance.reportPath).toBe("lighthouse.json");
@@ -292,7 +337,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: "MAP example.com 203.0.113.10"
     });
     mockCaptureScreenshots.mockResolvedValue([
       {
@@ -334,7 +381,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: "MAP example.com 203.0.113.10"
     });
     mockCaptureScreenshots.mockResolvedValue([]);
     mockBuildSummary.mockReturnValue(createSummary("fail"));
@@ -364,7 +413,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: "MAP example.com 203.0.113.10"
     });
     mockRunAxeScan.mockRejectedValue(new Error("axe failed"));
     mockCaptureScreenshots.mockResolvedValue([]);
@@ -396,7 +447,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: "MAP example.com 203.0.113.10"
     });
     mockCaptureScreenshots.mockResolvedValue([]);
     mockRunLighthouseAudit.mockResolvedValue({
@@ -428,15 +481,31 @@ describe("runAudit orchestration", () => {
       "https://example.com/",
       expect.any(Object),
       expect.any(Object),
-      auth
+      auth,
+      expect.objectContaining({
+        hostResolverRules: expect.any(String),
+        targetPolicy: {
+          allowInternalTargets: false,
+          blockInternalTargets: true
+        }
+      })
     );
     expect(mockRunLighthouseAudit).toHaveBeenCalledWith(
       "https://example.com/",
       expect.any(String),
       expect.any(Object),
       expect.any(Object),
-      auth
+      auth,
+      expect.objectContaining({
+        hostResolverRules: "MAP example.com 203.0.113.10",
+        targetPolicy: {
+          allowInternalTargets: false,
+          blockInternalTargets: true
+        }
+      })
     );
+    expect(mockBuildSummary.mock.calls[0]?.[0]?.url).toBe("https://example.com/");
+    expect(mockBuildSummaryV2.mock.calls[0]?.[0]?.url).toBe("https://example.com/");
   });
 
   it("fails fast on invalid config loading without opening browser", async () => {

@@ -15,7 +15,9 @@ export function listBuiltinPolicies(): BuiltinPolicyName[] {
 export function resolvePolicyReference(reference: string, cwd: string): string {
   const trimmed = reference.trim();
   if (trimmed.length === 0) {
-    throw new Error("Policy reference must not be empty");
+    throw new Error(
+      'Policy reference must not be empty. Use a built-in policy like "docs" or a JSON file path such as ./configs/policies/custom.json.'
+    );
   }
 
   const byPrefix = trimmed.startsWith("policy:") ? trimmed.slice("policy:".length) : trimmed;

@@ -1,0 +1,10 @@
+[project]
+name = "wqg-python-tools"
+version = "0.1.0"
+description = "Optional Python helpers for Web Quality Gatekeeper artifact post-processing."
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
