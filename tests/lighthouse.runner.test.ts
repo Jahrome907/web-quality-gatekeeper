@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockLookup } = vi.hoisted(() => ({
+  mockLookup: vi.fn()
+}));
 const mockLighthouse = vi.fn();
 const mockLaunch = vi.fn();
 const mockRetry = vi.fn();
@@ -20,6 +23,9 @@ vi.mock("../src/runner/lighthousePuppeteer.js", () => ({
 }));
 vi.mock("../src/utils/retry.js", () => ({
   retry: mockRetry
+}));
+vi.mock("node:dns/promises", () => ({
+  lookup: mockLookup
 }));
 vi.mock("../src/utils/fs.js", async () => {
   const actual = await vi.importActual("../src/utils/fs.js");
@@ -74,6 +80,7 @@ function createPuppeteerHarness() {
 describe("lighthouse runner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLookup.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
     mockRetry.mockImplementation(async (fn: () => unknown) => fn());
   });
 
@@ -592,6 +599,91 @@ describe("lighthouse runner", () => {
     expect(puppeteer.page.close).toHaveBeenCalledTimes(1);
     expect(puppeteer.browser.disconnect).toHaveBeenCalledTimes(1);
     expect(kill).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-resolves newly discovered Lighthouse hosts on repeated requests in sensitive mode", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({
+      connect: puppeteer.connect
+    });
+    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    const requestAbort = vi.fn().mockResolvedValue(undefined);
+
+    mockLookup.mockImplementation(async (hostname: string) => {
+      if (hostname === "example.com") {
+        return [{ address: "203.0.113.10", family: 4 }];
+      }
+      if (hostname === "cdn.example.net") {
+        return [{ address: "203.0.113.20", family: 4 }];
+      }
+      return [{ address: "203.0.113.30", family: 4 }];
+    });
+
+    mockLighthouse.mockImplementation(async () => {
+      const requestHandler = puppeteer.getRequestHandler();
+      if (!requestHandler) {
+        throw new Error("request handler not registered");
+      }
+
+      await requestHandler({
+        isNavigationRequest: () => false,
+        url: () => "https://cdn.example.net/app.js",
+        continue: requestContinue,
+        abort: requestAbort
+      });
+      await requestHandler({
+        isNavigationRequest: () => false,
+        url: () => "https://cdn.example.net/app.js",
+        continue: requestContinue,
+        abort: requestAbort
+      });
+
+      return {
+        lhr: {
+          categories: {
+            performance: { score: 0.95 }
+          },
+          audits: {
+            "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+            "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+            "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+          }
+        }
+      };
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never,
+        null,
+        {
+          hostResolverRules: "MAP example.com 203.0.113.10",
+          targetPolicy: {
+            allowInternalTargets: false,
+            blockInternalTargets: true
+          }
+        }
+      )
+    ).resolves.toMatchObject({
+      metrics: expect.any(Object)
+    });
+
+    expect(requestContinue).toHaveBeenCalledTimes(2);
+    expect(requestAbort).not.toHaveBeenCalled();
+    expect(mockLookup).toHaveBeenCalledTimes(3);
+    expect(mockLookup.mock.calls.map((call) => call[0])).toEqual([
+      "example.com",
+      "cdn.example.net",
+      "cdn.example.net"
+    ]);
   });
 
   it("uses a deterministic portable runtime on non-Windows hosts and cleans it up", async () => {

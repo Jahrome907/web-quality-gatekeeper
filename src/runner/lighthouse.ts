@@ -362,10 +362,23 @@ export async function runLighthouseAudit(
     let blockedRequestError: Error | null = null;
     try {
       const verifiedNavigationTargets = new Map<string, { url: string; hostResolverRules: string | null }>();
-      const trustedHostResolverRules = new Map<string, string | null>();
+      const pinnedHostResolverRules = new Map<string, string | null>();
 
       if (initialTarget) {
-        trustedHostResolverRules.set(initialTarget.classification.hostname, effectiveHostResolverRules);
+        pinnedHostResolverRules.set(initialTarget.classification.hostname, effectiveHostResolverRules);
+      }
+
+      const cachePinnedTarget = (
+        targetUrl: string,
+        verifiedTarget: { url: string; hostResolverRules: string | null }
+      ) => {
+        const verifiedHostname = normalizeUrlHostname(verifiedTarget.url);
+        if (!pinnedHostResolverRules.has(verifiedHostname)) {
+          return;
+        }
+
+        verifiedNavigationTargets.set(targetUrl, verifiedTarget);
+        verifiedNavigationTargets.set(verifiedTarget.url, verifiedTarget);
       }
 
       const verifyNavigationTarget = async (targetUrl: string, contextLabel: string) => {
@@ -379,13 +392,12 @@ export async function runLighthouseAudit(
         }
 
         const targetHostname = normalizeUrlHostname(targetUrl);
-        if (trustedHostResolverRules.has(targetHostname)) {
+        if (pinnedHostResolverRules.has(targetHostname)) {
           const trustedTarget = {
             url: new URL(targetUrl).toString(),
-            hostResolverRules: trustedHostResolverRules.get(targetHostname) ?? null
+            hostResolverRules: pinnedHostResolverRules.get(targetHostname) ?? null
           };
-          verifiedNavigationTargets.set(targetUrl, trustedTarget);
-          verifiedNavigationTargets.set(trustedTarget.url, trustedTarget);
+          cachePinnedTarget(targetUrl, trustedTarget);
           return trustedTarget;
         }
 
@@ -396,9 +408,7 @@ export async function runLighthouseAudit(
           url: resolvedTarget.url,
           hostResolverRules: resolvedTarget.hostResolverRules
         };
-        trustedHostResolverRules.set(resolvedTarget.classification.hostname, resolvedTarget.hostResolverRules);
-        verifiedNavigationTargets.set(targetUrl, verifiedTarget);
-        verifiedNavigationTargets.set(verifiedTarget.url, verifiedTarget);
+        cachePinnedTarget(targetUrl, verifiedTarget);
         return verifiedTarget;
       };
 
