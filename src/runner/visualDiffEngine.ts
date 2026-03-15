@@ -8,6 +8,7 @@ import { pathExists } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 
 const execFileAsync = promisify(execFile);
+const DEFAULT_NATIVE_SPIKE_TIMEOUT_MS = 5000;
 
 export type VisualDiffEngineName = "pixelmatch" | "native-rust-spike";
 
@@ -31,6 +32,33 @@ interface NativeSpikeResult {
 function resolveEngine(options: VisualDiffEngineOptions): VisualDiffEngineName {
   const configuredEngine = options.engine ?? process.env.WQG_VISUAL_DIFF_ENGINE;
   return configuredEngine === "native-rust-spike" ? "native-rust-spike" : "pixelmatch";
+}
+
+function resolveNativeSpikeTimeoutMs(): number {
+  const raw = process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS;
+  if (!raw) {
+    return DEFAULT_NATIVE_SPIKE_TIMEOUT_MS;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_NATIVE_SPIKE_TIMEOUT_MS;
+}
+
+function formatNativeSpikeFailure(error: unknown, timeoutMs: number): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    (("code" in error && error.code === "ETIMEDOUT") ||
+      ("killed" in error &&
+        error.killed === true &&
+        "signal" in error &&
+        typeof error.signal === "string" &&
+        error.signal.length > 0))
+  ) {
+    return `Timed out after ${timeoutMs}ms.`;
+  }
+
+  return error instanceof Error ? error.message : String(error);
 }
 
 async function runPixelmatch(
@@ -77,23 +105,30 @@ async function runNativeRustSpike(
   const baselinePath = path.join(tempDir, "baseline.rgba");
   const currentPath = path.join(tempDir, "current.rgba");
   const diffPath = path.join(tempDir, "diff.rgba");
+  const timeoutMs = resolveNativeSpikeTimeoutMs();
 
   try {
     await Promise.all([writeFile(baselinePath, baseline), writeFile(currentPath, current)]);
-    const { stdout } = await execFileAsync(binaryPath, [
-      "--width",
-      String(width),
-      "--height",
-      String(height),
-      "--baseline",
-      baselinePath,
-      "--current",
-      currentPath,
-      "--diff-out",
-      diffPath,
-      "--threshold",
-      String(options.threshold),
-    ]);
+    const { stdout } = await execFileAsync(
+      binaryPath,
+      [
+        "--width",
+        String(width),
+        "--height",
+        String(height),
+        "--baseline",
+        baselinePath,
+        "--current",
+        currentPath,
+        "--diff-out",
+        diffPath,
+        "--threshold",
+        String(options.threshold),
+      ],
+      {
+        timeout: timeoutMs
+      }
+    );
     const parsed = JSON.parse(stdout.trim()) as NativeSpikeResult;
     const diffPixels =
       typeof parsed.diffPixels === "number" ? Math.trunc(parsed.diffPixels) : Number.NaN;
@@ -114,9 +149,7 @@ async function runNativeRustSpike(
     };
   } catch (error) {
     options.logger.warn(
-      `Native visual diff spike failed; falling back to pixelmatch. ${
-        error instanceof Error ? error.message : String(error)
-      }`
+      `Native visual diff spike failed; falling back to pixelmatch. ${formatNativeSpikeFailure(error, timeoutMs)}`
     );
     return null;
   } finally {

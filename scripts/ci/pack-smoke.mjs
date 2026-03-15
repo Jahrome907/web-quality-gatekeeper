@@ -100,7 +100,10 @@ async function runPackSmoke() {
           'if (typeof pkg.SCHEMA_VERSION !== "string") throw new Error("Missing SCHEMA_VERSION export");'
         ].join(" ")
       ],
-      { cwd: consumerDir }
+      {
+        cwd: consumerDir,
+        shell: false
+      }
     );
 
     for (const requiredPath of [

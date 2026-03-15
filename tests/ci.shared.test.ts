@@ -96,21 +96,28 @@ describe("ci shared helpers", () => {
     const staleTemp = path.join(process.cwd(), ".tmp-action-local-ci-shared-test");
     const freshTemp = path.join(process.cwd(), ".tmp-action-local-ci-shared-fresh");
     const otherScratch = path.join(process.cwd(), ".tmp-pack-smoke-ci-shared-test");
-    const staleLeak = path.join(
-      process.cwd(),
-String.raw`\\wsl.localhost\Ubuntu\home\user\projects\web-quality-gatekeeper\undefined\Users\undefined\AppData\Local\lighthouse.12345678`
-    );
+    const staleLeak =
+      process.platform === "win32"
+        ? null
+        : path.join(
+            process.cwd(),
+            String.raw`\\wsl.localhost\Ubuntu\home\user\projects\web-quality-gatekeeper\undefined\Users\undefined\AppData\Local\lighthouse.12345678`
+          );
     const unrelated = path.join(process.cwd(), ".tmp-kept-ci-shared-test");
 
     await mkdir(staleTemp, { recursive: true });
     await mkdir(freshTemp, { recursive: true });
     await mkdir(otherScratch, { recursive: true });
-    await mkdir(staleLeak, { recursive: true });
+    if (staleLeak) {
+      await mkdir(staleLeak, { recursive: true });
+    }
     await mkdir(unrelated, { recursive: true });
     const staleTimestamp = new Date(Date.now() - 5_000);
     await utimes(staleTemp, staleTimestamp, staleTimestamp);
     await utimes(otherScratch, staleTimestamp, staleTimestamp);
-    await utimes(staleLeak, staleTimestamp, staleTimestamp);
+    if (staleLeak) {
+      await utimes(staleLeak, staleTimestamp, staleTimestamp);
+    }
     await utimes(unrelated, staleTimestamp, staleTimestamp);
 
     try {
@@ -124,13 +131,18 @@ String.raw`\\wsl.localhost\Ubuntu\home\user\projects\web-quality-gatekeeper\unde
       });
       await expect(stat(freshTemp)).resolves.toBeDefined();
       await expect(stat(otherScratch)).resolves.toBeDefined();
-      await expect(stat(staleLeak)).rejects.toMatchObject({
-        code: "ENOENT"
-      });
+      if (staleLeak) {
+        await expect(stat(staleLeak)).rejects.toMatchObject({
+          code: "ENOENT"
+        });
+      }
       await expect(stat(unrelated)).resolves.toBeDefined();
     } finally {
       await rm(freshTemp, { recursive: true, force: true });
       await rm(otherScratch, { recursive: true, force: true });
+      if (staleLeak) {
+        await rm(staleLeak, { recursive: true, force: true });
+      }
       await rm(unrelated, { recursive: true, force: true });
     }
   });

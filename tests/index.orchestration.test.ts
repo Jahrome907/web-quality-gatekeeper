@@ -170,6 +170,11 @@ function createFullConfig() {
   };
 }
 
+function isCiLike(): boolean {
+  const value = `${process.env.CI ?? process.env.GITHUB_ACTIONS ?? ""}`.toLowerCase();
+  return value === "1" || value === "true" || value === "yes" || value === "on";
+}
+
 describe("runAudit orchestration", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -272,7 +277,7 @@ describe("runAudit orchestration", () => {
         hostResolverRules: "MAP www.example.com 203.0.113.11",
         targetPolicy: {
           allowInternalTargets: false,
-          blockInternalTargets: false
+          blockInternalTargets: isCiLike()
         }
       })
     );

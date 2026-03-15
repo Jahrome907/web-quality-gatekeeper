@@ -57,15 +57,15 @@ export async function cleanupRepoRootNoise(options = {}) {
 }
 
 export async function runChecked(command, args, options = {}) {
-  const { env: optionEnv, timeout = 120000, ...execOptions } = options;
-  const needsShell = process.platform === "win32" && !execOptions.shell;
+  const { env: optionEnv, timeout = 120000, shell, ...execOptions } = options;
+  const effectiveShell = shell ?? process.platform === "win32";
 
   try {
     return await execFileAsync(command, args, {
       cwd: ROOT,
       encoding: "utf8",
       timeout,
-      shell: needsShell,
+      shell: effectiveShell,
       env: {
         ...process.env,
         NO_COLOR: "1",

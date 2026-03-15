@@ -1,10 +1,11 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const ACTION_PATH = path.join(ROOT, "action.yml");
+const HAS_BASH = spawnSync("bash", ["--version"], { stdio: "ignore" }).status === 0;
 
 function getActionRunPrelude(): string {
   const source = readFileSync(ACTION_PATH, "utf8");
@@ -48,7 +49,7 @@ printf '%s' "$POLICY_REFERENCE"
   }).trim();
 }
 
-describe("composite action policy path resolution", () => {
+describe.skipIf(!HAS_BASH)("composite action policy path resolution", () => {
   it("preserves built-in policy names instead of rewriting them as workspace paths", () => {
     expect(resolvePolicyReference("marketing")).toBe("marketing");
     expect(resolvePolicyReference("policy:docs")).toBe("policy:docs");

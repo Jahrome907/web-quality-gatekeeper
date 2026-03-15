@@ -21,7 +21,7 @@ Closes #
 - [ ] New/updated tests cover the change
 - [ ] Relevant smoke command run when packaging, workflow, or Action behavior changed (`npm run smoke:pack`, `npm run smoke:action`, or `npm run release:dry-run`)
 - [ ] Manual verification (if applicable)
-- [ ] I confirm this PR does not include AI-generated code, docs, artifacts, or evidence
+- [ ] I confirmed the docs, examples, and emitted artifacts still match actual repo behavior
 
 ## Notes
 

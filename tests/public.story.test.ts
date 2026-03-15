@@ -27,6 +27,8 @@ describe("public story surface", () => {
   it("keeps README linked to proof artifacts and reproducibility docs", () => {
     const source = readRepoFile("README.md");
 
+    expect(source).toContain("How It Works");
+    expect(source).toContain("assets/how-it-works.svg");
     expect(source).toContain("Proof & Reproducibility");
     expect(source).toContain("blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-report.html");
     expect(source).toContain("blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-summary.v2.json");

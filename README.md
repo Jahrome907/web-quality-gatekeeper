@@ -1,11 +1,16 @@
 # Web Quality Gatekeeper
 
-[![CI](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Quality Gate](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
+[![Pack Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml)
+[![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
+[![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 A production-ready quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs on every PR. Outputs a clean HTML report plus machine-readable JSON summaries.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/chore/open-source-updates/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
+</p>
 
 ## Install
 
@@ -31,6 +36,7 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 ## Table of Contents
 
 - [Install](#install)
+- [How It Works](#how-it-works)
 - [Proof & Reproducibility](#proof--reproducibility)
 - [Features](#features)
 - [Quickstart](#quickstart)
@@ -43,6 +49,12 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 - [Development](#development)
 - [Tech Stack](#tech-stack)
 - [License](#license)
+
+## How It Works
+
+1. **Validate and pin the target**: the runner normalizes the requested URL, applies SSRF-sensitive guardrails when needed, and pins the audited host so redirect handling stays deterministic.
+2. **Collect evidence on one audited target**: Playwright loads the page, captures runtime signals and screenshots, then axe, Lighthouse, and visual diff run against the same resolved target.
+3. **Emit stable outputs for people and CI**: every run writes `report.html`, `summary.json`, and `summary.v2.json`, with optional baselines and trend artifacts for longer-lived quality programs.
 
 ## Proof & Reproducibility
 

@@ -144,11 +144,15 @@ describe("workflow invariants", () => {
     expect(source).toContain("/blob/main/SECURITY.md");
   });
 
-  it("keeps the no-AI contribution policy visible in contributor workflows", () => {
+  it("keeps contributor workflows focused on verifiable repo behavior", () => {
     const contributing = readRepoFile("CONTRIBUTING.md");
     const prTemplate = readRepoFile(".github/pull_request_template.md");
 
-    expect(contributing).toContain("Do not submit AI-generated code, docs, artifacts, or evidence bundles.");
-    expect(prTemplate).toContain("does not include AI-generated code, docs, artifacts, or evidence");
+    expect(contributing).toContain(
+      "Keep submitted code, docs, and artifacts directly verifiable through the repo's tests, smoke checks, or published proof surfaces."
+    );
+    expect(prTemplate).toContain("I confirmed the docs, examples, and emitted artifacts still match actual repo behavior");
+    expect(contributing).not.toMatch(/\bAI-generated\b/i);
+    expect(prTemplate).not.toMatch(/\bAI-generated\b/i);
   });
 });

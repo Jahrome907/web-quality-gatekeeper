@@ -93,6 +93,17 @@ process.stdout.write(JSON.stringify({ diffPixels }));
   return stubPath;
 }
 
+async function createHangingNativeSpikeStub(tempDir: string): Promise<string> {
+  const stubPath = path.join(tempDir, "native-spike-hang-stub.mjs");
+  const source = `#!/usr/bin/env node
+setTimeout(() => {}, 60000);
+`;
+
+  await writeFile(stubPath, source, "utf8");
+  await chmod(stubPath, 0o755);
+  return stubPath;
+}
+
 describe("runVisualDiff native spike", () => {
   it("falls back to pixelmatch when the native spike binary is missing", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
@@ -161,6 +172,49 @@ describe("runVisualDiff native spike", () => {
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);
       expect(logger.warn).not.toHaveBeenCalled();
     } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to pixelmatch when the native spike times out", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const nativeBinaryPath = await createHangingNativeSpikeStub(tempDir);
+    const originalTimeout = process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS;
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+    process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS = "50";
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { engine: "native-rust-spike", nativeBinaryPath }
+      );
+
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Native visual diff spike failed; falling back to pixelmatch. Timed out after 50ms."
+      );
+    } finally {
+      if (originalTimeout === undefined) {
+        delete process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS;
+      } else {
+        process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS = originalTimeout;
+      }
       await rm(tempDir, { recursive: true, force: true });
     }
   });

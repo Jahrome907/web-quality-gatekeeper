@@ -95,7 +95,7 @@ and exercise the built CLI end-to-end. Packaged consumer smoke lives in
 - Keep changes scoped and add tests for behavior changes.
 - Run `npm run check` before opening a PR.
 - Keep `README.md`, `SECURITY.md`, and workflow examples aligned with actual script and workflow behavior.
-- Do not submit AI-generated code, docs, artifacts, or evidence bundles. Contributions must be human-authored and human-verified.
+- Keep submitted code, docs, and artifacts directly verifiable through the repo's tests, smoke checks, or published proof surfaces.
 
 ## Workflow safety defaults
 

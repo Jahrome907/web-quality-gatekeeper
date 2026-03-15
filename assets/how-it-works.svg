@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="140" y1="64" x2="1140" y2="700" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7faf7"/>
+      <stop offset="1" stop-color="#edf4ef"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="240" y1="0" x2="1040" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0f6a44" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#215ea6" stop-opacity="0.08"/>
+    </linearGradient>
+    <filter id="shadow" x="-8%" y="-8%" width="116%" height="124%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#183423" flood-opacity="0.10"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto-start-reverse">
+      <path d="M2 2L10 6L2 10V2Z" fill="#406653"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="760" rx="28" fill="url(#bg)"/>
+  <rect width="1280" height="760" rx="28" fill="url(#accent)"/>
+
+  <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif" fill="#12261a">
+    <text x="92" y="104" font-size="16" font-weight="700" letter-spacing="0.16em" fill="#406653">WEB QUALITY GATEKEEPER</text>
+    <text x="92" y="154" font-size="46" font-weight="700">Ship one target through four evidence streams.</text>
+    <text x="92" y="192" font-size="22" fill="#405548">
+      Playwright, axe, Lighthouse, and visual diff stay aligned to the same audited URL,
+    </text>
+    <text x="92" y="222" font-size="22" fill="#405548">
+      then emit HTML, JSON, baselines, and CI-safe release signals.
+    </text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="76" y="274" width="270" height="362" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
+    <rect x="390" y="274" width="500" height="362" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
+    <rect x="934" y="274" width="270" height="362" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
+  </g>
+
+  <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
+    <text x="106" y="322" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">INPUTS</text>
+    <text x="420" y="322" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">AUDIT ENGINE</text>
+    <text x="964" y="322" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">OUTPUTS</text>
+
+    <rect x="106" y="346" width="210" height="82" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
+    <text x="128" y="378" font-size="24" font-weight="700" fill="#12261a">Target + Config</text>
+    <text x="128" y="405" font-size="16" fill="#496052">URL, policy, budgets, auth,</text>
+    <text x="128" y="426" font-size="16" fill="#496052">baselines, output paths.</text>
+
+    <rect x="106" y="452" width="210" height="82" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
+    <text x="128" y="484" font-size="24" font-weight="700" fill="#12261a">Safety Rails</text>
+    <text x="128" y="511" font-size="16" fill="#496052">SSRF-sensitive target checks,</text>
+    <text x="128" y="532" font-size="16" fill="#496052">redirect scrutiny, host pinning.</text>
+
+    <rect x="106" y="558" width="210" height="52" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
+    <text x="128" y="591" font-size="18" font-weight="700" fill="#12261a">One requested audit, one resolved target</text>
+
+    <rect x="420" y="346" width="440" height="72" rx="18" fill="#f4f8f5" stroke="#d6e5da"/>
+    <text x="448" y="388" font-size="30" font-weight="700" fill="#12261a">Playwright session opens the page once</text>
+
+    <rect x="420" y="438" width="204" height="96" rx="18" fill="#eef4ff" stroke="#d7e0ef"/>
+    <text x="444" y="472" font-size="22" font-weight="700" fill="#17355c">Playwright + Runtime</text>
+    <text x="444" y="499" font-size="16" fill="#4c6485">Navigation, console, network,</text>
+    <text x="444" y="520" font-size="16" fill="#4c6485">screenshots, stability waits.</text>
+
+    <rect x="652" y="438" width="208" height="96" rx="18" fill="#fff4ed" stroke="#ecd9c9"/>
+    <text x="676" y="472" font-size="22" font-weight="700" fill="#5b3716">axe + Lighthouse</text>
+    <text x="676" y="499" font-size="16" fill="#7d5b39">Accessibility, performance,</text>
+    <text x="676" y="520" font-size="16" fill="#7d5b39">budgets, opportunities, vitals.</text>
+
+    <rect x="420" y="554" width="440" height="56" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
+    <text x="448" y="588" font-size="20" font-weight="700" fill="#12261a">Visual diff compares against pinned baselines and masks ignore regions</text>
+
+    <rect x="964" y="346" width="210" height="82" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
+    <text x="988" y="378" font-size="24" font-weight="700" fill="#232015">Report + Summaries</text>
+    <text x="988" y="405" font-size="16" fill="#5e5849">HTML report, summary.json,</text>
+    <text x="988" y="426" font-size="16" fill="#5e5849">summary.v2.json.</text>
+
+    <rect x="964" y="452" width="210" height="82" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
+    <text x="988" y="484" font-size="24" font-weight="700" fill="#232015">Evidence Files</text>
+    <text x="988" y="511" font-size="16" fill="#5e5849">Screenshots, diffs, lighthouse,</text>
+    <text x="988" y="532" font-size="16" fill="#5e5849">axe, action plan, trends.</text>
+
+    <rect x="964" y="558" width="210" height="52" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
+    <text x="988" y="591" font-size="18" font-weight="700" fill="#232015">CLI, CI, PR comments, release gates</text>
+  </g>
+
+  <g stroke="#406653" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)">
+    <path d="M346 454H390"/>
+    <path d="M890 454H934"/>
+  </g>
+
+  <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
+    <rect x="418" y="650" width="444" height="54" rx="16" fill="#102d1e"/>
+    <text x="640" y="684" text-anchor="middle" font-size="20" font-weight="700" fill="#f3f8f4">
+      Same target. Same evidence trail. One release decision.
+    </text>
+  </g>
+</svg>
