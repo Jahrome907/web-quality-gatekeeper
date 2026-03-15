@@ -50,7 +50,7 @@
     "typecheck": "tsc --noEmit",
     "contracts:check": "vitest run tests/summary.contract-drift.test.ts",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "validate:full": "npm run lint && npm run typecheck && npm test && npm run build && npm audit --omit=dev",
+    "validate:full": "npm run lint && npm run typecheck && npm run build && npm test && npm audit --omit=dev",
     "smoke:pack": "node scripts/ci/pack-smoke.mjs",
     "smoke:action": "node scripts/ci/local-action-smoke.mjs",
     "release:dry-run": "node scripts/ci/release-dry-run.mjs",

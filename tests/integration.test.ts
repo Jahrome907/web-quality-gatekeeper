@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Server } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
@@ -16,7 +16,6 @@ const addFormats = require("ajv-formats");
 const execFileAsync = promisify(execFile);
 
 const ROOT = path.resolve(import.meta.dirname, "..");
-const CLI = path.join(ROOT, "dist", "cli.js");
 const TEST_CONFIG = path.join(ROOT, "tests", "fixtures", "integration-config.json");
 const SUMMARY_SCHEMA = path.join(ROOT, "schemas", "summary.v1.json");
 
@@ -52,12 +51,13 @@ function extractExitStatus(error: {
 }
 
 async function runCli(
+  cliPath: string,
   args: string[],
   timeout: number = 60000,
   envOverrides: Record<string, string> = {}
 ): Promise<CliResult> {
   try {
-    const { stdout, stderr } = await execFileAsync("node", [CLI, ...args], {
+    const { stdout, stderr } = await execFileAsync("node", [cliPath, ...args], {
       cwd: ROOT,
       timeout,
       encoding: "utf8",
@@ -115,6 +115,8 @@ describe("CLI integration", () => {
   let server: Server;
   let baseUrl: string;
   let outDir: string;
+  let cliPath = path.join(ROOT, "dist", "cli.js");
+  let cliSnapshotRoot: string | undefined;
 
   function buildAuditArgs(extraArgs: string[] = []): string[] {
     return buildAuditArgsWithOut(outDir, extraArgs);
@@ -135,9 +137,16 @@ describe("CLI integration", () => {
   }
 
   beforeAll(async () => {
-    await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-int-"] });
+    await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-int-", ".tmp-int-cli-"] });
     // Ensure CLI artifact is current for deterministic integration behavior.
     await ensureRepoBuild();
+    // Snapshot the built package root so parallel smoke tests cannot mutate dist mid-run.
+    cliSnapshotRoot = await mkdtemp(path.join(ROOT, ".tmp-int-cli-"));
+    await cp(path.join(ROOT, "dist"), path.join(cliSnapshotRoot, "dist"), { recursive: true });
+    await cp(path.join(ROOT, "configs"), path.join(cliSnapshotRoot, "configs"), { recursive: true });
+    await cp(path.join(ROOT, "schemas"), path.join(cliSnapshotRoot, "schemas"), { recursive: true });
+    await cp(path.join(ROOT, "package.json"), path.join(cliSnapshotRoot, "package.json"));
+    cliPath = path.join(cliSnapshotRoot, "dist", "cli.js");
 
     const fixture = await startFixtureServer();
     server = fixture.server;
@@ -153,12 +162,15 @@ describe("CLI integration", () => {
     if (outDir) {
       await rm(outDir, { recursive: true, force: true });
     }
+    if (cliSnapshotRoot) {
+      await rm(cliSnapshotRoot, { recursive: true, force: true });
+    }
   });
 
   it("produces valid summary.json with expected schema", async () => {
     // Run the CLI against the local fixture server. Default/html mode should
     // write artifacts without printing markdown/json payloads to stdout.
-    const run = await runCli(buildAuditArgs(), 60000);
+    const run = await runCli(cliPath, buildAuditArgs(), 60000);
     expect(run.status).toBe(0);
     expect(run.stdout.trim()).toBe("");
 
@@ -219,27 +231,27 @@ describe("CLI integration", () => {
   }, 90000);
 
   it("returns exit code 2 for invalid URL", async () => {
-    const run = await runCli(["audit", "not-a-url"], 10000);
+    const run = await runCli(cliPath, ["audit", "not-a-url"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain("Invalid URL");
     expect(run.stderr).toContain("Expected an absolute http:// or https:// URL");
   }, 15000);
 
   it("returns exit code 2 for unsupported URL protocols with actionable guidance", async () => {
-    const run = await runCli(["audit", "ws://example.com/socket"], 10000);
+    const run = await runCli(cliPath, ["audit", "ws://example.com/socket"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain("Invalid URL");
     expect(run.stderr).toContain("Use http:// or https:// URLs only.");
   }, 15000);
 
   it("returns exit code 2 for invalid --format", async () => {
-    const run = await runCli(["audit", baseUrl, "--format", "xml"], 10000);
+    const run = await runCli(cliPath, ["audit", baseUrl, "--format", "xml"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain("Invalid format: xml. Use json, html, or md");
   }, 15000);
 
   it("returns exit code 2 for malformed --header input", async () => {
-    const run = await runCli(["audit", baseUrl, "--header", "Authorization token"], 10000);
+    const run = await runCli(cliPath, ["audit", baseUrl, "--header", "Authorization token"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain(
       'Invalid --header value: Authorization token. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
@@ -247,7 +259,7 @@ describe("CLI integration", () => {
   }, 15000);
 
   it("returns exit code 2 for malformed --cookie input", async () => {
-    const run = await runCli(["audit", baseUrl, "--cookie", "session"], 10000);
+    const run = await runCli(cliPath, ["audit", baseUrl, "--cookie", "session"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain(
       'Invalid --cookie value: session. Expected "name=value", for example --cookie "session_id=abc123".'
@@ -259,7 +271,7 @@ describe("CLI integration", () => {
     const modeOutDir = path.join(modeRoot, "artifacts");
 
     try {
-      const run = await runCli(buildAuditArgsWithOut(modeOutDir, ["--format", "json"]), 60000);
+      const run = await runCli(cliPath, buildAuditArgsWithOut(modeOutDir, ["--format", "json"]), 60000);
       expect(run.status).toBe(0);
       const parsed = JSON.parse(run.stdout) as Record<string, unknown>;
       expect(parsed).toHaveProperty("schemaVersion");
@@ -280,7 +292,7 @@ describe("CLI integration", () => {
     const modeOutDir = path.join(modeRoot, "artifacts");
 
     try {
-      const run = await runCli(buildAuditArgsWithOut(modeOutDir, ["--format", "md"]), 60000);
+      const run = await runCli(cliPath, buildAuditArgsWithOut(modeOutDir, ["--format", "md"]), 60000);
       expect(run.status).toBe(0);
       expect(run.stdout).toContain("# Web Quality Gatekeeper Report");
       expect(run.stdout).toContain("| Step | Status | Badge |");
@@ -299,7 +311,7 @@ describe("CLI integration", () => {
     const modeOutDir = path.join(modeRoot, "artifacts");
 
     try {
-      const run = await runCli(buildAuditArgsWithOut(modeOutDir, ["--format", "html"]), 60000);
+      const run = await runCli(cliPath, buildAuditArgsWithOut(modeOutDir, ["--format", "html"]), 60000);
       expect(run.status).toBe(0);
       expect(run.stdout.trim()).toBe("");
 
@@ -317,7 +329,7 @@ describe("CLI integration", () => {
   }, 90000);
 
   it("prints version with --version flag", () => {
-    const output = execFileSync("node", [CLI, "--version"], {
+    const output = execFileSync("node", [cliPath, "--version"], {
       cwd: ROOT,
       timeout: 15000,
       encoding: "utf8",
@@ -337,6 +349,7 @@ describe("CLI integration", () => {
 
   it("blocks internal targets in CI mode unless explicit override is provided", async () => {
     const run = await runCli(
+      cliPath,
       [
         "audit",
         baseUrl,
@@ -355,6 +368,7 @@ describe("CLI integration", () => {
     expect(run.stderr).toContain("Blocked internal target");
 
     const overridden = await runCli(
+      cliPath,
       [
         "audit",
         baseUrl,
@@ -387,6 +401,7 @@ describe("CLI integration", () => {
       await writeFile(multiConfigPath, JSON.stringify(baseConfig, null, 2), "utf8");
 
       const run = await runCli(
+        cliPath,
         [
           "audit",
           "--config",
@@ -441,6 +456,7 @@ describe("CLI integration", () => {
       await writeFile(invalidConfigPath, JSON.stringify(baseConfig, null, 2), "utf8");
 
       const run = await runCli(
+        cliPath,
         [
           "audit",
           baseUrl,
@@ -494,7 +510,7 @@ describe("CLI integration", () => {
         "--allow-internal-targets"
       ];
 
-      const firstRun = await runCli(args, 90000);
+      const firstRun = await runCli(cliPath, args, 90000);
       expect(firstRun.status).toBe(0);
 
       const firstSummaryV2 = JSON.parse(
@@ -506,7 +522,7 @@ describe("CLI integration", () => {
       expect(existsSync(path.join(trendOutDir, "trends", "history.json"))).toBe(true);
       expect(existsSync(path.join(trendOutDir, "trends", "dashboard.html"))).toBe(true);
 
-      const secondRun = await runCli(args, 90000);
+      const secondRun = await runCli(cliPath, args, 90000);
       expect(secondRun.status).toBe(0);
 
       const secondSummaryV2 = JSON.parse(
