@@ -213,14 +213,18 @@ jobs:
           fi
 
           ARGS=()
+          CONFIG_PATH="configs/default.json"
           if [ "$RELAXED_REMOTE" = "true" ]; then
             ARGS+=(--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual)
           fi
           if [ "$TARGET_MODE" = "demo" ] || [ "$TARGET_MODE" = "docs_preview" ]; then
             ARGS+=(--allow-internal-targets)
           fi
+          if [ "$TARGET_MODE" = "docs_preview" ]; then
+            CONFIG_PATH="configs/docs-preview.ci.json"
+          fi
           npm run audit -- "$AUDIT_URL" \
-            --config configs/default.json \
+            --config "$CONFIG_PATH" \
             --out artifacts \
             --baseline-dir baselines \
             "${ARGS[@]}"
