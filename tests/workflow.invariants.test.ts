@@ -58,6 +58,16 @@ describe("workflow invariants", () => {
     expect(source).toContain("Skipping PR comment due to token permission limits");
   });
 
+  it("keeps repo quality-gate audits hermetic by preferring local docs preview targets", () => {
+    const source = readRepoFile(".github/workflows/quality-gate.yml");
+
+    expect(source).toContain("mode=docs_preview");
+    expect(source).toContain("docs/index.html");
+    expect(source).toContain("python3 -m http.server 4173 --bind 127.0.0.1 --directory docs");
+    expect(source).toContain('if [ "$TARGET_MODE" = "remote" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then');
+    expect(source).toContain('if [ "$TARGET_MODE" = "demo" ] || [ "$TARGET_MODE" = "docs_preview" ]; then');
+  });
+
   it("keeps action smoke coverage for relative policy handling and rich artifact assertions", () => {
     const source = readRepoFile(".github/workflows/action-smoke.yml");
 

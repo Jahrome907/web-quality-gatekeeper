@@ -89,14 +89,17 @@ jobs:
         id: target
         env:
           PAGES_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           node <<'NODE'
           const fs = require('fs');
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const hasDemo = Boolean(pkg.scripts && pkg.scripts.demo);
+          const hasDocsPreview = fs.existsSync('docs/index.html');
           const output = process.env.GITHUB_OUTPUT;
           const override = process.env.WQG_URL;
           const pagesUrl = process.env.PAGES_URL;
+          const eventName = process.env.GITHUB_EVENT_NAME;
           if (override) {
             try {
               const url = new URL(override);
@@ -111,8 +114,10 @@ jobs:
             }
             process.exit(0);
           }
-          if (hasDemo) {
-            fs.appendFileSync(output, 'mode=demo\nurl=http://localhost:4173\n');
+          if (hasDocsPreview && (eventName === 'pull_request' || eventName === 'push')) {
+            fs.appendFileSync(output, 'mode=docs_preview\nurl=http://127.0.0.1:4173/\n');
+          } else if (hasDemo) {
+            fs.appendFileSync(output, 'mode=demo\nurl=http://127.0.0.1:4173/\n');
           } else if (pagesUrl) {
             fs.appendFileSync(output, `mode=remote\nurl=${pagesUrl}\n`);
           } else {
@@ -120,11 +125,15 @@ jobs:
           }
           NODE
 
-      - name: Start demo server
-        if: steps.target.outputs.mode == 'demo'
+      - name: Start local audit target
+        if: steps.target.outputs.mode == 'demo' || steps.target.outputs.mode == 'docs_preview'
         run: |
-          npm run demo -- --port 4173 &
-          npx wait-on http://localhost:4173
+          if [ "${{ steps.target.outputs.mode }}" = "docs_preview" ]; then
+            python3 -m http.server 4173 --bind 127.0.0.1 --directory docs &
+          else
+            npm run demo -- --port 4173 &
+          fi
+          npx wait-on http://127.0.0.1:4173
 
       - name: Resolve audit policy
         id: policy
@@ -133,10 +142,10 @@ jobs:
           WQG_RELAXED_REMOTE: ${{ env.WQG_RELAXED_REMOTE }}
           WQG_SENSITIVE_AUDIT: ${{ env.WQG_SENSITIVE_AUDIT }}
           WQG_ALLOW_SENSITIVE_OUTPUTS: ${{ env.WQG_ALLOW_SENSITIVE_OUTPUTS }}
-          SECRET_WQG_AUTH_HEADER: ${{ secrets.WQG_AUTH_HEADER }}
-          SECRET_WQG_AUTH_HEADERS: ${{ secrets.WQG_AUTH_HEADERS }}
-          SECRET_WQG_AUTH_COOKIE: ${{ secrets.WQG_AUTH_COOKIE }}
-          SECRET_WQG_AUTH_COOKIES: ${{ secrets.WQG_AUTH_COOKIES }}
+          SECRET_WQG_AUTH_HEADER: ${{ secrets['WQG_AUTH_HEADER'] }}
+          SECRET_WQG_AUTH_HEADERS: ${{ secrets['WQG_AUTH_HEADERS'] }}
+          SECRET_WQG_AUTH_COOKIE: ${{ secrets['WQG_AUTH_COOKIE'] }}
+          SECRET_WQG_AUTH_COOKIES: ${{ secrets['WQG_AUTH_COOKIES'] }}
         run: |
           as_bool() {
             case "${1,,}" in
@@ -146,7 +155,7 @@ jobs:
           }
 
           RELAXED_REMOTE=false
-          if [ "$TARGET_MODE" != "demo" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then
+          if [ "$TARGET_MODE" = "remote" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then
             RELAXED_REMOTE=true
           fi
 
@@ -185,10 +194,10 @@ jobs:
           AUDIT_URL: ${{ steps.target.outputs.url }}
           TARGET_MODE: ${{ steps.target.outputs.mode }}
           RELAXED_REMOTE: ${{ steps.policy.outputs.relaxed_remote }}
-          SECRET_WQG_AUTH_HEADER: ${{ secrets.WQG_AUTH_HEADER }}
-          SECRET_WQG_AUTH_HEADERS: ${{ secrets.WQG_AUTH_HEADERS }}
-          SECRET_WQG_AUTH_COOKIE: ${{ secrets.WQG_AUTH_COOKIE }}
-          SECRET_WQG_AUTH_COOKIES: ${{ secrets.WQG_AUTH_COOKIES }}
+          SECRET_WQG_AUTH_HEADER: ${{ secrets['WQG_AUTH_HEADER'] }}
+          SECRET_WQG_AUTH_HEADERS: ${{ secrets['WQG_AUTH_HEADERS'] }}
+          SECRET_WQG_AUTH_COOKIE: ${{ secrets['WQG_AUTH_COOKIE'] }}
+          SECRET_WQG_AUTH_COOKIES: ${{ secrets['WQG_AUTH_COOKIES'] }}
         run: |
           if [ -z "${WQG_AUTH_HEADER:-}" ] && [ -n "${SECRET_WQG_AUTH_HEADER:-}" ]; then
             export WQG_AUTH_HEADER="$SECRET_WQG_AUTH_HEADER"
@@ -207,7 +216,7 @@ jobs:
           if [ "$RELAXED_REMOTE" = "true" ]; then
             ARGS+=(--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual)
           fi
-          if [ "$TARGET_MODE" = "demo" ]; then
+          if [ "$TARGET_MODE" = "demo" ] || [ "$TARGET_MODE" = "docs_preview" ]; then
             ARGS+=(--allow-internal-targets)
           fi
           npm run audit -- "$AUDIT_URL" \

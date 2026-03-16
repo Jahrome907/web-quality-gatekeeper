@@ -429,6 +429,12 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
 
+    .snippet-card pre:focus-visible,
+    .adoption-card pre:focus-visible {
+      outline: 3px solid rgba(216, 101, 52, 0.45);
+      outline-offset: 3px;
+    }
+
     .adoption-grid,
     .trust-grid,
     .compat-grid {
@@ -566,7 +572,7 @@
     <main id="main">
       <section class="hero">
         <div class="hero-card">
-          <span class="eyebrow">Open-source release candidate track</span>
+          <span class="eyebrow">Inspectable OSS proof surface</span>
           <h1>Gate web changes with artifacts you can actually open.</h1>
           <p class="hero-copy">
             Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans,
@@ -617,15 +623,15 @@
             </div>
           </div>
           <div class="provenance">
-            Generated on <strong>March 12, 2026</strong> from
-            <code>tests/fixtures/site</code> using
-            <code>docs/proof/fixture-proof-config.json</code> and source commit
-            <code>563ab26</code>.
-            The published artifact set includes the exact
+            Generated from <code>tests/fixtures/site</code> using
+            <code>docs/proof/fixture-proof-config.json</code>.
+            The published artifact set is checked into this repository and includes the exact
             <a href="proof/fixture-report.html">HTML report</a>,
             <a href="proof/fixture-summary.v2.json">summary.v2.json</a>,
             <a href="proof/fixture-lighthouse.json">Lighthouse JSON</a>, and
             <a href="proof/fixture-action-plan.md">action-plan.md</a>.
+            Proof bundle package version: <strong>3.1.2</strong>. Published releases are tracked by
+            GitHub tags and Releases, not by the working-branch package version alone.
           </div>
         </aside>
       </section>
@@ -704,7 +710,7 @@
               Human-readable output is useful, but the tool is designed so downstream automation
               can trust the contract too.
             </p>
-            <pre><code>{
+            <pre tabindex="0" aria-label="Summary v2 JSON excerpt"><code>{
   "overallStatus": "pass",
   "durationMs": 7621,
   "rollup": {
@@ -750,7 +756,7 @@
           <article class="adoption-card">
             <h3>Use it from your existing repo</h3>
             <p>Install the package, download Playwright once, and keep the generated artifacts in your CI output.</p>
-            <pre><code>npm i -D web-quality-gatekeeper
+            <pre tabindex="0" aria-label="CLI adoption example"><code>npm i -D web-quality-gatekeeper
 npx playwright install
 npx wqg audit https://your-site.example \
   --out artifacts \
@@ -760,7 +766,7 @@ npx wqg audit https://your-site.example \
           <article class="adoption-card">
             <h3>Use the GitHub Action path</h3>
             <p>Start from the composite Action when you want a repo-native check with artifact upload and policy controls.</p>
-            <pre><code>jobs:
+            <pre tabindex="0" aria-label="GitHub Action adoption example"><code>jobs:
   web-quality:
     runs-on: ubuntu-latest
     steps:
