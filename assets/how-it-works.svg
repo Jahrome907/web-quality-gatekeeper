@@ -51,22 +51,25 @@
     <text x="128" y="511" font-size="16" fill="#496052">SSRF-sensitive target checks,</text>
     <text x="128" y="532" font-size="16" fill="#496052">redirect scrutiny, host pinning.</text>
 
-    <rect x="106" y="558" width="210" height="52" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="128" y="591" font-size="18" font-weight="700" fill="#12261a">One requested audit, one resolved target</text>
+    <rect x="106" y="558" width="210" height="58" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
+    <text x="211" y="586" text-anchor="middle" font-size="15" font-weight="700" fill="#12261a">
+      <tspan x="211" dy="0">One requested audit,</tspan>
+      <tspan x="211" dy="19">one resolved target</tspan>
+    </text>
 
     <rect x="420" y="346" width="440" height="88" rx="18" fill="#f4f8f5" stroke="#d6e5da"/>
-    <text x="448" y="384" font-size="28" font-weight="700" fill="#12261a">
+    <text x="448" y="382" font-size="25" font-weight="700" fill="#12261a">
       <tspan x="448" dy="0">Playwright session</tspan>
-      <tspan x="448" dy="30">opens the page once</tspan>
+      <tspan x="448" dy="28">opens the page once</tspan>
     </text>
 
     <rect x="420" y="438" width="204" height="96" rx="18" fill="#eef4ff" stroke="#d7e0ef"/>
-    <text x="444" y="472" font-size="22" font-weight="700" fill="#17355c">Playwright + Runtime</text>
+    <text x="444" y="472" font-size="21" font-weight="700" fill="#17355c">Playwright + Runtime</text>
     <text x="444" y="499" font-size="16" fill="#4c6485">Navigation, console, network,</text>
     <text x="444" y="520" font-size="16" fill="#4c6485">screenshots, stability waits.</text>
 
     <rect x="652" y="438" width="208" height="96" rx="18" fill="#fff4ed" stroke="#ecd9c9"/>
-    <text x="676" y="472" font-size="22" font-weight="700" fill="#5b3716">axe + Lighthouse</text>
+    <text x="676" y="472" font-size="21" font-weight="700" fill="#5b3716">axe + Lighthouse</text>
     <text x="676" y="499" font-size="16" fill="#7d5b39">Accessibility, performance,</text>
     <text x="676" y="520" font-size="16" fill="#7d5b39">budgets, opportunities, vitals.</text>
 
@@ -76,18 +79,19 @@
       <tspan x="448" dy="24">and masks ignore regions.</tspan>
     </text>
 
-    <rect x="956" y="346" width="226" height="82" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="980" y="378" font-size="22" font-weight="700" fill="#232015">Report + Summaries</text>
-    <text x="980" y="405" font-size="16" fill="#5e5849">HTML report, summary.json,</text>
-    <text x="980" y="426" font-size="16" fill="#5e5849">summary.v2.json.</text>
+    <rect x="950" y="346" width="238" height="88" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
+    <text x="972" y="377" font-size="20" font-weight="700" fill="#232015">Report + Summaries</text>
+    <text x="972" y="402" font-size="15" fill="#5e5849">HTML report, summary.json,</text>
+    <text x="972" y="422" font-size="15" fill="#5e5849">summary.v2.json.</text>
 
-    <rect x="956" y="452" width="226" height="82" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="980" y="484" font-size="24" font-weight="700" fill="#232015">Evidence Files</text>
-    <text x="980" y="511" font-size="16" fill="#5e5849">Screenshots, diffs, lighthouse,</text>
-    <text x="980" y="532" font-size="16" fill="#5e5849">axe, action plan, trends.</text>
+    <rect x="950" y="452" width="238" height="96" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
+    <text x="972" y="478" font-size="22" font-weight="700" fill="#232015">Evidence Files</text>
+    <text x="972" y="501" font-size="15" fill="#5e5849">Screenshots, diffs, lighthouse,</text>
+    <text x="972" y="521" font-size="15" fill="#5e5849">axe findings, action plans,</text>
+    <text x="972" y="541" font-size="15" fill="#5e5849">trend snapshots.</text>
 
-    <rect x="956" y="558" width="226" height="52" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="1069" y="590" text-anchor="middle" font-size="16" font-weight="700" fill="#232015">
+    <rect x="950" y="564" width="238" height="52" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
+    <text x="1069" y="594" text-anchor="middle" font-size="13" font-weight="700" fill="#232015">
       CLI, CI, PR comments, release gates
     </text>
   </g>
