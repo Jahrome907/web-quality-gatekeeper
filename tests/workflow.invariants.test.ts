@@ -136,8 +136,7 @@ describe("workflow invariants", () => {
     expect(source).toContain("Publish to npm with token fallback");
     expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
     expect(source).toContain("node-version: 24");
-    expect(source).toContain("Trusted publishing requires Node 22.14.0 or later.");
-    expect(source).toContain("Trusted publishing requires npm 11.5.1 or later.");
+    expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
     expect(source).not.toContain("types: [published]");
     expect(source).not.toContain("github.event.release.tag_name");
     expect(source).not.toContain("Publish to npm with trusted publishing");
@@ -158,8 +157,7 @@ describe("workflow invariants", () => {
     expect(source).toContain("npm publish --provenance --access public");
     expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
     expect(source).toContain("node-version: 24");
-    expect(source).toContain("Trusted publishing requires Node 22.14.0 or later.");
-    expect(source).toContain("Trusted publishing requires npm 11.5.1 or later.");
+    expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
     expect(source).toContain("if: env.HAS_NPM_TOKEN != 'true'");
     expect(source).toContain("if: env.HAS_NPM_TOKEN == 'true'");
     expect(trustedPublishIndex).toBeGreaterThanOrEqual(0);
@@ -174,11 +172,14 @@ describe("workflow invariants", () => {
   it("uses maintainer helper commands in validation-heavy workflows", () => {
     const qualityGate = readRepoFile(".github/workflows/quality-gate.yml");
     const release = readRepoFile(".github/workflows/release.yml");
+    const publishRuntime = readRepoFile("scripts/ci/assert-publish-runtime.mjs");
 
     expect(qualityGate).toContain("Run full maintainer validation");
     expect(qualityGate).toContain("npm run validate:full");
     expect(release).toContain("Run release consumer smoke");
     expect(release).toContain("npm run release:dry-run");
+    expect(publishRuntime).toContain("Trusted publishing requires");
+    expect(publishRuntime).toContain("execFileSync(\"npm\", [\"--version\"]");
   });
 
   it("keeps the published consumer workflow aligned with repo pinning policy", () => {
