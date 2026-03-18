@@ -22,78 +22,81 @@
   <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif" fill="#12261a">
     <text x="92" y="104" font-size="16" font-weight="700" letter-spacing="0.16em" fill="#406653">WEB QUALITY GATEKEEPER</text>
     <text x="92" y="154" font-size="46" font-weight="700">Ship one target through four evidence streams.</text>
-    <text x="92" y="192" font-size="22" fill="#405548">
-      Playwright, axe, Lighthouse, and visual diff stay aligned to the same audited URL,
-    </text>
-    <text x="92" y="222" font-size="22" fill="#405548">
-      then emit HTML, JSON, baselines, and CI-safe release signals.
-    </text>
+    <text x="92" y="192" font-size="22" fill="#405548">Playwright, axe, Lighthouse, and visual diff stay aligned to the same audited URL,</text>
+    <text x="92" y="222" font-size="22" fill="#405548">then emit HTML, JSON, baselines, and CI-safe release signals.</text>
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="76" y="274" width="270" height="430" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
+    <rect x="76"  y="274" width="270" height="430" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
     <rect x="390" y="274" width="500" height="430" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
     <rect x="934" y="274" width="270" height="430" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
   </g>
 
   <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
+
+    <!-- Column labels -->
     <text x="106" y="322" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">INPUTS</text>
     <text x="420" y="322" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">AUDIT ENGINE</text>
     <text x="964" y="322" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">OUTPUTS</text>
 
+    <!-- INPUTS: Target + Config — box 106–316, text from 128, available 188px -->
     <rect x="106" y="346" width="210" height="82" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="128" y="378" font-size="24" font-weight="700" fill="#12261a">Target + Config</text>
-    <text x="128" y="405" font-size="16" fill="#496052">URL, policy, budgets, auth,</text>
-    <text x="128" y="426" font-size="16" fill="#496052">baselines, output paths.</text>
+    <text x="128" y="376" font-size="22" font-weight="700" fill="#12261a">Target + Config</text>
+    <text x="128" y="400" font-size="12" fill="#496052">URL, policy, budgets, auth,</text>
+    <text x="128" y="416" font-size="12" fill="#496052">baselines, output paths.</text>
 
+    <!-- INPUTS: Safety Rails — longest line 27 chars × 6.24px = 168px < 188px -->
     <rect x="106" y="452" width="210" height="82" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="128" y="484" font-size="24" font-weight="700" fill="#12261a">Safety Rails</text>
-    <text x="128" y="511" font-size="16" fill="#496052">SSRF-sensitive target checks,</text>
-    <text x="128" y="532" font-size="16" fill="#496052">redirect scrutiny, host pinning.</text>
+    <text x="128" y="480" font-size="22" font-weight="700" fill="#12261a">Safety Rails</text>
+    <text x="128" y="504" font-size="12" fill="#496052">SSRF-sensitive target checks,</text>
+    <text x="128" y="520" font-size="12" fill="#496052">redirect scrutiny, pinning.</text>
 
+    <!-- INPUTS: one-liner pill — centered, 210px wide -->
     <rect x="106" y="558" width="210" height="58" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="211" y="586" text-anchor="middle" font-size="15" font-weight="700" fill="#12261a">
-      <tspan x="211" dy="0">One requested audit,</tspan>
-      <tspan x="211" dy="19">one resolved target</tspan>
-    </text>
+    <text x="211" y="584" text-anchor="middle" font-size="14" font-weight="700" fill="#12261a">One requested audit,</text>
+    <text x="211" y="602" text-anchor="middle" font-size="14" font-weight="700" fill="#12261a">one resolved target</text>
 
+    <!-- AUDIT ENGINE: Playwright session header -->
     <rect x="420" y="346" width="440" height="88" rx="18" fill="#f4f8f5" stroke="#d6e5da"/>
-    <text x="448" y="382" font-size="25" font-weight="700" fill="#12261a">
-      <tspan x="448" dy="0">Playwright session</tspan>
-      <tspan x="448" dy="28">opens the page once</tspan>
-    </text>
+    <text x="448" y="382" font-size="25" font-weight="700" fill="#12261a">Playwright session</text>
+    <text x="448" y="416" font-size="25" font-weight="700" fill="#12261a">opens the page once</text>
 
+    <!-- AUDIT ENGINE: Playwright+Runtime sub-card — text from 444, right edge 624, avail 180px -->
     <rect x="420" y="438" width="204" height="110" rx="18" fill="#eef4ff" stroke="#d7e0ef"/>
-    <text x="444" y="460" font-size="16" font-weight="700" fill="#17355c">Playwright + Runtime</text>
-    <text x="444" y="480" font-size="14" fill="#4c6485">Navigation, console,</text>
-    <text x="444" y="497" font-size="14" fill="#4c6485">network, screenshots,</text>
-    <text x="444" y="514" font-size="14" fill="#4c6485">stability waits.</text>
+    <text x="444" y="460" font-size="15" font-weight="700" fill="#17355c">Playwright + Runtime</text>
+    <text x="444" y="479" font-size="13" fill="#4c6485">Navigation, console,</text>
+    <text x="444" y="495" font-size="13" fill="#4c6485">network, screenshots,</text>
+    <text x="444" y="511" font-size="13" fill="#4c6485">stability waits.</text>
 
+    <!-- AUDIT ENGINE: axe+Lighthouse sub-card — text from 676, right edge 860, avail 184px -->
     <rect x="652" y="438" width="208" height="110" rx="18" fill="#fff4ed" stroke="#ecd9c9"/>
-    <text x="676" y="460" font-size="16" font-weight="700" fill="#5b3716">axe + Lighthouse</text>
-    <text x="676" y="480" font-size="14" fill="#7d5b39">Accessibility,</text>
-    <text x="676" y="497" font-size="14" fill="#7d5b39">performance budgets,</text>
-    <text x="676" y="514" font-size="14" fill="#7d5b39">opportunities, vitals.</text>
+    <text x="676" y="460" font-size="15" font-weight="700" fill="#5b3716">axe + Lighthouse</text>
+    <text x="676" y="479" font-size="13" fill="#7d5b39">Accessibility,</text>
+    <text x="676" y="495" font-size="13" fill="#7d5b39">performance budgets,</text>
+    <text x="676" y="511" font-size="13" fill="#7d5b39">opportunities, vitals.</text>
 
+    <!-- AUDIT ENGINE: visual diff bar — text from 448, right edge 860, avail 412px -->
     <rect x="420" y="556" width="440" height="72" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="448" y="581" font-size="17" font-weight="700" fill="#12261a">Visual diff compares against pinned baselines</text>
-    <text x="448" y="603" font-size="17" font-weight="700" fill="#12261a">and masks ignore regions.</text>
+    <text x="448" y="580" font-size="16" font-weight="700" fill="#12261a">Visual diff compares against</text>
+    <text x="448" y="600" font-size="16" font-weight="700" fill="#12261a">pinned baselines and ignore masks.</text>
 
+    <!-- OUTPUTS: Report+Summaries — text from 972, right edge 1188, avail 216px -->
     <rect x="950" y="346" width="238" height="88" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="972" y="377" font-size="20" font-weight="700" fill="#232015">Report + Summaries</text>
-    <text x="972" y="402" font-size="15" fill="#5e5849">HTML report, summary.json,</text>
-    <text x="972" y="422" font-size="15" fill="#5e5849">summary.v2.json.</text>
+    <text x="972" y="376" font-size="20" font-weight="700" fill="#232015">Report + Summaries</text>
+    <text x="972" y="400" font-size="13" fill="#5e5849">HTML report, summary.json,</text>
+    <text x="972" y="417" font-size="13" fill="#5e5849">summary.v2.json.</text>
 
+    <!-- OUTPUTS: Evidence Files — longest desc 31 chars × 6.76px = 210px < 216px -->
     <rect x="950" y="452" width="238" height="96" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="972" y="478" font-size="22" font-weight="700" fill="#232015">Evidence Files</text>
-    <text x="972" y="501" font-size="15" fill="#5e5849">Screenshots, diffs, lighthouse,</text>
-    <text x="972" y="521" font-size="15" fill="#5e5849">axe findings, action plans,</text>
-    <text x="972" y="541" font-size="15" fill="#5e5849">trend snapshots.</text>
+    <text x="972" y="476" font-size="20" font-weight="700" fill="#232015">Evidence Files</text>
+    <text x="972" y="498" font-size="13" fill="#5e5849">Screenshots, diffs, lighthouse,</text>
+    <text x="972" y="514" font-size="13" fill="#5e5849">axe findings, action plans,</text>
+    <text x="972" y="530" font-size="13" fill="#5e5849">trend snapshots.</text>
 
+    <!-- OUTPUTS: CLI pill — centered, 238px wide -->
     <rect x="950" y="564" width="238" height="52" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="1069" y="594" text-anchor="middle" font-size="13" font-weight="700" fill="#232015">
-      CLI, CI, PR comments, release gates
-    </text>
+    <text x="1069" y="594" text-anchor="middle" font-size="13" font-weight="700" fill="#232015">CLI, CI, PR comments, release gates</text>
+
   </g>
 
   <g stroke="#406653" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)">
@@ -101,6 +104,7 @@
     <path d="M890 454H934"/>
   </g>
 
+  <!-- Footer stripe — spans all three columns x=76 to x=1204, inside card bottom (704) -->
   <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
     <rect x="76" y="648" width="1128" height="44" rx="14" fill="#102d1e"/>
     <text x="640" y="675" text-anchor="middle" font-size="20" font-weight="700" fill="#f3f8f4">Same target. Same evidence trail. One release decision.</text>
