@@ -36,8 +36,12 @@ describe("public story surface", () => {
 
     expect(source).toContain("How It Works");
     expect(source).toContain(`source-${pkg.version}`);
-    expect(source).toContain('src="assets/how-it-works.svg"');
-    expect(source).toContain('src="assets/report-screenshot.png"');
+    expect(source).toContain(
+      'src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg"'
+    );
+    expect(source).toContain(
+      'src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/report-screenshot.png"'
+    );
     expect(source).toContain("Release source of truth: use GitHub tags and Releases for published versions.");
     expect(source).toContain("Proof & Reproducibility");
     expect(source).toContain("blob/main/docs/proof/fixture-report.html");
@@ -45,7 +49,6 @@ describe("public story surface", () => {
     expect(source).toContain("blob/main/docs/proof/fixture-proof-config.json");
     expect(source).toContain("blob/main/docs/case-study-run.md");
     expect(source).toContain("blob/main/docs/case-study/public-oss-repro.md");
-    expect(source).not.toContain("raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg");
   });
 
   it("publishes the proof artifact set referenced by the public docs", () => {

@@ -10,7 +10,7 @@ export default [
       "baselines/**",
       "coverage/**",
       ".tmp-*/**",
-      "\\\\wsl.localhost*/**",
+      "[\\\\][\\\\]wsl.localhost*/**",
       "prettier.config.cjs"
     ]
   },

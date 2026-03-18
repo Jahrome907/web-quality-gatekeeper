@@ -12,7 +12,7 @@ A production-ready quality gate CLI and GitHub Action that runs Playwright smoke
 Release source of truth: use GitHub tags and Releases for published versions. The `package.json` version on `main` may move ahead during release preparation.
 
 <p align="center">
-  <img src="assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
+  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
 </p>
 
 ## Install
@@ -26,7 +26,7 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 > The CLI writes `artifacts/report.html`, `artifacts/summary.json`, and `artifacts/summary.v2.json` by default.
 
 <p align="center">
-  <img src="assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
+  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
 </p>
 
 <p align="center">
