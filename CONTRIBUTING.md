@@ -30,11 +30,11 @@ npm run smoke:action    # local composite-action audit smoke
 npm run release:dry-run # full maintainer validation + smoke checks
 ```
 
-Architecture and release closeout references:
+Architecture and release references:
 
 - [Architecture Map](docs/engineering/ARCHITECTURE_MAP.md)
-- [Release Handoff](docs/engineering/RELEASE_HANDOFF.md)
 - [Testing Matrix](docs/testing-matrix.md)
+- [Workflow Safety Policy](docs/engineering/WORKFLOW_SAFETY_POLICY.md)
 
 ### Contributors
 

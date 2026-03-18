@@ -250,8 +250,8 @@ Optional Python bundle analytics live in [tools/python/README.md](tools/python/R
 Maintainer references:
 
 - [Architecture Map](docs/engineering/ARCHITECTURE_MAP.md)
-- [Release Handoff](docs/engineering/RELEASE_HANDOFF.md)
 - [Testing Matrix](docs/testing-matrix.md)
+- [Workflow Safety Policy](docs/engineering/WORKFLOW_SAFETY_POLICY.md)
 
 ## Tech Stack
 
