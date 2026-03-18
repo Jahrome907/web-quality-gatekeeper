@@ -11,10 +11,6 @@ A production-ready quality gate CLI and GitHub Action that runs Playwright smoke
 
 Release source of truth: use GitHub tags and Releases for published versions. The `package.json` version on `main` may move ahead during release preparation.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
-</p>
-
 ## Install
 
 ```bash
