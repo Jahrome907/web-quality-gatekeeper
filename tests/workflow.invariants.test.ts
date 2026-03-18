@@ -134,6 +134,7 @@ describe("workflow invariants", () => {
     expect(source).toContain("Require maintainer publish token for emergency backfill");
     expect(source).toContain("Configure npm auth token");
     expect(source).toContain("Publish to npm with token fallback");
+    expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
     expect(source).toContain("node-version: 24");
     expect(source).toContain("Trusted publishing requires Node 22.14.0 or later.");
     expect(source).toContain("Trusted publishing requires npm 11.5.1 or later.");
@@ -155,11 +156,12 @@ describe("workflow invariants", () => {
     expect(source).toContain("Configure npm registry for trusted publishing");
     expect(source).toContain("Verify trusted publishing runtime");
     expect(source).toContain("npm publish --provenance --access public");
+    expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
     expect(source).toContain("node-version: 24");
     expect(source).toContain("Trusted publishing requires Node 22.14.0 or later.");
     expect(source).toContain("Trusted publishing requires npm 11.5.1 or later.");
-    expect(source).toContain("if: ${{ secrets.NPM_TOKEN == '' }}");
-    expect(source).toContain("if: ${{ secrets.NPM_TOKEN != '' }}");
+    expect(source).toContain("if: env.HAS_NPM_TOKEN != 'true'");
+    expect(source).toContain("if: env.HAS_NPM_TOKEN == 'true'");
     expect(trustedPublishIndex).toBeGreaterThanOrEqual(0);
     expect(tokenPublishIndex).toBeGreaterThanOrEqual(0);
     expect(releaseIndex).toBeGreaterThanOrEqual(0);
