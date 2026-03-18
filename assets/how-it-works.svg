@@ -63,20 +63,28 @@
       <tspan x="448" dy="28">opens the page once</tspan>
     </text>
 
-    <rect x="420" y="438" width="204" height="96" rx="18" fill="#eef4ff" stroke="#d7e0ef"/>
-    <text x="444" y="472" font-size="21" font-weight="700" fill="#17355c">Playwright + Runtime</text>
-    <text x="444" y="499" font-size="16" fill="#4c6485">Navigation, console, network,</text>
-    <text x="444" y="520" font-size="16" fill="#4c6485">screenshots, stability waits.</text>
+    <rect x="420" y="438" width="204" height="110" rx="18" fill="#eef4ff" stroke="#d7e0ef"/>
+    <text x="444" y="467" font-size="19" font-weight="700" fill="#17355c">
+      <tspan x="444" dy="0">Playwright +</tspan>
+      <tspan x="444" dy="22">Runtime</tspan>
+    </text>
+    <text x="444" y="510" font-size="14" fill="#4c6485">Navigation, console,</text>
+    <text x="444" y="529" font-size="14" fill="#4c6485">network, screenshots,</text>
+    <text x="444" y="548" font-size="14" fill="#4c6485">stability waits.</text>
 
-    <rect x="652" y="438" width="208" height="96" rx="18" fill="#fff4ed" stroke="#ecd9c9"/>
-    <text x="676" y="472" font-size="21" font-weight="700" fill="#5b3716">axe + Lighthouse</text>
-    <text x="676" y="499" font-size="16" fill="#7d5b39">Accessibility, performance,</text>
-    <text x="676" y="520" font-size="16" fill="#7d5b39">budgets, opportunities, vitals.</text>
+    <rect x="652" y="438" width="208" height="110" rx="18" fill="#fff4ed" stroke="#ecd9c9"/>
+    <text x="676" y="467" font-size="19" font-weight="700" fill="#5b3716">
+      <tspan x="676" dy="0">axe +</tspan>
+      <tspan x="676" dy="22">Lighthouse</tspan>
+    </text>
+    <text x="676" y="510" font-size="14" fill="#7d5b39">Accessibility,</text>
+    <text x="676" y="529" font-size="14" fill="#7d5b39">performance budgets,</text>
+    <text x="676" y="548" font-size="14" fill="#7d5b39">opportunities, vitals.</text>
 
-    <rect x="420" y="554" width="440" height="76" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="448" y="585" font-size="18" font-weight="700" fill="#12261a">
-      <tspan x="448" dy="0">Visual diff compares against pinned baselines</tspan>
-      <tspan x="448" dy="24">and masks ignore regions.</tspan>
+    <rect x="420" y="560" width="440" height="82" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
+    <text x="448" y="589" font-size="17" font-weight="700" fill="#12261a">
+      <tspan x="448" dy="0">Visual diff compares against</tspan>
+      <tspan x="448" dy="22">pinned baselines and ignore masks.</tspan>
     </text>
 
     <rect x="950" y="346" width="238" height="88" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
