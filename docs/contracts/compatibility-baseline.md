@@ -116,7 +116,9 @@ Current behavioral assumptions to preserve:
 Current repo workflow behaviors worth freezing before later hardening:
 
 - `quality-gate.yml`
-  - target resolution order: `WQG_URL` override -> `demo` script -> Pages URL fallback -> `https://example.com`
+  - target resolution order: `WQG_URL` override -> local docs preview (`docs/index.html`) -> local `demo` script -> Pages URL fallback -> `https://example.com`
+  - PR and `main` push events prefer the local docs preview when it exists so repo CI remains hermetic and audits the checked-in surface, not the last deployed Pages revision
+  - non-PR/manual events still follow the remaining resolution order after any explicit `WQG_URL` override
   - sensitive-output publishing is opt-in for sensitive/authenticated runs
   - audit artifacts publish under `artifacts`
 - `action-smoke.yml`

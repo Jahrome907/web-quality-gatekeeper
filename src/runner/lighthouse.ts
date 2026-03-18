@@ -379,7 +379,7 @@ export async function runLighthouseAudit(
 
         verifiedNavigationTargets.set(targetUrl, verifiedTarget);
         verifiedNavigationTargets.set(verifiedTarget.url, verifiedTarget);
-      }
+      };
 
       const verifyNavigationTarget = async (targetUrl: string, contextLabel: string) => {
         if (!options.targetPolicy) {

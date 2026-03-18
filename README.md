@@ -3,13 +3,16 @@
 [![Quality Gate](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
 [![Pack Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml)
 [![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
+[![Source Version 3.1.2](https://img.shields.io/badge/source-3.1.2-17355c?logo=git&logoColor=white)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 A production-ready quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs on every PR. Outputs a clean HTML report plus machine-readable JSON summaries.
 
+Release source of truth: use GitHub tags and Releases for published versions. The `package.json` version on `main` may move ahead during release preparation.
+
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/chore/open-source-updates/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
+  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
 </p>
 
 ## Install
@@ -23,14 +26,14 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 > The CLI writes `artifacts/report.html`, `artifacts/summary.json`, and `artifacts/summary.v2.json` by default.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/b28afeb84a54da81063131b728f2443a979baafd/assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
+  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
 </p>
 
 <p align="center">
-  Proof sample: inspect the published <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-report.html">fixture report</a>,
-  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-summary.v2.json">summary.v2.json</a>, and
-  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-proof-config.json">proof config</a>.
-  These artifacts were generated from <code>tests/fixtures/site</code> on March 12, 2026 from source commit <code>563ab26</code>.
+  Proof sample: inspect the published <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-report.html">fixture report</a>,
+  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-summary.v2.json">summary.v2.json</a>, and
+  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-proof-config.json">proof config</a>.
+  The proof bundle is checked into <code>docs/proof/</code> and refreshed alongside proof-surface changes.
 </p>
 
 ## Table of Contents
@@ -58,10 +61,10 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 
 ## Proof & Reproducibility
 
-- Open the published sample [report.html](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-report.html) and [summary.v2.json](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-summary.v2.json).
-- Review the exact [proof config](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/proof/fixture-proof-config.json) used for the published fixture run.
-- Reproduce the local fixture walkthrough from [docs/case-study-run.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/case-study-run.md).
-- See the public OSS evidence protocol in [docs/case-study/public-oss-repro.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/b28afeb84a54da81063131b728f2443a979baafd/docs/case-study/public-oss-repro.md).
+- Open the published sample [report.html](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-report.html) and [summary.v2.json](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-summary.v2.json).
+- Review the exact [proof config](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-proof-config.json) used for the published fixture run.
+- Reproduce the local fixture walkthrough from [docs/case-study-run.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study-run.md).
+- See the public OSS evidence protocol in [docs/case-study/public-oss-repro.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md).
 
 ## Features
 
@@ -167,7 +170,7 @@ Default config lives at `configs/default.json`.
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/3.0.0",
+    "userAgent": "wqg/3.1.2",
     "locale": "en-US",
     "colorScheme": "light"
   },
@@ -194,9 +197,10 @@ This repo includes:
 
 Workflow behavior (`.github/workflows/quality-gate.yml`):
 
-- If `package.json` has a `demo` script, it audits `http://localhost:4173`.
-- Otherwise it audits a remote URL (`WQG_URL` override, else GitHub Pages fallback).
-- All gates are blocking by default, including remote audits.
+- `WQG_URL` overrides the default target and runs a remote audit.
+- Otherwise the repo keeps CI hermetic by auditing a local docs preview when `docs/index.html` exists.
+- Repos without a docs preview fall back to a local `demo` script when present, then to a remote Pages URL or `https://example.com`.
+- Local docs-preview and demo runs stay blocking and pass `--allow-internal-targets` for the loopback target.
 - Set `WQG_RELAXED_REMOTE=true` to make remote mode non-blocking (`--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual`).
 - If authenticated inputs are detected (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`) or `WQG_SENSITIVE_AUDIT=true`, artifact upload and PR comments are disabled by default.
 - Set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` only when you intentionally want to publish outputs for a sensitive run.

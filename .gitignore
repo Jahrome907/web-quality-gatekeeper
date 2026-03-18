@@ -14,9 +14,11 @@ playwright-report/
 test-results/
 .DS_Store
 .tmp-int-*
+.tmp-docs-audit/
 .tmp-action-local-*
 .tmp-pack-smoke-*
 .tmp-pack-debug-*
+\\wsl.localhost*
 
 # Lighthouse Chrome profile artifacts
 lighthouse.*/

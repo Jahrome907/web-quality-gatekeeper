@@ -162,6 +162,17 @@ describe("HTML report template", () => {
     expect(html).toContain('src="diffs/home.png"');
   });
 
+  it("uses contrast-safe tone colors for report status badges", () => {
+    const html = buildHtmlReport(createSummary());
+
+    expect(html).toContain("--good: #0c5a2c;");
+    expect(html).toContain("--warn: #6f3f00;");
+    expect(html).toContain("color-mix(in srgb, var(--good) 12%, transparent)");
+    expect(html).toContain("color-mix(in srgb, var(--warn) 16%, transparent)");
+    expect(html).toContain("color-mix(in srgb, var(--good) 10%, transparent)");
+    expect(html).toContain("color-mix(in srgb, var(--warn) 12%, transparent)");
+  });
+
   it("escapes URL and path content in HTML", () => {
     const html = buildHtmlReport(
       createSummary({
