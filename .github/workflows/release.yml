@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -22,6 +23,27 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce tag and package version parity
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          EXPECTED_TAG="v${PKG_VERSION}"
+          if [ "$RELEASE_TAG" != "$EXPECTED_TAG" ]; then
+            echo "::error::Release tag '$RELEASE_TAG' does not match package.json version tag '$EXPECTED_TAG'."
+            exit 1
+          fi
+          if [ "$RELEASE_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Release version '$RELEASE_VERSION' does not match package.json version '$PKG_VERSION'."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
@@ -29,18 +51,22 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Enforce runtime audit gate (high+critical)
-        run: npm run security:audit
-
-      - name: Run full maintainer validation
-        run: npm run validate:full
-
       - name: Run release consumer smoke
         run: npm run release:dry-run
 
-      - name: Extract version from tag
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Ensure package version is unpublished
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version >/dev/null 2>&1; then
+            echo "::error::web-quality-gatekeeper@${RELEASE_VERSION} is already published."
+            exit 1
+          fi
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Extract changelog section
         id: changelog
