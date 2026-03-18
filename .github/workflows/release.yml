@@ -21,9 +21,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
-          registry-url: "https://registry.npmjs.org"
 
       - name: Extract version from tag
         id: version
@@ -51,6 +50,13 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
+      - name: Verify trusted publishing runtime
+        run: |
+          node --version
+          npm --version
+          node -e "const [major, minor, patch] = process.versions.node.split('.').map(Number); if (major < 22 || (major === 22 && (minor < 14 || (minor === 14 && patch < 0)))) { console.error('Trusted publishing requires Node 22.14.0 or later.'); process.exit(1); }"
+          node -e "const version = require('child_process').execSync('npm --version', { encoding: 'utf8' }).trim(); const [major, minor, patch] = version.split('.').map(Number); if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) { console.error('Trusted publishing requires npm 11.5.1 or later.'); process.exit(1); }"
+
       - name: Run release consumer smoke
         run: npm run release:dry-run
 
@@ -63,7 +69,23 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to npm
+      - name: Configure npm auth token fallback
+        if: ${{ secrets.NPM_TOKEN != '' }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Configure npm registry for trusted publishing
+        if: ${{ secrets.NPM_TOKEN == '' }}
+        run: npm config set registry https://registry.npmjs.org/
+
+      - name: Publish to npm with trusted publishing
+        if: ${{ secrets.NPM_TOKEN == '' }}
+        run: npm publish --provenance --access public
+
+      - name: Publish to npm with token fallback
+        if: ${{ secrets.NPM_TOKEN != '' }}
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
