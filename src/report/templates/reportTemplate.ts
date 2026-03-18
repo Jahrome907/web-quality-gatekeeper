@@ -1150,8 +1150,8 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       --muted: #5f6c7e;
       --border: #d7dee9;
       --accent: #0d6efd;
-      --good: #127a3a;
-      --warn: #9d5800;
+      --good: #0c5a2c;
+      --warn: #6f3f00;
       --bad: #b42318;
       --shadow: 0 10px 26px rgba(26, 35, 49, 0.09);
       --chart-js: #0b6e99;
@@ -1436,7 +1436,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     }
 
     .pill.pass {
-      background: color-mix(in srgb, var(--good) 16%, transparent);
+      background: color-mix(in srgb, var(--good) 12%, transparent);
       color: var(--good);
     }
 
@@ -1446,7 +1446,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     }
 
     .pill.skipped {
-      background: color-mix(in srgb, var(--warn) 22%, transparent);
+      background: color-mix(in srgb, var(--warn) 16%, transparent);
       color: var(--warn);
     }
 
@@ -1461,12 +1461,12 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     }
 
     .tone-badge.good {
-      background: color-mix(in srgb, var(--good) 14%, transparent);
+      background: color-mix(in srgb, var(--good) 10%, transparent);
       color: var(--good);
     }
 
     .tone-badge.warn {
-      background: color-mix(in srgb, var(--warn) 18%, transparent);
+      background: color-mix(in srgb, var(--warn) 12%, transparent);
       color: var(--warn);
     }
 

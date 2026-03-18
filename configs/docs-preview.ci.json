@@ -1,0 +1,6 @@
+{
+  "extends": ["./default.json"],
+  "toggles": {
+    "perf": false
+  }
+}

@@ -58,6 +58,23 @@ describe("workflow invariants", () => {
     expect(source).toContain("Skipping PR comment due to token permission limits");
   });
 
+  it("keeps repo quality-gate audits hermetic by preferring local docs preview targets", () => {
+    const source = readRepoFile(".github/workflows/quality-gate.yml");
+
+    expect(source).toContain("if (hasDocsPreview && (eventName === 'pull_request' || eventName === 'push'))");
+    expect(source).toContain("mode=docs_preview");
+    expect(source).toContain("mode=docs_preview\\nurl=http://127.0.0.1:4173/");
+    expect(source).toContain("docs/index.html");
+    expect(source).toContain("python3 -m http.server 4173 --bind 127.0.0.1 --directory docs");
+    expect(source).toContain('CONFIG_PATH="configs/default.json"');
+    expect(source).toContain('CONFIG_PATH="configs/docs-preview.ci.json"');
+    expect(source).toContain('if [ "$TARGET_MODE" = "remote" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then');
+    expect(source).toContain('if [ "$TARGET_MODE" = "demo" ] || [ "$TARGET_MODE" = "docs_preview" ]; then');
+    expect(source.indexOf("if (hasDocsPreview && (eventName === 'pull_request' || eventName === 'push'))")).toBeLessThan(
+      source.indexOf("} else if (hasDemo) {")
+    );
+  });
+
   it("keeps action smoke coverage for relative policy handling and rich artifact assertions", () => {
     const source = readRepoFile(".github/workflows/action-smoke.yml");
 
@@ -103,29 +120,66 @@ describe("workflow invariants", () => {
     expect(source).toContain("npm run smoke:pack");
   });
 
-  it("keeps release publish smoke aligned with package consumer smoke", () => {
+  it("keeps npm publish workflow as a manual backfill path only", () => {
     const source = readRepoFile(".github/workflows/npm-publish.yml");
 
+    expect(source).toContain("workflow_dispatch:");
+    expect(source).toContain("release_tag:");
+    expect(source).toContain("ref: ${{ inputs.release_tag }}");
     expect(source).toContain("Smoke test packed tarball");
     expect(source).toContain("npm run smoke:pack");
-    expect(source).toContain("Resolve publish context");
-    expect(source).toContain("github.event.release.tag_name");
-    expect(source).toContain("github.ref_name");
-    expect(source).toContain("is_publishable_tag");
-    expect(source).toContain("if: steps.publish_context.outputs.is_publishable_tag == 'true'");
+    expect(source).toContain("Enforce requested tag and package version parity");
+    expect(source).toContain("release_tag must be a semantic version tag");
     expect(source).toContain("does not match package.json version tag");
+    expect(source).toContain("Require maintainer publish token for emergency backfill");
+    expect(source).toContain("Configure npm auth token");
+    expect(source).toContain("Publish to npm with token fallback");
+    expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
+    expect(source).toContain("node-version: 24");
+    expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
+    expect(source).not.toContain("types: [published]");
+    expect(source).not.toContain("github.event.release.tag_name");
+    expect(source).not.toContain("Publish to npm with trusted publishing");
+  });
+
+  it("keeps release workflow as the primary publish path", () => {
+    const source = readRepoFile(".github/workflows/release.yml");
+    const trustedPublishIndex = source.indexOf("Publish to npm with trusted publishing");
+    const tokenPublishIndex = source.indexOf("Publish to npm with token fallback");
+    const releaseIndex = source.indexOf("Create GitHub release");
+    const majorTagIndex = source.indexOf("Update major version tag");
+
+    expect(source).toContain("Enforce tag and package version parity");
+    expect(source).toContain("Ensure package version is unpublished");
+    expect(source).toContain("Configure npm auth token fallback");
+    expect(source).toContain("Configure npm registry for trusted publishing");
+    expect(source).toContain("Verify trusted publishing runtime");
+    expect(source).toContain("npm publish --provenance --access public");
+    expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
+    expect(source).toContain("node-version: 24");
+    expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
+    expect(source).toContain("if: env.HAS_NPM_TOKEN != 'true'");
+    expect(source).toContain("if: env.HAS_NPM_TOKEN == 'true'");
+    expect(trustedPublishIndex).toBeGreaterThanOrEqual(0);
+    expect(tokenPublishIndex).toBeGreaterThanOrEqual(0);
+    expect(releaseIndex).toBeGreaterThanOrEqual(0);
+    expect(majorTagIndex).toBeGreaterThanOrEqual(0);
+    expect(trustedPublishIndex).toBeLessThan(releaseIndex);
+    expect(tokenPublishIndex).toBeLessThan(releaseIndex);
+    expect(releaseIndex).toBeLessThan(majorTagIndex);
   });
 
   it("uses maintainer helper commands in validation-heavy workflows", () => {
     const qualityGate = readRepoFile(".github/workflows/quality-gate.yml");
     const release = readRepoFile(".github/workflows/release.yml");
+    const publishRuntime = readRepoFile("scripts/ci/assert-publish-runtime.mjs");
 
     expect(qualityGate).toContain("Run full maintainer validation");
     expect(qualityGate).toContain("npm run validate:full");
-    expect(release).toContain("Run full maintainer validation");
-    expect(release).toContain("npm run validate:full");
     expect(release).toContain("Run release consumer smoke");
     expect(release).toContain("npm run release:dry-run");
+    expect(publishRuntime).toContain("Trusted publishing requires");
+    expect(publishRuntime).toContain("execFileSync(\"npm\", [\"--version\"]");
   });
 
   it("keeps the published consumer workflow aligned with repo pinning policy", () => {

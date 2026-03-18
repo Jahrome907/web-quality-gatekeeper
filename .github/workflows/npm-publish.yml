@@ -1,9 +1,12 @@
 name: NPM Publish
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to backfill (for example v3.1.2)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -12,16 +15,25 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.release_tag }}
 
       - name: Setup Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
-          registry-url: "https://registry.npmjs.org"
+
+      - name: Verify publish runtime
+        run: |
+          node --version
+          npm --version
+          node scripts/ci/assert-publish-runtime.mjs
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
@@ -38,25 +50,14 @@ jobs:
       - name: Smoke test packed tarball
         run: npm run smoke:pack
 
-      - name: Resolve publish context
-        id: publish_context
-        run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            echo "publish_tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
-            echo "is_publishable_tag=true" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "publish_tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-            echo "is_publishable_tag=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish_tag=" >> "$GITHUB_OUTPUT"
-            echo "is_publishable_tag=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Enforce tag and package version parity
-        if: steps.publish_context.outputs.is_publishable_tag == 'true'
+      - name: Enforce requested tag and package version parity
         env:
-          RELEASE_TAG: ${{ steps.publish_context.outputs.publish_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::release_tag must be a semantic version tag (for example v3.1.2)."
+            exit 1
+          fi
           PKG_VERSION="$(node -p "require('./package.json').version")"
           EXPECTED_TAG="v${PKG_VERSION}"
           if [ "$RELEASE_TAG" != "$EXPECTED_TAG" ]; then
@@ -64,8 +65,29 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to npm
-        if: steps.publish_context.outputs.is_publishable_tag == 'true'
+      - name: Ensure package version is unpublished
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          RELEASE_VERSION="${RELEASE_TAG#v}"
+          if npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version >/dev/null 2>&1; then
+            echo "::error::web-quality-gatekeeper@${RELEASE_VERSION} is already published."
+            exit 1
+          fi
+
+      - name: Require maintainer publish token for emergency backfill
+        if: env.HAS_NPM_TOKEN != 'true'
+        run: |
+          echo "::error::NPM Publish is an emergency backfill path and requires the NPM_TOKEN repository secret."
+          exit 1
+
+      - name: Configure npm auth token
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Publish to npm with token fallback
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
