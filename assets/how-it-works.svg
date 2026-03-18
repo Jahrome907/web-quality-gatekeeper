@@ -31,9 +31,9 @@
   </g>
 
   <g filter="url(#shadow)">
-    <rect x="76" y="274" width="270" height="362" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
-    <rect x="390" y="274" width="500" height="362" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
-    <rect x="934" y="274" width="270" height="362" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
+    <rect x="76" y="274" width="270" height="430" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
+    <rect x="390" y="274" width="500" height="430" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
+    <rect x="934" y="274" width="270" height="430" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
   </g>
 
   <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
@@ -102,9 +102,7 @@
   </g>
 
   <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
-    <rect x="418" y="650" width="444" height="54" rx="16" fill="#102d1e"/>
-    <text x="640" y="684" text-anchor="middle" font-size="20" font-weight="700" fill="#f3f8f4">
-      Same target. Same evidence trail. One release decision.
-    </text>
+    <rect x="76" y="648" width="1128" height="44" rx="14" fill="#102d1e"/>
+    <text x="640" y="675" text-anchor="middle" font-size="20" font-weight="700" fill="#f3f8f4">Same target. Same evidence trail. One release decision.</text>
   </g>
 </svg>
