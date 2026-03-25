@@ -1,12 +1,15 @@
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const ROOT = path.resolve(import.meta.dirname, "..");
+const HAS_ACTION_BASH =
+  spawnSync("bash", ["--version"], { stdio: "ignore" }).status === 0 &&
+  spawnSync("bash", ["-lc", "command -v node >/dev/null 2>&1"], { stdio: "ignore" }).status === 0;
 
-describe("local composite action smoke", () => {
+describe.skipIf(!HAS_ACTION_BASH)("local composite action smoke", () => {
   it("executes the checked-in action from a workspace consumer context", async () => {
     const { stdout } = await execFileAsync(
       "node",

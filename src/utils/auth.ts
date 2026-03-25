@@ -8,6 +8,24 @@ export interface AuditAuth {
   cookies: AuthCookie[];
 }
 
+function findHeaderKeyInsensitive(headers: Record<string, string>, name: string): string | null {
+  const target = name.toLowerCase();
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === target) {
+      return key;
+    }
+  }
+  return null;
+}
+
+function isSameOrigin(requestUrl: string, targetUrl: string): boolean {
+  try {
+    return new URL(requestUrl).origin === new URL(targetUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
 const HEADER_FORMAT_HINT =
   'Expected "Name: Value", for example --header "Authorization: Bearer <token>". ' +
   "Repeat --header for multiple values or use WQG_AUTH_HEADERS.";
@@ -121,6 +139,31 @@ function collectCookieInputs(
     values.push(...parseCookieEnv(env.WQG_AUTH_COOKIES));
   }
   return values;
+}
+
+export function applyScopedAuthHeaders(params: {
+  requestUrl: string;
+  targetUrl: string;
+  requestHeaders: Record<string, string>;
+  authHeaders: Record<string, string> | null;
+}): Record<string, string> {
+  const { requestUrl, targetUrl, requestHeaders, authHeaders } = params;
+  if (!authHeaders || Object.keys(authHeaders).length === 0) {
+    return requestHeaders;
+  }
+
+  const scopedHeaders = { ...requestHeaders };
+  const shouldAttachAuth = isSameOrigin(requestUrl, targetUrl);
+  for (const [headerName, headerValue] of Object.entries(authHeaders)) {
+    const existingKey = findHeaderKeyInsensitive(scopedHeaders, headerName);
+    if (shouldAttachAuth) {
+      scopedHeaders[existingKey ?? headerName] = headerValue;
+    } else if (existingKey) {
+      delete scopedHeaders[existingKey];
+    }
+  }
+
+  return scopedHeaders;
 }
 
 export function toCookieHeader(cookies: AuthCookie[]): string | null {

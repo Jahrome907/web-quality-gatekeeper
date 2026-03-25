@@ -29,6 +29,24 @@ interface NativeSpikeResult {
   diffPixels?: unknown;
 }
 
+function resolveNativeSpikeInvocation(binaryPath: string): {
+  command: string;
+  args: string[];
+} {
+  const extension = path.extname(binaryPath).toLowerCase();
+  if (extension === ".js" || extension === ".mjs" || extension === ".cjs") {
+    return {
+      command: process.execPath,
+      args: [binaryPath]
+    };
+  }
+
+  return {
+    command: binaryPath,
+    args: []
+  };
+}
+
 function resolveEngine(options: VisualDiffEngineOptions): VisualDiffEngineName {
   const configuredEngine = options.engine ?? process.env.WQG_VISUAL_DIFF_ENGINE;
   return configuredEngine === "native-rust-spike" ? "native-rust-spike" : "pixelmatch";
@@ -106,12 +124,14 @@ async function runNativeRustSpike(
   const currentPath = path.join(tempDir, "current.rgba");
   const diffPath = path.join(tempDir, "diff.rgba");
   const timeoutMs = resolveNativeSpikeTimeoutMs();
+  const invocation = resolveNativeSpikeInvocation(binaryPath);
 
   try {
     await Promise.all([writeFile(baselinePath, baseline), writeFile(currentPath, current)]);
     const { stdout } = await execFileAsync(
-      binaryPath,
+      invocation.command,
       [
+        ...invocation.args,
         "--width",
         String(width),
         "--height",

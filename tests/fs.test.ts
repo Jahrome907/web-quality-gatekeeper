@@ -50,7 +50,11 @@ describe("validateOutputDirectory", () => {
     const outside = await mkdtemp(path.join(tmpdir(), "wqg-fs-outside-"));
 
     try {
-      await symlink(outside, path.join(workspace, "artifacts"), "dir");
+      await symlink(
+        outside,
+        path.join(workspace, "artifacts"),
+        process.platform === "win32" ? "junction" : "dir"
+      );
       process.chdir(workspace);
 
       expect(() => validateOutputDirectory("artifacts")).toThrow(

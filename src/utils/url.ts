@@ -13,6 +13,10 @@ function unsupportedProtocolMessage(raw: string): string {
   return `Invalid URL: ${raw}. Use http:// or https:// URLs only.`;
 }
 
+function credentialsNotAllowedMessage(raw: string): string {
+  return `Invalid URL: ${raw}. Username/password in URLs are not allowed. Use --header/--cookie inputs instead.`;
+}
+
 const LOCAL_HOST_PATTERNS = [
   /^localhost$/i,
   /^localhost\.localdomain$/i
@@ -133,6 +137,10 @@ export function validateUrl(raw: string): { url: string; isInternal: boolean } {
 
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new UsageError(unsupportedProtocolMessage(raw));
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new UsageError(credentialsNotAllowedMessage(raw));
   }
 
   const internal = isInternalHost(parsed.hostname);

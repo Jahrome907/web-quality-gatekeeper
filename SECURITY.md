@@ -24,6 +24,7 @@ Internal/private target policy:
   final URL audited by Lighthouse.
 - Internal/private targets remain warning-only in local non-auth runs for development workflows.
 - Override blocking only when intentional with `--allow-internal-targets` or `WQG_ALLOW_INTERNAL_TARGETS=true`.
+- Public hosts are resolved and pinned before Playwright and Lighthouse runs so redirects and subrequests cannot quietly cross from an approved public target into private network space during sensitive audits.
 
 ### Configuration File Security
 

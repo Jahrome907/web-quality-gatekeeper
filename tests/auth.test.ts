@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAuditAuth, toCookieHeader } from "../src/utils/auth.js";
+import { applyScopedAuthHeaders, parseAuditAuth, toCookieHeader } from "../src/utils/auth.js";
 
 describe("parseAuditAuth", () => {
   it("parses repeated header and cookie options", () => {
@@ -64,5 +64,37 @@ describe("toCookieHeader", () => {
 
   it("returns null for empty cookies", () => {
     expect(toCookieHeader([])).toBeNull();
+  });
+});
+
+describe("applyScopedAuthHeaders", () => {
+  it("applies auth headers for same-origin requests", () => {
+    const scoped = applyScopedAuthHeaders({
+      requestUrl: "https://example.com/assets/app.js",
+      targetUrl: "https://example.com/",
+      requestHeaders: { accept: "*/*" },
+      authHeaders: { Authorization: "Bearer secret", "X-Trace": "trace-1" }
+    });
+
+    expect(scoped.Authorization).toBe("Bearer secret");
+    expect(scoped["X-Trace"]).toBe("trace-1");
+    expect(scoped.accept).toBe("*/*");
+  });
+
+  it("removes auth headers for cross-origin requests", () => {
+    const scoped = applyScopedAuthHeaders({
+      requestUrl: "https://cdn.example.net/app.js",
+      targetUrl: "https://example.com/",
+      requestHeaders: {
+        authorization: "Bearer secret",
+        "x-trace": "trace-1",
+        accept: "*/*"
+      },
+      authHeaders: { Authorization: "Bearer secret", "X-Trace": "trace-1" }
+    });
+
+    expect(scoped.authorization).toBeUndefined();
+    expect(scoped["x-trace"]).toBeUndefined();
+    expect(scoped.accept).toBe("*/*");
   });
 });

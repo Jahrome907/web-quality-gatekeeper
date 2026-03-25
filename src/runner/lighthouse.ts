@@ -9,7 +9,7 @@ import { writeJson } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
-import { toCookieHeader } from "../utils/auth.js";
+import { applyScopedAuthHeaders, toCookieHeader } from "../utils/auth.js";
 import {
   loadLighthousePuppeteer,
   type PuppeteerBrowserLike,
@@ -342,6 +342,8 @@ export async function runLighthouseAudit(
           context: "Lighthouse target"
         })
       : null;
+  const authHeaders = buildLighthouseHeaders(auth);
+  const authTargetUrl = initialTarget?.url ?? url;
   const effectiveHostResolverRules = options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
   const chromePath = resolveChromePath();
   if (chromePath) {
@@ -412,7 +414,7 @@ export async function runLighthouseAudit(
         return verifiedTarget;
       };
 
-      if (options.targetPolicy) {
+      if (options.targetPolicy || authHeaders) {
         const puppeteer = await loadLighthousePuppeteer();
         puppeteerBrowser = await puppeteer.connect({
           browserURL: `http://127.0.0.1:${chrome.port}`,
@@ -421,17 +423,21 @@ export async function runLighthouseAudit(
         puppeteerPage = await puppeteerBrowser.newPage();
         await puppeteerPage.setRequestInterception(true);
         puppeteerPage.on("request", async (request) => {
-          if (!isAuditableHttpUrl(request.url())) {
-            await request.continue();
-            return;
-          }
-
           try {
-            const contextLabel = request.isNavigationRequest()
-              ? "Lighthouse navigation target"
-              : "Lighthouse request target";
-            await verifyNavigationTarget(request.url(), contextLabel);
-            await request.continue();
+            if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
+              const contextLabel = request.isNavigationRequest()
+                ? "Lighthouse navigation target"
+                : "Lighthouse request target";
+              await verifyNavigationTarget(request.url(), contextLabel);
+            }
+
+            const scopedHeaders = applyScopedAuthHeaders({
+              requestUrl: request.url(),
+              targetUrl: authTargetUrl,
+              requestHeaders: request.headers(),
+              authHeaders
+            });
+            await request.continue({ headers: scopedHeaders });
           } catch (error) {
             blockedRequestError ??= toError(error, "Blocked Lighthouse request");
             await request.abort("blockedbyclient");
@@ -456,13 +462,11 @@ export async function runLighthouseAudit(
             deviceScaleFactor: 1
           };
 
-      const lhHeaders = buildLighthouseHeaders(auth);
       const runnerFlags = {
         port: chrome.port,
         output: "json" as const,
         logLevel: "error" as const,
-        onlyCategories: ["performance", "accessibility", "best-practices", "seo"],
-        ...(lhHeaders ? { extraHeaders: lhHeaders } : {})
+        onlyCategories: ["performance", "accessibility", "best-practices", "seo"]
       };
       const lighthouseConfig = {
         extends: "lighthouse:default",

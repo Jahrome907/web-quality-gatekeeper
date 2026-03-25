@@ -27,6 +27,23 @@ function matchesLeakedPath(name) {
   return LEAKED_PATH_PATTERNS.some((pattern) => pattern.test(name));
 }
 
+function normalizeNewlines(source) {
+  return source.replace(/\r\n/g, "\n");
+}
+
+function shouldUseShell(command) {
+  if (process.platform !== "win32") {
+    return false;
+  }
+
+  const extension = path.extname(command).toLowerCase();
+  if (extension === ".cmd" || extension === ".bat") {
+    return true;
+  }
+
+  return command === "npm" || command === "npm.cmd" || command === "npx" || command === "npx.cmd";
+}
+
 export async function cleanupRepoRootNoise(options = {}) {
   const {
     root = ROOT,
@@ -61,7 +78,7 @@ export async function cleanupRepoRootNoise(options = {}) {
 
 export async function runChecked(command, args, options = {}) {
   const { env: optionEnv, timeout = 120000, shell, ...execOptions } = options;
-  const effectiveShell = shell ?? process.platform === "win32";
+  const effectiveShell = shell ?? shouldUseShell(command);
 
   try {
     return await execFileAsync(command, args, {
@@ -127,7 +144,7 @@ export async function ensureRepoBuild() {
 }
 
 export function readActionRunBlock() {
-  const source = readFileSync(ACTION_PATH, "utf8");
+  const source = normalizeNewlines(readFileSync(ACTION_PATH, "utf8"));
   const stepIndex = source.indexOf("- name: Run audit");
   const runMarker = "      run: |\n";
 

@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const SCRIPT_PATH = path.join(process.cwd(), "scripts", "case-study", "run-fixture-case-study.mjs");
+const CLI_ENTRY_FRAGMENT = path.join("src", "cli.ts");
 
 async function hideFile(filePath: string): Promise<() => Promise<void>> {
   if (!existsSync(filePath)) {
@@ -63,9 +64,9 @@ describe("fixture case-study happy path", () => {
     };
 
     expect(manifest.kind).toBe("fixture-case-study-run");
-    expect(manifest.command).toContain("src/cli.ts");
+    expect(manifest.command).toContain(CLI_ENTRY_FRAGMENT);
     expect(manifest.source.type).toBe("local-fixture");
-    expect(manifest.source.configPath).toBe("tests/fixtures/integration-config.json");
+    expect(manifest.source.configPath).toMatch(/tests[\\/]fixtures[\\/]integration-config\.json/);
     expect(manifest.outputs.reportPath).toContain("report.html");
     expect(manifest.outputs.summaryV2Path).toContain("summary.v2.json");
     if (manifest.outputs.lighthousePath) {

@@ -13,6 +13,7 @@ import { ensureDir } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
+import { applyScopedAuthHeaders } from "../utils/auth.js";
 import {
   isAuditableHttpUrl,
   normalizeUrlHostname,
@@ -384,8 +385,7 @@ async function launchNavigatedPage(
       viewport: config.playwright.viewport,
       userAgent: config.playwright.userAgent,
       locale: config.playwright.locale,
-      colorScheme: config.playwright.colorScheme,
-      ...(extraHeaders ? { extraHTTPHeaders: extraHeaders } : {})
+      colorScheme: config.playwright.colorScheme
     });
 
     if (auth?.cookies.length) {
@@ -398,22 +398,28 @@ async function launchNavigatedPage(
       );
     }
 
-    if (options.targetPolicy) {
+    if (options.targetPolicy || extraHeaders) {
       await context.route("**", async (route: Route) => {
         const request = route.request() as Request;
-        if (!isAuditableHttpUrl(request.url())) {
-          await route.continue();
-          return;
+        const scopedHeaders = applyScopedAuthHeaders({
+          requestUrl: request.url(),
+          targetUrl: navigationUrl,
+          requestHeaders: request.headers(),
+          authHeaders: extraHeaders
+        });
+
+        if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
+          try {
+            const contextLabel = request.isNavigationRequest() ? "navigation target" : "request target";
+            await verifyNavigationTarget(request.url(), contextLabel);
+          } catch (error) {
+            recordBlockedRequest(blockedRequestState, error);
+            await route.abort("blockedbyclient");
+            return;
+          }
         }
 
-        try {
-          const contextLabel = request.isNavigationRequest() ? "navigation target" : "request target";
-          await verifyNavigationTarget(request.url(), contextLabel);
-          await route.continue();
-        } catch (error) {
-          recordBlockedRequest(blockedRequestState, error);
-          await route.abort("blockedbyclient");
-        }
+        await route.continue({ headers: scopedHeaders });
       });
     }
 

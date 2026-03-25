@@ -51,7 +51,8 @@ function createPuppeteerHarness() {
     | ((request: {
         isNavigationRequest: () => boolean;
         url: () => string;
-        continue: () => Promise<void>;
+        headers: () => Record<string, string>;
+        continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
         abort: (errorCode?: string) => Promise<void>;
       }) => Promise<void>)
     | null = null;
@@ -266,6 +267,10 @@ describe("lighthouse runner", () => {
   it("passes auth headers and does not override explicit Cookie header", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({
+      connect: puppeteer.connect
+    });
     mockLighthouse.mockResolvedValue({
       lhr: {
         categories: {
@@ -294,16 +299,37 @@ describe("lighthouse runner", () => {
       }
     );
 
+    const requestHandler = puppeteer.getRequestHandler();
+    if (!requestHandler) {
+      throw new Error("request handler not registered");
+    }
+    const continueRequest = vi.fn().mockResolvedValue(undefined);
+    await requestHandler({
+      isNavigationRequest: () => true,
+      url: () => "https://example.com/",
+      headers: () => ({
+        Accept: "text/html",
+        Cookie: "already=set"
+      }),
+      continue: continueRequest,
+      abort: vi.fn().mockResolvedValue(undefined)
+    });
+
     expect(mockLighthouse).toHaveBeenCalledWith(
       "https://example.com",
       expect.objectContaining({
-        extraHeaders: {
-          Authorization: "Bearer token-123",
-          Cookie: "already=set"
-        }
+        port: 9222
       }),
-      expect.any(Object)
+      expect.any(Object),
+      puppeteer.page
     );
+    expect(continueRequest).toHaveBeenCalledWith({
+      headers: {
+        Accept: "text/html",
+        Authorization: "Bearer token-123",
+        Cookie: "already=set"
+      }
+    });
   });
 
   it("applies mobile emulation config for mobile formFactor", async () => {
@@ -458,6 +484,7 @@ describe("lighthouse runner", () => {
       await requestHandler({
         isNavigationRequest: () => true,
         url: () => "http://127.0.0.1:4010/",
+        headers: () => ({}),
         continue: requestContinue,
         abort: requestAbort
       });
@@ -508,6 +535,7 @@ describe("lighthouse runner", () => {
       await requestHandler({
         isNavigationRequest: () => false,
         url: () => "http://127.0.0.1:4010/private-script.js",
+        headers: () => ({}),
         continue: requestContinue,
         abort: requestAbort
       });
@@ -630,12 +658,14 @@ describe("lighthouse runner", () => {
       await requestHandler({
         isNavigationRequest: () => false,
         url: () => "https://cdn.example.net/app.js",
+        headers: () => ({}),
         continue: requestContinue,
         abort: requestAbort
       });
       await requestHandler({
         isNavigationRequest: () => false,
         url: () => "https://cdn.example.net/app.js",
+        headers: () => ({}),
         continue: requestContinue,
         abort: requestAbort
       });
