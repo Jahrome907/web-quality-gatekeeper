@@ -24,6 +24,7 @@ import type { LighthouseSummary } from "./runner/lighthouse.js";
 import type { VisualDiffSummary } from "./runner/visualDiff.js";
 import type { RuntimeSignalSummary } from "./runner/playwright.js";
 import type { AuditAuth } from "./utils/auth.js";
+import type { TargetResolutionPolicy } from "./utils/url.js";
 import type { Summary, SummaryV2 } from "./report/summary.js";
 import {
   type AuditSummaryV2,
@@ -131,9 +132,10 @@ async function runTargetAudit(params: {
   outDir: string;
   config: Config;
   options: AuditOptions;
+  targetPolicy: TargetResolutionPolicy;
   logger: ReturnType<typeof createLogger>;
 }): Promise<TargetAuditResult> {
-  const { target, config, options, logger, outDir } = params;
+  const { target, config, options, targetPolicy, logger, outDir } = params;
 
   const screenshotsDir = path.join(target.outDir, "screenshots");
   const diffsDir = path.join(target.outDir, "diffs");
@@ -152,21 +154,40 @@ async function runTargetAudit(params: {
   let lighthouseSummary: LighthouseSummary | null = null;
   let visualSummary: VisualDiffSummary | null = null;
 
-  const { browser, page, runtimeSignals } = await openPage(target.url, config, logger, options.auth ?? null);
+  const {
+    browser,
+    page,
+    runtimeSignals,
+    resolvedUrl,
+    resolvedHostResolverRules
+  } = await openPage(
+    target.url,
+    config,
+    logger,
+    options.auth ?? null,
+    {
+      hostResolverRules: target.hostResolverRules,
+      targetPolicy
+    }
+  );
   try {
     if (config.toggles.a11y) {
       axeSummary = await runAxeScan(page, target.outDir, logger, config);
     }
 
-    const screenshots = await captureScreenshots(page, target.url, config, screenshotsDir, logger);
+    const screenshots = await captureScreenshots(page, resolvedUrl, config, screenshotsDir, logger);
 
     if (config.toggles.perf) {
       lighthouseSummary = await runLighthouseAudit(
-        target.url,
+        resolvedUrl,
         target.outDir,
         config,
         logger,
-        options.auth ?? null
+        options.auth ?? null,
+        {
+          hostResolverRules: resolvedHostResolverRules ?? target.hostResolverRules,
+          targetPolicy
+        }
       );
     }
 
@@ -321,10 +342,11 @@ export async function runAudit(
   const config = await loadConfig(configPath, {
     policy: options.policy ?? null
   });
-  const targets = await resolveTargets(url, config, outDir, baselineDir, logger, {
+  const targetPolicy: TargetResolutionPolicy = {
     allowInternalTargets: options.allowInternalTargets ?? false,
     blockInternalTargets: isCiEnvironment() || Boolean(options.auth)
-  });
+  };
+  const targets = await resolveTargets(url, config, outDir, baselineDir, logger, targetPolicy);
 
   await ensureDir(outDir);
 
@@ -339,6 +361,7 @@ export async function runAudit(
       outDir,
       config,
       options,
+      targetPolicy,
       logger
     });
     results.push(result);
