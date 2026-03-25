@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, realpathSync } from "node:fs";
 import { copyFile, mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
@@ -10,11 +11,42 @@ export function validatePathWithinBase(targetPath: string, baseDir: string): voi
   const resolvedTarget = resolve(targetPath);
   const resolvedBase = resolve(baseDir);
   const relativePath = relative(resolvedBase, resolvedTarget);
-  
+
   // If the relative path starts with ".." or is absolute, it escapes the base
   if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
     throw new Error(`Path traversal detected: ${targetPath} is outside ${baseDir}`);
   }
+}
+
+function resolveExistingAncestor(targetPath: string): string {
+  let current = resolve(targetPath);
+  while (!existsSync(current)) {
+    const parent = dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return current;
+}
+
+function resolveCanonicalPath(targetPath: string): string {
+  const resolvedTarget = resolve(targetPath);
+  const existingAncestor = resolveExistingAncestor(resolvedTarget);
+
+  let canonicalAncestor: string;
+  try {
+    canonicalAncestor = realpathSync(existingAncestor);
+  } catch {
+    canonicalAncestor = existingAncestor;
+  }
+
+  if (existingAncestor === resolvedTarget) {
+    return canonicalAncestor;
+  }
+
+  const remainder = relative(existingAncestor, resolvedTarget);
+  return resolve(canonicalAncestor, remainder);
 }
 
 /**
@@ -23,14 +55,15 @@ export function validatePathWithinBase(targetPath: string, baseDir: string): voi
  */
 export function validateOutputDirectory(outDir: string): void {
   const cwd = process.cwd();
-  const resolvedOut = resolve(outDir);
+  const canonicalOut = resolveCanonicalPath(outDir);
   const allowedBases = [cwd];
   if (process.env.GITHUB_WORKSPACE) {
     allowedBases.push(process.env.GITHUB_WORKSPACE);
   }
 
   const isAllowed = allowedBases.some((base) => {
-    const relativePath = relative(resolve(base), resolvedOut);
+    const canonicalBase = resolveCanonicalPath(base);
+    const relativePath = relative(canonicalBase, canonicalOut);
     return !relativePath.startsWith("..") && !isAbsolute(relativePath);
   });
 

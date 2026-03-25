@@ -1,12 +1,21 @@
 import type { TrendDeltaSummary } from "../audit/orchestration.js";
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export function buildTrendDashboardHtml(trend: TrendDeltaSummary): string {
   const points = trend.history?.points ?? [];
   const rows = points
     .map((point) => {
       return `<tr>
-        <td>${point.startedAt}</td>
-        <td>${point.overallStatus}</td>
+        <td>${escapeHtml(point.startedAt)}</td>
+        <td>${escapeHtml(point.overallStatus)}</td>
         <td>${point.failedPages}</td>
         <td>${point.a11yViolations}</td>
         <td>${point.performanceBudgetFailures}</td>
@@ -19,7 +28,10 @@ export function buildTrendDashboardHtml(trend: TrendDeltaSummary): string {
   const insightRows = trend.insights.length
     ? trend.insights
         .map(
-          (insight) => `<li><strong>${insight.title}</strong> (${insight.severity}) - ${insight.recommendation}</li>`
+          (insight) =>
+            `<li><strong>${escapeHtml(insight.title)}</strong> (${escapeHtml(
+              insight.severity
+            )}) - ${escapeHtml(insight.recommendation)}</li>`
         )
         .join("\n")
     : "<li>No trend insights generated.</li>";
@@ -42,8 +54,8 @@ export function buildTrendDashboardHtml(trend: TrendDeltaSummary): string {
   <h1>Trend Dashboard</h1>
   <div class="card">
     <h2>Status</h2>
-    <p><strong>Trend status:</strong> ${trend.status}</p>
-    <p><strong>History directory:</strong> ${trend.historyDir ?? "n/a"}</p>
+    <p><strong>Trend status:</strong> ${escapeHtml(trend.status)}</p>
+    <p><strong>History directory:</strong> ${escapeHtml(trend.historyDir ?? "n/a")}</p>
     <p><strong>Window:</strong> ${trend.history?.window ?? 0} snapshots</p>
   </div>
   <div class="card">

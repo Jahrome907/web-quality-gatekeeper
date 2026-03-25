@@ -148,13 +148,29 @@ function main() {
   const exceptions = readExceptions(exceptionsPath);
   assertNoExpiredExceptions(exceptions, now);
 
-  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-  const run = spawnSync(npmCommand, ["audit", "--omit=dev", "--json"], {
+  const npmExecPath = process.env.npm_execpath;
+  const auditCommand = npmExecPath
+    ? {
+        file: process.execPath,
+        args: [npmExecPath, "audit", "--omit=dev", "--json"]
+      }
+    : {
+        file: process.platform === "win32" ? "npm.cmd" : "npm",
+        args: ["audit", "--omit=dev", "--json"]
+      };
+
+  const run = spawnSync(auditCommand.file, auditCommand.args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]
   });
 
-  const output = run.stdout || run.stderr;
+  if (run.error) {
+    console.error("Unable to execute npm audit.");
+    console.error(run.error.message);
+    process.exit(1);
+  }
+
+  const output = [run.stdout, run.stderr].filter(Boolean).join("\n");
   let parsed;
   try {
     parsed = JSON.parse(output || "{}");
@@ -164,9 +180,19 @@ function main() {
     process.exit(run.status ?? 1);
   }
 
-  const vulnerabilities = parsed?.vulnerabilities && typeof parsed.vulnerabilities === "object"
-    ? parsed.vulnerabilities
-    : {};
+  const hasVulnerabilityMap =
+    parsed &&
+    typeof parsed === "object" &&
+    parsed.vulnerabilities &&
+    typeof parsed.vulnerabilities === "object";
+
+  if (!hasVulnerabilityMap || parsed.error) {
+    console.error("npm audit did not return usable vulnerability data.");
+    console.error(output);
+    process.exit(1);
+  }
+
+  const vulnerabilities = parsed.vulnerabilities;
 
   const rawFindings = Object.entries(vulnerabilities)
     .flatMap(([name, details]) => extractAdvisoryRecords(name, details));

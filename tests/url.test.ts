@@ -59,6 +59,12 @@ describe("validateUrl edge cases", () => {
     );
   });
 
+  it("rejects URLs that embed credentials", () => {
+    expect(() => validateUrl("https://alice:secret@example.com")).toThrow(
+      "Username/password in URLs are not allowed"
+    );
+  });
+
   it("detects private IPv4 ranges in IP classifier", () => {
     expect(isInternalIpAddress("10.0.0.12")).toBe(true);
     expect(isInternalIpAddress("100.64.12.34")).toBe(true);

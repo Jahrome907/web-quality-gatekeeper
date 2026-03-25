@@ -60,9 +60,24 @@ describe("playwright runner", () => {
     const page = createPageDouble();
     const addCookies = vi.fn().mockResolvedValue(undefined);
     const newPage = vi.fn().mockResolvedValue(page);
+    let routeHandler:
+      | ((route: {
+          request: () => {
+            isNavigationRequest: () => boolean;
+            url: () => string;
+            headers: () => Record<string, string>;
+          };
+          abort: (reason?: string) => Promise<void>;
+          continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
+        }) => Promise<void>)
+      | null = null;
+    const route = vi.fn().mockImplementation(async (_matcher, handler) => {
+      routeHandler = handler;
+    });
     const newContext = vi.fn().mockResolvedValue({
       addCookies,
-      newPage
+      newPage,
+      route
     });
     mockLaunch.mockResolvedValue({
       newContext
@@ -98,9 +113,13 @@ describe("playwright runner", () => {
 
     expect(newContext).toHaveBeenCalledWith(
       expect.objectContaining({
-        extraHTTPHeaders: { Authorization: "Bearer token-123" }
+        viewport: { width: 1280, height: 720 },
+        userAgent: "wqg/3.0.0",
+        locale: "en-US",
+        colorScheme: "light"
       })
     );
+    expect(route).toHaveBeenCalledWith("**", expect.any(Function));
     expect(addCookies).toHaveBeenCalledWith([
       {
         name: "session_id",
@@ -108,6 +127,23 @@ describe("playwright runner", () => {
         url: "https://example.com"
       }
     ]);
+    const continueRequest = vi.fn().mockResolvedValue(undefined);
+    expect(routeHandler).not.toBeNull();
+    await routeHandler!({
+      request: () => ({
+        isNavigationRequest: () => true,
+        url: () => "https://example.com/",
+        headers: () => ({ Accept: "text/html" })
+      }),
+      abort: vi.fn().mockResolvedValue(undefined),
+      continue: continueRequest
+    });
+    expect(continueRequest).toHaveBeenCalledWith({
+      headers: {
+        Accept: "text/html",
+        Authorization: "Bearer token-123"
+      }
+    });
     expect(page.on).toHaveBeenCalledWith("console", expect.any(Function));
     expect(page.on).toHaveBeenCalledWith("request", expect.any(Function));
     expect(mockRetry).toHaveBeenCalledWith(
@@ -276,9 +312,13 @@ describe("playwright runner", () => {
     const page = createPageDouble();
     let routeHandler:
       | ((route: {
-          request: () => { isNavigationRequest: () => boolean; url: () => string };
+          request: () => {
+            isNavigationRequest: () => boolean;
+            url: () => string;
+            headers: () => Record<string, string>;
+          };
           abort: (reason?: string) => Promise<void>;
-          continue: () => Promise<void>;
+          continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
         }) => Promise<void>)
       | null = null;
     const route = vi.fn().mockImplementation(async (_matcher, handler) => {
@@ -291,7 +331,8 @@ describe("playwright runner", () => {
       await routeHandler({
         request: () => ({
           isNavigationRequest: () => false,
-          url: () => "http://127.0.0.1:4010/private-script.js"
+          url: () => "http://127.0.0.1:4010/private-script.js",
+          headers: () => ({})
         }),
         abort: vi.fn().mockResolvedValue(undefined),
         continue: vi.fn().mockResolvedValue(undefined)

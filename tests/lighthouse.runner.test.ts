@@ -5,6 +5,7 @@ const mockLighthouse = vi.fn();
 const mockLaunch = vi.fn();
 const mockRetry = vi.fn();
 const mockWriteJson = vi.fn();
+const mockPuppeteerConnect = vi.fn();
 
 vi.mock("lighthouse", () => ({
   default: mockLighthouse
@@ -22,6 +23,11 @@ vi.mock("../src/utils/fs.js", async () => {
     writeJson: mockWriteJson
   };
 });
+vi.mock("../src/runner/lighthousePuppeteer.js", () => ({
+  loadLighthousePuppeteer: vi.fn(async () => ({
+    connect: mockPuppeteerConnect
+  }))
+}));
 
 function createBaseConfig(overrides?: Partial<Record<string, unknown>>) {
   return {
@@ -38,6 +44,14 @@ describe("lighthouse runner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRetry.mockImplementation(async (fn: () => unknown) => fn());
+    mockPuppeteerConnect.mockResolvedValue({
+      newPage: vi.fn().mockResolvedValue({
+        setRequestInterception: vi.fn().mockResolvedValue(undefined),
+        on: vi.fn(),
+        close: vi.fn().mockResolvedValue(undefined)
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined)
+    });
   });
 
   it("extracts metrics, category scores, extended metrics, and budget boundaries", async () => {
@@ -235,6 +249,28 @@ describe("lighthouse runner", () => {
         }
       }
     });
+    let requestHandler:
+      | ((request: {
+          isNavigationRequest: () => boolean;
+          url: () => string;
+          headers: () => Record<string, string>;
+          continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
+          abort: (errorCode?: string) => Promise<void>;
+        }) => Promise<void>)
+      | null = null;
+    const puppeteerPage = {
+      setRequestInterception: vi.fn().mockResolvedValue(undefined),
+      on: vi.fn().mockImplementation((event, handler) => {
+        if (event === "request") {
+          requestHandler = handler;
+        }
+      }),
+      close: vi.fn().mockResolvedValue(undefined)
+    };
+    mockPuppeteerConnect.mockResolvedValue({
+      newPage: vi.fn().mockResolvedValue(puppeteerPage),
+      disconnect: vi.fn().mockResolvedValue(undefined)
+    });
 
     const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
     await runLighthouseAudit(
@@ -251,16 +287,37 @@ describe("lighthouse runner", () => {
       }
     );
 
+    expect(mockPuppeteerConnect).toHaveBeenCalledWith({
+      browserURL: "http://127.0.0.1:9222",
+      defaultViewport: null
+    });
     expect(mockLighthouse).toHaveBeenCalledWith(
       "https://example.com",
       expect.objectContaining({
-        extraHeaders: {
-          Authorization: "Bearer token-123",
-          Cookie: "already=set"
-        }
+        port: 9222
       }),
-      expect.any(Object)
+      expect.any(Object),
+      puppeteerPage
     );
+    const continueRequest = vi.fn().mockResolvedValue(undefined);
+    expect(requestHandler).not.toBeNull();
+    await requestHandler!({
+      isNavigationRequest: () => true,
+      url: () => "https://example.com/",
+      headers: () => ({
+        Accept: "text/html",
+        Cookie: "already=set"
+      }),
+      continue: continueRequest,
+      abort: vi.fn().mockResolvedValue(undefined)
+    });
+    expect(continueRequest).toHaveBeenCalledWith({
+      headers: {
+        Accept: "text/html",
+        Authorization: "Bearer token-123",
+        Cookie: "already=set"
+      }
+    });
   });
 
   it("applies mobile emulation config for mobile formFactor", async () => {

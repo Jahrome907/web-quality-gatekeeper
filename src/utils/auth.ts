@@ -8,6 +8,49 @@ export interface AuditAuth {
   cookies: AuthCookie[];
 }
 
+function findHeaderKeyInsensitive(headers: Record<string, string>, name: string): string | null {
+  const target = name.toLowerCase();
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === target) {
+      return key;
+    }
+  }
+  return null;
+}
+
+function isSameOrigin(requestUrl: string, targetUrl: string): boolean {
+  try {
+    return new URL(requestUrl).origin === new URL(targetUrl).origin;
+  } catch {
+    return false;
+  }
+}
+
+export function applyScopedAuthHeaders(params: {
+  requestUrl: string;
+  targetUrl: string;
+  requestHeaders: Record<string, string>;
+  authHeaders: Record<string, string> | null;
+}): Record<string, string> {
+  const { requestUrl, targetUrl, requestHeaders, authHeaders } = params;
+  if (!authHeaders || Object.keys(authHeaders).length === 0) {
+    return requestHeaders;
+  }
+
+  const scopedHeaders = { ...requestHeaders };
+  const shouldAttachAuth = isSameOrigin(requestUrl, targetUrl);
+  for (const [headerName, headerValue] of Object.entries(authHeaders)) {
+    const existingKey = findHeaderKeyInsensitive(scopedHeaders, headerName);
+    if (shouldAttachAuth) {
+      scopedHeaders[existingKey ?? headerName] = headerValue;
+    } else if (existingKey) {
+      delete scopedHeaders[existingKey];
+    }
+  }
+
+  return scopedHeaders;
+}
+
 function parseHeaderEntry(entry: string): [string, string] {
   const trimmed = entry.trim();
   const separator = trimmed.indexOf(":");

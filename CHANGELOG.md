@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Hardened audit runtime target handling:
+  - public targets are now resolved and pinned before Playwright/Lighthouse execution
+  - sensitive audits block redirect and subrequest pivots into private/internal address space
+- Cleared outstanding dependency audit findings, including the `flatted` lockfile update tracked in Dependabot PR #34
+
+### Changed
+
+- Pinned GitHub Actions workflow dependencies to immutable SHAs and tightened default workflow permissions for repository-maintained CI, release, publish, and smoke flows
+- Updated test harnesses to match the resolver-aware runtime and keep Windows integration verification stable
+
 ## [3.1.1] - 2026-03-08
 
 ### Fixed

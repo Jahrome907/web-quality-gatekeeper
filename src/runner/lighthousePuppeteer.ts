@@ -8,7 +8,8 @@ const lighthouseRequire = createRequire(lighthouseEntry);
 export interface PuppeteerRequestLike {
   isNavigationRequest: () => boolean;
   url: () => string;
-  continue: () => Promise<void>;
+  headers: () => Record<string, string>;
+  continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
   abort: (errorCode?: string) => Promise<void>;
 }
 
