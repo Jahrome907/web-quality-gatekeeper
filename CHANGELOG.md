@@ -1,3 +1,5 @@
+<!-- markdownlint-configure-file {"MD024": {"siblings_only": true}} -->
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -7,17 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [3.1.2] - 2026-03-14
 
-- Hardened audit runtime target handling:
-  - public targets are now resolved and pinned before Playwright/Lighthouse execution
-  - sensitive audits block redirect and subrequest pivots into private/internal address space
-- Cleared outstanding dependency audit findings, including the `flatted` lockfile update tracked in Dependabot PR #34
+### Added
+
+- Maintainer-facing release documentation:
+  - architecture/change-surface map in `docs/engineering/ARCHITECTURE_MAP.md`
+  - release verification handoff in `docs/engineering/RELEASE_HANDOFF.md`
 
 ### Changed
 
-- Pinned GitHub Actions workflow dependencies to immutable SHAs and tightened default workflow permissions for repository-maintained CI, release, publish, and smoke flows
-- Updated test harnesses to match the resolver-aware runtime and keep Windows integration verification stable
+- Release-prep workflow hardening:
+  - least-privilege permissions on smoke workflows
+  - composite Action checkout disables credential persistence
+  - npm publish enforces release-tag and `package.json` version parity
+  - public Action guidance now targets the stable `@v3` contract
+- Audit target safety hardening:
+  - sensitive-mode SSRF checks now cover redirect destinations, unresolved
+    targets, and the final Lighthouse URL
+  - browser-backed audits pin host resolution consistently across Playwright and
+    Lighthouse
+- Pack/action smoke helpers now clean leaked scratch directories before running
+  and provision Playwright explicitly in the pack-consumer path
+- Contributor setup guidance now documents OS-aware Playwright installation.
+
+### Fixed
+
+- Production audit gate stability:
+  - pinned transitive `yauzl` to `3.2.1` via `overrides` so
+    `npm audit --omit=dev` passes on the Lighthouse dependency chain
+- Output directory validation now rejects symlink escapes outside the workspace
 
 ## [3.1.1] - 2026-03-08
 
@@ -72,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Root `report.html` generation now uses the richer v2 summary payload so extended Lighthouse vitals (including FCP, Speed Index, TTI, TTFB) render without dropping to `n/a` in normal runs.
-- Runtime orchestration internals were split into `src/audit/orchestration.ts` and Phase 4 tests were decomposed into smaller deterministic suites for maintainability and public-repo readability.
+- Runtime orchestration internals were split into `src/audit/orchestration.ts` and tests were decomposed into smaller deterministic suites for maintainability and readability.
 - Release docs now target stable major-tag usage for v3 examples.
 
 ## [0.3.0] - 2026-02-08
@@ -157,3 +178,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.2...HEAD
+[3.1.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.1...v3.1.2

@@ -26,42 +26,25 @@ function isSameOrigin(requestUrl: string, targetUrl: string): boolean {
   }
 }
 
-export function applyScopedAuthHeaders(params: {
-  requestUrl: string;
-  targetUrl: string;
-  requestHeaders: Record<string, string>;
-  authHeaders: Record<string, string> | null;
-}): Record<string, string> {
-  const { requestUrl, targetUrl, requestHeaders, authHeaders } = params;
-  if (!authHeaders || Object.keys(authHeaders).length === 0) {
-    return requestHeaders;
-  }
+const HEADER_FORMAT_HINT =
+  'Expected "Name: Value", for example --header "Authorization: Bearer <token>". ' +
+  "Repeat --header for multiple values or use WQG_AUTH_HEADERS.";
 
-  const scopedHeaders = { ...requestHeaders };
-  const shouldAttachAuth = isSameOrigin(requestUrl, targetUrl);
-  for (const [headerName, headerValue] of Object.entries(authHeaders)) {
-    const existingKey = findHeaderKeyInsensitive(scopedHeaders, headerName);
-    if (shouldAttachAuth) {
-      scopedHeaders[existingKey ?? headerName] = headerValue;
-    } else if (existingKey) {
-      delete scopedHeaders[existingKey];
-    }
-  }
-
-  return scopedHeaders;
-}
+const COOKIE_FORMAT_HINT =
+  'Expected "name=value", for example --cookie "session_id=abc123". ' +
+  "Repeat --cookie for multiple values or use WQG_AUTH_COOKIES.";
 
 function parseHeaderEntry(entry: string): [string, string] {
   const trimmed = entry.trim();
   const separator = trimmed.indexOf(":");
   if (separator <= 0) {
-    throw new Error(`Invalid --header value: ${entry}. Expected "Name: Value".`);
+    throw new Error(`Invalid --header value: ${entry}. ${HEADER_FORMAT_HINT}`);
   }
 
   const name = trimmed.slice(0, separator).trim();
   const value = trimmed.slice(separator + 1).trim();
   if (!name || !value) {
-    throw new Error(`Invalid --header value: ${entry}. Expected "Name: Value".`);
+    throw new Error(`Invalid --header value: ${entry}. ${HEADER_FORMAT_HINT}`);
   }
 
   return [name, value];
@@ -72,13 +55,13 @@ function parseCookieEntry(entry: string): AuthCookie {
   const firstPair = trimmed.split(";")[0]?.trim() ?? "";
   const separator = firstPair.indexOf("=");
   if (separator <= 0) {
-    throw new Error(`Invalid --cookie value: ${entry}. Expected "name=value".`);
+    throw new Error(`Invalid --cookie value: ${entry}. ${COOKIE_FORMAT_HINT}`);
   }
 
   const name = firstPair.slice(0, separator).trim();
   const value = firstPair.slice(separator + 1).trim();
   if (!name || !value) {
-    throw new Error(`Invalid --cookie value: ${entry}. Expected "name=value".`);
+    throw new Error(`Invalid --cookie value: ${entry}. ${COOKIE_FORMAT_HINT}`);
   }
 
   return { name, value };
@@ -156,6 +139,31 @@ function collectCookieInputs(
     values.push(...parseCookieEnv(env.WQG_AUTH_COOKIES));
   }
   return values;
+}
+
+export function applyScopedAuthHeaders(params: {
+  requestUrl: string;
+  targetUrl: string;
+  requestHeaders: Record<string, string>;
+  authHeaders: Record<string, string> | null;
+}): Record<string, string> {
+  const { requestUrl, targetUrl, requestHeaders, authHeaders } = params;
+  if (!authHeaders || Object.keys(authHeaders).length === 0) {
+    return requestHeaders;
+  }
+
+  const scopedHeaders = { ...requestHeaders };
+  const shouldAttachAuth = isSameOrigin(requestUrl, targetUrl);
+  for (const [headerName, headerValue] of Object.entries(authHeaders)) {
+    const existingKey = findHeaderKeyInsensitive(scopedHeaders, headerName);
+    if (shouldAttachAuth) {
+      scopedHeaders[existingKey ?? headerName] = headerValue;
+    } else if (existingKey) {
+      delete scopedHeaders[existingKey];
+    }
+  }
+
+  return scopedHeaders;
 }
 
 export function toCookieHeader(cookies: AuthCookie[]): string | null {

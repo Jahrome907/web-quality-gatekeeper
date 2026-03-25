@@ -1,11 +1,19 @@
 # Web Quality Gatekeeper
 
-[![CI](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Quality Gate](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
+[![Pack Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml)
+[![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
+[![Source Version 3.1.2](https://img.shields.io/badge/source-3.1.2-17355c?logo=git&logoColor=white)](./package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
+[![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 A production-ready quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs on every PR. Outputs a clean HTML report plus machine-readable JSON summaries.
+
+Release source of truth: use GitHub tags and Releases for published versions. The `package.json` version on `main` may move ahead during release preparation.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
+</p>
 
 ## Install
 
@@ -18,12 +26,21 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 > The CLI writes `artifacts/report.html`, `artifacts/summary.json`, and `artifacts/summary.v2.json` by default.
 
 <p align="center">
-  <img src="assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
+  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
+</p>
+
+<p align="center">
+  Proof sample: inspect the published <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-report.html">fixture report</a>,
+  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-summary.v2.json">summary.v2.json</a>, and
+  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-proof-config.json">proof config</a>.
+  The proof bundle is checked into <code>docs/proof/</code> and refreshed alongside proof-surface changes.
 </p>
 
 ## Table of Contents
 
 - [Install](#install)
+- [How It Works](#how-it-works)
+- [Proof & Reproducibility](#proof--reproducibility)
 - [Features](#features)
 - [Quickstart](#quickstart)
 - [CLI Usage](#cli-usage)
@@ -35,6 +52,19 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 - [Development](#development)
 - [Tech Stack](#tech-stack)
 - [License](#license)
+
+## How It Works
+
+1. **Validate and pin the target**: the runner normalizes the requested URL, applies SSRF-sensitive guardrails when needed, and pins the audited host so redirect handling stays deterministic.
+2. **Collect evidence on one audited target**: Playwright loads the page, captures runtime signals and screenshots, then axe, Lighthouse, and visual diff run against the same resolved target.
+3. **Emit stable outputs for people and CI**: every run writes `report.html`, `summary.json`, and `summary.v2.json`, with optional baselines and trend artifacts for longer-lived quality programs.
+
+## Proof & Reproducibility
+
+- Open the published sample [report.html](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-report.html) and [summary.v2.json](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-summary.v2.json).
+- Review the exact [proof config](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-proof-config.json) used for the published fixture run.
+- Reproduce the local fixture walkthrough from [docs/case-study-run.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study-run.md).
+- See the public OSS evidence protocol in [docs/case-study/public-oss-repro.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md).
 
 ## Features
 
@@ -83,12 +113,39 @@ Flags:
 - `--no-fail-on-a11y` disables a11y failure gate
 - `--no-fail-on-perf` disables performance budget gate
 - `--no-fail-on-visual` disables visual diff gate
-- `--format <json|html|md>` controls stdout/report format mode
+- `--format <json|html|md>` controls stdout mode (default: `html`)
 - `--header "Name: Value"` adds a request header (repeatable)
 - `--cookie "name=value"` adds a cookie (repeatable)
 - `--verbose` for debug logging
 
 Built-in policies are host-agnostic defaults (paths, budgets, toggles); the target host still comes from `wqg audit <url>` unless your config explicitly sets `urls`.
+
+### Output Formats
+
+On successful runs, `wqg audit` writes artifact files to `--out` (default: `artifacts`) regardless of output mode:
+
+- `summary.json`
+- `summary.v2.json`
+- `report.html`
+
+`--format` only changes the primary stdout payload:
+
+- `--format html` (default): in standard non-verbose usage, prints no report payload to stdout and writes `report.html` plus JSON summaries.
+- `--format json`: prints `summary.json` payload to stdout, still writes `report.html` and summary artifacts.
+- `--format md`: prints a Markdown report to stdout, still writes `report.html` and summary artifacts.
+
+Examples:
+
+```bash
+# Default (same as --format html): artifact-driven output, no stdout payload
+wqg audit https://example.com --out artifacts
+
+# JSON to stdout for scripting while still writing report artifacts
+wqg audit https://example.com --format json --out artifacts > summary.stdout.json
+
+# Markdown to stdout for terminal/PR paste while still writing report artifacts
+wqg audit https://example.com --format md --out artifacts > report.stdout.md
+```
 
 ## Baseline Workflow
 
@@ -113,7 +170,7 @@ Default config lives at `configs/default.json`.
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/3.0.0",
+    "userAgent": "wqg/3.1.2",
     "locale": "en-US",
     "colorScheme": "light"
   },
@@ -140,9 +197,10 @@ This repo includes:
 
 Workflow behavior (`.github/workflows/quality-gate.yml`):
 
-- If `package.json` has a `demo` script, it audits `http://localhost:4173`.
-- Otherwise it audits a remote URL (`WQG_URL` override, else GitHub Pages fallback).
-- All gates are blocking by default, including remote audits.
+- `WQG_URL` overrides the default target and runs a remote audit.
+- Otherwise the repo keeps CI hermetic by auditing a local docs preview when `docs/index.html` exists.
+- Repos without a docs preview fall back to a local `demo` script when present, then to a remote Pages URL or `https://example.com`.
+- Local docs-preview and demo runs stay blocking and pass `--allow-internal-targets` for the loopback target.
 - Set `WQG_RELAXED_REMOTE=true` to make remote mode non-blocking (`--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual`).
 - If authenticated inputs are detected (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`) or `WQG_SENSITIVE_AUDIT=true`, artifact upload and PR comments are disabled by default.
 - Set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` only when you intentionally want to publish outputs for a sensitive run.
@@ -180,10 +238,21 @@ Example summary snippet:
 npm ci
 npx playwright install
 npm run check
+npm run contracts:check
 npm run security:audit
+npm run smoke:pack
+npm run smoke:action
 npm run build
 npm run audit -- https://example.com
 ```
+
+Optional Python bundle analytics live in [tools/python/README.md](tools/python/README.md) and are intentionally outside the core CLI path.
+
+Maintainer references:
+
+- [Architecture Map](docs/engineering/ARCHITECTURE_MAP.md)
+- [Testing Matrix](docs/testing-matrix.md)
+- [Workflow Safety Policy](docs/engineering/WORKFLOW_SAFETY_POLICY.md)
 
 ## Tech Stack
 

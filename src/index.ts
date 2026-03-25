@@ -45,15 +45,6 @@ import {
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
 
-// TODO: Remove fallback URIs once all consumers provide SCHEMA_VERSION*,
-// SUMMARY_SCHEMA_URI*, and buildSummaryV2 via report/summary.
-const SUMMARY_SCHEMA_URI_V1_FALLBACK =
-  "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json";
-const SUMMARY_SCHEMA_URI_V2_FALLBACK =
-  "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json";
-const SCHEMA_VERSION_V1_FALLBACK = "1.1.0";
-const SCHEMA_VERSION_V2_FALLBACK = "2.2.0";
-
 type OverallStatus = "pass" | "fail";
 
 export type { Summary, SummaryV2 } from "./report/summary.js";
@@ -139,9 +130,9 @@ async function runTargetAudit(params: {
 
   const screenshotsDir = path.join(target.outDir, "screenshots");
   const diffsDir = path.join(target.outDir, "diffs");
-  const summaryPath = path.join(target.outDir, "summary.json");
-  const summaryV2Path = path.join(target.outDir, "summary.v2.json");
-  const reportPath = path.join(target.outDir, "report.html");
+  const summaryPath = path.join(target.outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summary);
+  const summaryV2Path = path.join(target.outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2);
+  const reportPath = path.join(target.outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.report);
 
   await ensureDir(target.outDir);
   await ensureDir(screenshotsDir);
@@ -379,12 +370,12 @@ export async function runAudit(
     steps: aggregateSteps(results),
     artifacts: {
       ...results[0]!.summary.artifacts,
-      summary: "summary.json",
-      report: "report.html"
+      summary: summaryReport.SUMMARY_ARTIFACT_NAMES.summary,
+      report: summaryReport.SUMMARY_ARTIFACT_NAMES.report
     }
   };
 
-  await writeJson(path.join(outDir, "summary.json"), compatibilitySummary);
+  await writeJson(path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summary), compatibilitySummary);
 
   // Render report.html from the richer v2 payload so detailed Lighthouse/runtime
   // sections (including extended vitals) are available in the UI.
@@ -395,13 +386,13 @@ export async function runAudit(
     steps: compatibilitySummary.steps,
     artifacts: {
       ...results[0]!.summaryV2.artifacts,
-      summary: "summary.json",
-      summaryV2: "summary.v2.json",
-      report: "report.html"
+      summary: summaryReport.SUMMARY_ARTIFACT_NAMES.summary,
+      summaryV2: summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2,
+      report: summaryReport.SUMMARY_ARTIFACT_NAMES.report
     },
     insights: runInsights ?? results[0]!.summaryV2.insights ?? null
   };
-  await writeText(path.join(outDir, "report.html"), buildHtmlReport(reportSummary));
+  await writeText(path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.report), buildHtmlReport(reportSummary));
 
   const pages = results.map((result) => buildPageEntry(result));
   const rollup = buildRollup(pages);
@@ -412,42 +403,36 @@ export async function runAudit(
     : path.resolve(outDir, trendSettings.historyDir);
   const trendHistoryJsonPath = path.join(outDir, "trends", "history.json");
   const trendDashboardHtmlPath = path.join(outDir, "trends", "dashboard.html");
-  const actionPlanPath = path.join(outDir, "action-plan.md");
+  const actionPlanPath = path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.actionPlan);
 
   if (trendSettings.enabled) {
     validateOutputDirectory(trendHistoryDir);
   }
 
   const summaryV2: AuditSummaryV2 = {
-    $schema: summaryReport.SUMMARY_SCHEMA_URI_V2 ?? SUMMARY_SCHEMA_URI_V2_FALLBACK,
-    schemaVersion: summaryReport.SCHEMA_VERSION_V2 ?? SCHEMA_VERSION_V2_FALLBACK,
+    $schema: summaryReport.SUMMARY_SCHEMA_POINTERS.v2,
+    schemaVersion: summaryReport.SUMMARY_SCHEMA_VERSIONS.v2,
     toolVersion: pkg.version,
     mode: pages.length > 1 ? "multi" : "single",
     overallStatus,
     startedAt,
     durationMs: compatibilitySummary.durationMs,
     primaryUrl: pages[0]!.url,
-    schemaPointers: {
-      v1: summaryReport.SUMMARY_SCHEMA_URI ?? SUMMARY_SCHEMA_URI_V1_FALLBACK,
-      v2: summaryReport.SUMMARY_SCHEMA_URI_V2 ?? SUMMARY_SCHEMA_URI_V2_FALLBACK
-    },
-    schemaVersions: {
-      v1: summaryReport.SCHEMA_VERSION ?? SCHEMA_VERSION_V1_FALLBACK,
-      v2: summaryReport.SCHEMA_VERSION_V2 ?? SCHEMA_VERSION_V2_FALLBACK
-    },
+    schemaPointers: summaryReport.SUMMARY_SCHEMA_POINTERS,
+    schemaVersions: summaryReport.SUMMARY_SCHEMA_VERSIONS,
     compatibility: {
-      v1SummaryPath: "summary.json",
-      v1Schema: summaryReport.SUMMARY_SCHEMA_URI ?? SUMMARY_SCHEMA_URI_V1_FALLBACK,
-      v1SchemaVersion: summaryReport.SCHEMA_VERSION ?? SCHEMA_VERSION_V1_FALLBACK,
-      note: "summary.json remains v1-compatible. summary.v2.json contains multipage and trend fields."
+      v1SummaryPath: summaryReport.SUMMARY_ARTIFACT_NAMES.summary,
+      v1Schema: summaryReport.SUMMARY_SCHEMA_POINTERS.v1,
+      v1SchemaVersion: summaryReport.SUMMARY_SCHEMA_VERSIONS.v1,
+      note: summaryReport.SUMMARY_V2_COMPATIBILITY_NOTE
     },
     artifacts: {
-      summary: "summary.json",
-      summaryV2: "summary.v2.json",
-      report: "report.html",
+      summary: summaryReport.SUMMARY_ARTIFACT_NAMES.summary,
+      summaryV2: summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2,
+      report: summaryReport.SUMMARY_ARTIFACT_NAMES.report,
       trendDashboardHtml: null,
       trendHistoryJson: null,
-      actionPlanMd: "action-plan.md"
+      actionPlanMd: summaryReport.SUMMARY_ARTIFACT_NAMES.actionPlan
     },
     rollup,
     pages,
@@ -484,7 +469,7 @@ export async function runAudit(
     summaryV2.artifacts.trendDashboardHtml = toRelative(outDir, trendDashboardHtmlPath);
   }
 
-  await writeJson(path.join(outDir, "summary.v2.json"), summaryV2);
+  await writeJson(path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2), summaryV2);
   await writeText(actionPlanPath, buildActionPlanMarkdown(summaryV2.insights ?? null));
 
   if (trendSettings.enabled) {

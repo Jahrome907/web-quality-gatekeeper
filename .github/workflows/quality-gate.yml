@@ -43,8 +43,11 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run checks
-        run: npm run check
+      - name: Run full maintainer validation
+        run: npm run validate:full
+
+      - name: Check summary contracts
+        run: npm run contracts:check
 
       - name: Enforce runtime audit gate (high+critical)
         run: npm run security:audit
@@ -59,18 +62,44 @@ jobs:
           files: coverage/lcov.info
           fail_ci_if_error: false
 
+      - name: Determine PR comment capability
+        id: pr_comment
+        if: github.event_name == 'pull_request'
+        env:
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          CURRENT_REPO: ${{ github.repository }}
+        run: |
+          CAN_COMMENT=true
+          REASON=allowed
+
+          # Fork PRs get read-only tokens; skip PR commenting instead of failing quality checks.
+          if [ "$PR_HEAD_REPO" != "$CURRENT_REPO" ]; then
+            CAN_COMMENT=false
+            REASON=fork_pr_readonly_token
+          fi
+
+          echo "can_comment=$CAN_COMMENT" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+
+          if [ "$CAN_COMMENT" != "true" ]; then
+            echo "::notice::Skipping PR comment: $REASON"
+          fi
+
       - name: Resolve audit target
         id: target
         env:
           PAGES_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           node <<'NODE'
           const fs = require('fs');
           const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const hasDemo = Boolean(pkg.scripts && pkg.scripts.demo);
+          const hasDocsPreview = fs.existsSync('docs/index.html');
           const output = process.env.GITHUB_OUTPUT;
           const override = process.env.WQG_URL;
           const pagesUrl = process.env.PAGES_URL;
+          const eventName = process.env.GITHUB_EVENT_NAME;
           if (override) {
             try {
               const url = new URL(override);
@@ -85,8 +114,10 @@ jobs:
             }
             process.exit(0);
           }
-          if (hasDemo) {
-            fs.appendFileSync(output, 'mode=demo\nurl=http://localhost:4173\n');
+          if (hasDocsPreview && (eventName === 'pull_request' || eventName === 'push')) {
+            fs.appendFileSync(output, 'mode=docs_preview\nurl=http://127.0.0.1:4173/\n');
+          } else if (hasDemo) {
+            fs.appendFileSync(output, 'mode=demo\nurl=http://127.0.0.1:4173/\n');
           } else if (pagesUrl) {
             fs.appendFileSync(output, `mode=remote\nurl=${pagesUrl}\n`);
           } else {
@@ -94,11 +125,15 @@ jobs:
           }
           NODE
 
-      - name: Start demo server
-        if: steps.target.outputs.mode == 'demo'
+      - name: Start local audit target
+        if: steps.target.outputs.mode == 'demo' || steps.target.outputs.mode == 'docs_preview'
         run: |
-          npm run demo -- --port 4173 &
-          npx wait-on http://localhost:4173
+          if [ "${{ steps.target.outputs.mode }}" = "docs_preview" ]; then
+            python3 -m http.server 4173 --bind 127.0.0.1 --directory docs &
+          else
+            npm run demo -- --port 4173 &
+          fi
+          npx wait-on http://127.0.0.1:4173
 
       - name: Resolve audit policy
         id: policy
@@ -107,10 +142,10 @@ jobs:
           WQG_RELAXED_REMOTE: ${{ env.WQG_RELAXED_REMOTE }}
           WQG_SENSITIVE_AUDIT: ${{ env.WQG_SENSITIVE_AUDIT }}
           WQG_ALLOW_SENSITIVE_OUTPUTS: ${{ env.WQG_ALLOW_SENSITIVE_OUTPUTS }}
-          SECRET_WQG_AUTH_HEADER: ${{ secrets.WQG_AUTH_HEADER }}
-          SECRET_WQG_AUTH_HEADERS: ${{ secrets.WQG_AUTH_HEADERS }}
-          SECRET_WQG_AUTH_COOKIE: ${{ secrets.WQG_AUTH_COOKIE }}
-          SECRET_WQG_AUTH_COOKIES: ${{ secrets.WQG_AUTH_COOKIES }}
+          SECRET_WQG_AUTH_HEADER: ${{ secrets['WQG_AUTH_HEADER'] }}
+          SECRET_WQG_AUTH_HEADERS: ${{ secrets['WQG_AUTH_HEADERS'] }}
+          SECRET_WQG_AUTH_COOKIE: ${{ secrets['WQG_AUTH_COOKIE'] }}
+          SECRET_WQG_AUTH_COOKIES: ${{ secrets['WQG_AUTH_COOKIES'] }}
         run: |
           as_bool() {
             case "${1,,}" in
@@ -120,7 +155,7 @@ jobs:
           }
 
           RELAXED_REMOTE=false
-          if [ "$TARGET_MODE" != "demo" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then
+          if [ "$TARGET_MODE" = "remote" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then
             RELAXED_REMOTE=true
           fi
 
@@ -159,10 +194,10 @@ jobs:
           AUDIT_URL: ${{ steps.target.outputs.url }}
           TARGET_MODE: ${{ steps.target.outputs.mode }}
           RELAXED_REMOTE: ${{ steps.policy.outputs.relaxed_remote }}
-          SECRET_WQG_AUTH_HEADER: ${{ secrets.WQG_AUTH_HEADER }}
-          SECRET_WQG_AUTH_HEADERS: ${{ secrets.WQG_AUTH_HEADERS }}
-          SECRET_WQG_AUTH_COOKIE: ${{ secrets.WQG_AUTH_COOKIE }}
-          SECRET_WQG_AUTH_COOKIES: ${{ secrets.WQG_AUTH_COOKIES }}
+          SECRET_WQG_AUTH_HEADER: ${{ secrets['WQG_AUTH_HEADER'] }}
+          SECRET_WQG_AUTH_HEADERS: ${{ secrets['WQG_AUTH_HEADERS'] }}
+          SECRET_WQG_AUTH_COOKIE: ${{ secrets['WQG_AUTH_COOKIE'] }}
+          SECRET_WQG_AUTH_COOKIES: ${{ secrets['WQG_AUTH_COOKIES'] }}
         run: |
           if [ -z "${WQG_AUTH_HEADER:-}" ] && [ -n "${SECRET_WQG_AUTH_HEADER:-}" ]; then
             export WQG_AUTH_HEADER="$SECRET_WQG_AUTH_HEADER"
@@ -178,14 +213,18 @@ jobs:
           fi
 
           ARGS=()
+          CONFIG_PATH="configs/default.json"
           if [ "$RELAXED_REMOTE" = "true" ]; then
             ARGS+=(--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual)
           fi
-          if [ "$TARGET_MODE" = "demo" ]; then
+          if [ "$TARGET_MODE" = "demo" ] || [ "$TARGET_MODE" = "docs_preview" ]; then
             ARGS+=(--allow-internal-targets)
           fi
+          if [ "$TARGET_MODE" = "docs_preview" ]; then
+            CONFIG_PATH="configs/docs-preview.ci.json"
+          fi
           npm run audit -- "$AUDIT_URL" \
-            --config configs/default.json \
+            --config "$CONFIG_PATH" \
             --out artifacts \
             --baseline-dir baselines \
             "${ARGS[@]}"
@@ -199,84 +238,94 @@ jobs:
           if-no-files-found: warn
 
       - name: Comment PR summary
-        if: always() && steps.policy.outputs.publish_outputs == 'true' && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
+        if: always() && steps.policy.outputs.publish_outputs == 'true' && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && steps.pr_comment.outputs.can_comment == 'true'
+        continue-on-error: true
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
-            const fs = require('fs');
-            const summaryPath = 'artifacts/summary.json';
-            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-            let body = '## Web Quality Gatekeeper\n';
+            try {
+              const fs = require('fs');
+              const summaryPath = 'artifacts/summary.json';
+              const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+              let body = '## Web Quality Gatekeeper\n';
 
-            if (fs.existsSync(summaryPath)) {
-              const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-              const status = summary.overallStatus?.toUpperCase() ?? 'UNKNOWN';
-              const perf = summary.performance?.metrics || {};
-              const budgets = summary.performance?.budgets || {};
-              const a11y = summary.a11y?.countsByImpact || {};
-              const visual = summary.visual;
+              if (fs.existsSync(summaryPath)) {
+                const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+                const status = summary.overallStatus?.toUpperCase() ?? 'UNKNOWN';
+                const perf = summary.performance?.metrics || {};
+                const budgets = summary.performance?.budgets || {};
+                const a11y = summary.a11y?.countsByImpact || {};
+                const visual = summary.visual;
 
-              body += `- Status: **${status}**\n`;
-              if (summary.performance) {
-                body += `- Performance: score ${perf.performanceScore ?? 'n/a'} (min ${budgets.performance ?? 'n/a'}), `;
-                body += `LCP ${perf.lcpMs ?? 'n/a'}ms (max ${budgets.lcpMs ?? 'n/a'}), `;
-                body += `CLS ${perf.cls ?? 'n/a'} (max ${budgets.cls ?? 'n/a'}), `;
-                body += `TBT ${perf.tbtMs ?? 'n/a'}ms (max ${budgets.tbtMs ?? 'n/a'})\n`;
+                body += `- Status: **${status}**\n`;
+                if (summary.performance) {
+                  body += `- Performance: score ${perf.performanceScore ?? 'n/a'} (min ${budgets.performance ?? 'n/a'}), `;
+                  body += `LCP ${perf.lcpMs ?? 'n/a'}ms (max ${budgets.lcpMs ?? 'n/a'}), `;
+                  body += `CLS ${perf.cls ?? 'n/a'} (max ${budgets.cls ?? 'n/a'}), `;
+                  body += `TBT ${perf.tbtMs ?? 'n/a'}ms (max ${budgets.tbtMs ?? 'n/a'})\n`;
+                } else {
+                  body += '- Performance: skipped\n';
+                }
+
+                if (summary.a11y) {
+                  body += `- A11y: critical ${a11y.critical ?? 0}, serious ${a11y.serious ?? 0}, moderate ${a11y.moderate ?? 0}, minor ${a11y.minor ?? 0}\n`;
+                } else {
+                  body += '- A11y: skipped\n';
+                }
+
+                if (visual) {
+                  body += `- Visual: max mismatch ${visual.maxMismatchRatio?.toFixed(4) ?? 'n/a'} (threshold ${visual.threshold})\n`;
+                } else {
+                  body += '- Visual: skipped\n';
+                }
               } else {
-                body += '- Performance: skipped\n';
+                body += '- Summary: `artifacts/summary.json` not found\n';
               }
 
-              if (summary.a11y) {
-                body += `- A11y: critical ${a11y.critical ?? 0}, serious ${a11y.serious ?? 0}, moderate ${a11y.moderate ?? 0}, minor ${a11y.minor ?? 0}\n`;
-              } else {
-                body += '- A11y: skipped\n';
-              }
+              body += `- Artifacts: ${runUrl}\n`;
 
-              if (visual) {
-                body += `- Visual: max mismatch ${visual.maxMismatchRatio?.toFixed(4) ?? 'n/a'} (threshold ${visual.threshold})\n`;
-              } else {
-                body += '- Visual: skipped\n';
-              }
-            } else {
-              body += '- Summary: `artifacts/summary.json` not found\n';
-            }
-
-            body += `- Artifacts: ${runUrl}\n`;
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100
-            });
-            let existing = comments.find(c => c.body?.startsWith('## Web Quality Gatekeeper'));
-            if (!existing) {
-              let page = 2;
-              while (comments.length === 100) {
-                const { data: more } = await github.rest.issues.listComments({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  per_page: 100,
-                  page
-                });
-                existing = more.find(c => c.body?.startsWith('## Web Quality Gatekeeper'));
-                if (existing || more.length < 100) break;
-                page++;
-              }
-            }
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body
-              });
-            } else {
-              await github.rest.issues.createComment({
+              const { data: comments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body
+                per_page: 100
               });
+              let existing = comments.find(c => c.body?.startsWith('## Web Quality Gatekeeper'));
+              if (!existing) {
+                let page = 2;
+                while (comments.length === 100) {
+                  const { data: more } = await github.rest.issues.listComments({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: context.issue.number,
+                    per_page: 100,
+                    page
+                  });
+                  existing = more.find(c => c.body?.startsWith('## Web Quality Gatekeeper'));
+                  if (existing || more.length < 100) break;
+                  page++;
+                }
+              }
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body
+                });
+              }
+            } catch (error) {
+              const status = error?.status ?? error?.response?.status;
+              if (status === 403 || status === 404) {
+                core.notice(`Skipping PR comment due to token permission limits (${status}).`);
+                return;
+              }
+              throw error;
             }

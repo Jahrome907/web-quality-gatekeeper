@@ -41,13 +41,13 @@ describe("parseAuditAuth", () => {
 
   it("throws for malformed header", () => {
     expect(() => parseAuditAuth(["Authorization token"], [], {})).toThrow(
-      'Invalid --header value: Authorization token. Expected "Name: Value".'
+      'Invalid --header value: Authorization token. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
     );
   });
 
   it("throws for malformed cookie", () => {
     expect(() => parseAuditAuth([], ["session"], {})).toThrow(
-      'Invalid --cookie value: session. Expected "name=value".'
+      'Invalid --cookie value: session. Expected "name=value", for example --cookie "session_id=abc123".'
     );
   });
 });

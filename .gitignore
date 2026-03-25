@@ -4,6 +4,8 @@ artifacts/*
 !artifacts/.gitkeep
 baselines/*
 !baselines/.gitkeep
+__pycache__/
+*.py[cod]
 .env
 .env.*
 !.env.example
@@ -11,9 +13,12 @@ coverage/
 playwright-report/
 test-results/
 .DS_Store
-.claude/
-.codex/
 .tmp-int-*
+.tmp-docs-audit/
+.tmp-action-local-*
+.tmp-pack-smoke-*
+.tmp-pack-debug-*
+\\wsl.localhost*
 
 # Lighthouse Chrome profile artifacts
 lighthouse.*/

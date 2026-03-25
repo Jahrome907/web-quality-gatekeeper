@@ -1,0 +1,77 @@
+{
+  "benchmark": "visual-diff",
+  "generatedAt": "2026-03-12T04:21:51.935Z",
+  "platform": "linux",
+  "arch": "x64",
+  "node": "v25.2.1",
+  "nativeBinaryPath": "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike",
+  "nativeAvailable": true,
+  "cases": [
+    {
+      "name": "medium-sparse-change",
+      "width": 1280,
+      "height": 720,
+      "iterations": 3,
+      "pixelmatch": {
+        "diffPixels": 10,
+        "mismatchRatio": 0.000011,
+        "minMs": 8.865,
+        "maxMs": 16.564,
+        "avgMs": 12.215
+      },
+      "native": {
+        "status": "ok",
+        "diffBytes": 3686400,
+        "diffPixels": 10,
+        "mismatchRatio": 0.000011,
+        "minMs": 12.364,
+        "maxMs": 13.088,
+        "avgMs": 12.737
+      }
+    },
+    {
+      "name": "medium-block-change",
+      "width": 1280,
+      "height": 720,
+      "iterations": 3,
+      "pixelmatch": {
+        "diffPixels": 14400,
+        "mismatchRatio": 0.015625,
+        "minMs": 7.543,
+        "maxMs": 14.459,
+        "avgMs": 12.008
+      },
+      "native": {
+        "status": "ok",
+        "diffBytes": 3686400,
+        "diffPixels": 14400,
+        "mismatchRatio": 0.015625,
+        "minMs": 11.441,
+        "maxMs": 12.828,
+        "avgMs": 12.105
+      }
+    },
+    {
+      "name": "large-band-change",
+      "width": 1920,
+      "height": 1080,
+      "iterations": 3,
+      "pixelmatch": {
+        "diffPixels": 115200,
+        "mismatchRatio": 0.055556,
+        "minMs": 21.549,
+        "maxMs": 37.928,
+        "avgMs": 27.246
+      },
+      "native": {
+        "status": "ok",
+        "diffBytes": 8294400,
+        "diffPixels": 115200,
+        "mismatchRatio": 0.055556,
+        "minMs": 23.458,
+        "maxMs": 26.5,
+        "avgMs": 25.343
+      }
+    }
+  ]
+}

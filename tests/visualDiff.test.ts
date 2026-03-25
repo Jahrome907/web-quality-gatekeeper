@@ -4,7 +4,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { createHash } from "node:crypto";
 import { PNG } from "pngjs";
-import { runVisualDiff } from "../src/runner/visualDiff.js";
+import { calculateMismatchRatio, runVisualDiff } from "../src/runner/visualDiff.js";
 
 function setPixel(png: PNG, x: number, y: number, rgba: [number, number, number, number]) {
   const idx = (png.width * y + x) * 4;
@@ -44,6 +44,11 @@ async function createWorkspace() {
 }
 
 describe("runVisualDiff", () => {
+  it("clamps mismatch ratios to the schema-safe range", () => {
+    expect(calculateMismatchRatio(10, 2, 2)).toBe(1);
+    expect(calculateMismatchRatio(-1, 2, 2)).toBe(0);
+  });
+
   it("creates baseline artifacts when baseline is missing", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();

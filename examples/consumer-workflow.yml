@@ -20,12 +20,12 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
 
       - name: Run quality gate (strict by default)
-        uses: Jahrome907/web-quality-gatekeeper@v1
+        uses: Jahrome907/web-quality-gatekeeper@v3
         with:
           url: https://your-site.example.com
           # Optional authenticated audits (recommended to source from secrets)
@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload artifacts
         if: always() && (env.WQG_SENSITIVE_AUDIT != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: wqg-artifacts
           path: artifacts

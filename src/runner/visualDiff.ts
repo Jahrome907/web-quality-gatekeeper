@@ -1,12 +1,12 @@
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import pixelmatch from "pixelmatch";
 import { PNG } from "pngjs";
 import { DEFAULT_PIXELMATCH_INCLUDE_AA, DEFAULT_PIXELMATCH_THRESHOLD } from "../config/schema.js";
 import { copyFileSafe, ensureDir, pathExists, writeJson } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import type { ScreenshotResult } from "./playwright.js";
+import { computeVisualDiff, type VisualDiffEngineName } from "./visualDiffEngine.js";
 
 // Security: Baseline manifest for integrity verification
 interface BaselineManifest {
@@ -99,6 +99,8 @@ export interface VisualIgnoreRegion {
 }
 
 export interface VisualDiffRuntimeOptions {
+  engine?: VisualDiffEngineName;
+  nativeBinaryPath?: string;
   pixelmatch?: Partial<PixelmatchRuntimeOptions>;
   ignoreRegions?: VisualIgnoreRegion[];
 }
@@ -130,7 +132,7 @@ export function calculateMismatchRatio(
   if (comparablePixels === 0) {
     return 0;
   }
-  return diffPixels / comparablePixels;
+  return Math.min(1, Math.max(0, diffPixels / comparablePixels));
 }
 
 interface ClippedRegion {
@@ -303,13 +305,21 @@ export async function runVisualDiff(
       ignoreRegions
     );
 
-    const diffPixels = pixelmatch(
+    const engineOptions = {
+      includeAA: pixelmatchIncludeAA,
+      threshold: pixelmatchThreshold,
+      logger,
+      ...(options.engine ? { engine: options.engine } : {}),
+      ...(options.nativeBinaryPath ? { nativeBinaryPath: options.nativeBinaryPath } : {})
+    };
+
+    const { diffPixels } = await computeVisualDiff(
       baselineNormalized.data,
       currentNormalized.data,
       diff.data,
       width,
       height,
-      { includeAA: pixelmatchIncludeAA, threshold: pixelmatchThreshold }
+      engineOptions
     );
 
     const mismatchRatio = calculateMismatchRatio(diffPixels, width, height, ignoredPixels);

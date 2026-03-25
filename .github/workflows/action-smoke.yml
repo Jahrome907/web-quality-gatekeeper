@@ -34,6 +34,7 @@ jobs:
         with:
           url: http://127.0.0.1:4173
           config-path: tests/fixtures/integration-config.json
+          policy: tests/fixtures/policies/action-relative-policy.json
           baseline-dir: .tmp-action-smoke-baselines
           allow-internal-targets: "true"
           fail-on-a11y: "false"
@@ -41,16 +42,20 @@ jobs:
           fail-on-visual: "false"
 
       - name: Assert action outputs
+        env:
+          WQG_ACTION_SUMMARY_PATH: ${{ steps.wqg.outputs.summary-path }}
         run: |
           STATUS="${{ steps.wqg.outputs.status }}"
           SUMMARY_PATH="${{ steps.wqg.outputs.summary-path }}"
+
           test -n "$STATUS"
           test -n "$SUMMARY_PATH"
+          test "$SUMMARY_PATH" = "artifacts/summary.json"
           case "$STATUS" in
             pass|fail) ;;
             *) echo "Unexpected status: $STATUS"; exit 1 ;;
           esac
-          test -f "${GITHUB_WORKSPACE}/${SUMMARY_PATH}"
+          node scripts/ci/assert-action-smoke.mjs
 
       - name: Stop fixture site
         if: always()

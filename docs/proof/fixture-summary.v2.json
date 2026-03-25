@@ -1,0 +1,189 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+  "schemaVersion": "2.2.0",
+  "toolVersion": "3.1.2",
+  "mode": "single",
+  "overallStatus": "pass",
+  "startedAt": "2026-03-12T03:06:49.581Z",
+  "durationMs": 7621,
+  "primaryUrl": "http://127.0.0.1:4173/",
+  "schemaPointers": {
+    "v1": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
+    "v2": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
+  },
+  "schemaVersions": {
+    "v1": "1.1.0",
+    "v2": "2.2.0"
+  },
+  "compatibility": {
+    "v1SummaryPath": "summary.json",
+    "v1Schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
+    "v1SchemaVersion": "1.1.0",
+    "note": "summary.json remains v1-compatible. summary.v2.json contains multipage and trend fields."
+  },
+  "artifacts": {
+    "summary": "summary.json",
+    "summaryV2": "summary.v2.json",
+    "report": "report.html",
+    "trendDashboardHtml": null,
+    "trendHistoryJson": null,
+    "actionPlanMd": "action-plan.md"
+  },
+  "rollup": {
+    "pageCount": 1,
+    "failedPages": 0,
+    "a11yViolations": 0,
+    "performanceBudgetFailures": 0,
+    "visualFailures": 0
+  },
+  "pages": [
+    {
+      "index": 0,
+      "name": "default",
+      "url": "http://127.0.0.1:4173/",
+      "overallStatus": "pass",
+      "startedAt": "2026-03-12T03:06:49.581Z",
+      "durationMs": 7586,
+      "steps": {
+        "playwright": "pass",
+        "a11y": "pass",
+        "perf": "pass",
+        "visual": "skipped"
+      },
+      "artifacts": {
+        "summary": "summary.json",
+        "summaryV2": "summary.v2.json",
+        "report": "report.html"
+      },
+      "metrics": {
+        "a11yViolations": 0,
+        "performanceScore": 0.99,
+        "maxMismatchRatio": null,
+        "consoleErrors": 0,
+        "jsErrors": 0,
+        "failedRequests": 0
+      },
+      "details": {
+        "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+        "schemaVersion": "2.2.0",
+        "toolVersion": "3.1.2",
+        "overallStatus": "pass",
+        "url": "http://127.0.0.1:4173/",
+        "startedAt": "2026-03-12T03:06:49.581Z",
+        "durationMs": 7586,
+        "steps": {
+          "playwright": "pass",
+          "a11y": "pass",
+          "perf": "pass",
+          "visual": "skipped"
+        },
+        "artifacts": {
+          "summary": "summary.json",
+          "report": "report.html",
+          "axe": "axe.json",
+          "lighthouse": "lighthouse.json",
+          "screenshotsDir": "screenshots",
+          "diffsDir": "diffs",
+          "baselineDir": "../baselines-perf",
+          "summaryV2": "summary.v2.json"
+        },
+        "screenshots": [
+          {
+            "name": "home",
+            "path": "screenshots/home.png",
+            "url": "http://127.0.0.1:4173/",
+            "fullPage": true
+          }
+        ],
+        "a11y": {
+          "violations": 0,
+          "countsByImpact": {
+            "critical": 0,
+            "serious": 0,
+            "moderate": 0,
+            "minor": 0
+          },
+          "reportPath": "axe.json",
+          "details": [],
+          "metadata": {
+            "totalViolations": 0,
+            "keptViolations": 0,
+            "droppedViolations": 0,
+            "droppedNodes": 0
+          }
+        },
+        "performance": {
+          "metrics": {
+            "performanceScore": 0.99,
+            "lcpMs": 750.7429,
+            "cls": 0,
+            "tbtMs": 0
+          },
+          "budgets": {
+            "performance": 0.8,
+            "lcpMs": 2500,
+            "cls": 0.1,
+            "tbtMs": 200
+          },
+          "budgetResults": {
+            "performance": true,
+            "lcp": true,
+            "cls": true,
+            "tbt": true
+          },
+          "reportPath": "lighthouse.json",
+          "categoryScores": {
+            "performance": 0.99,
+            "accessibility": 1,
+            "bestPractices": 0.96,
+            "seo": 0.9
+          },
+          "extendedMetrics": {
+            "fcpMs": 615.37145,
+            "speedIndexMs": 615.37145,
+            "ttiMs": 750.7429,
+            "ttfbMs": 0.3849999999999999
+          },
+          "opportunities": []
+        },
+        "visual": null,
+        "runtimeSignals": {
+          "console": {
+            "total": 0,
+            "errorCount": 0,
+            "warningCount": 0,
+            "dropped": 0,
+            "messages": []
+          },
+          "jsErrors": {
+            "total": 0,
+            "dropped": 0,
+            "errors": []
+          },
+          "network": {
+            "totalRequests": 2,
+            "failedRequests": 0,
+            "transferSizeBytes": 590,
+            "resourceTypeBreakdown": {
+              "document": 2
+            }
+          }
+        },
+        "insights": {
+          "recommendations": []
+        }
+      }
+    }
+  ],
+  "insights": null,
+  "trend": {
+    "status": "disabled",
+    "historyDir": null,
+    "previousSnapshotPath": null,
+    "message": null,
+    "metrics": null,
+    "pages": [],
+    "history": null,
+    "insights": []
+  }
+}

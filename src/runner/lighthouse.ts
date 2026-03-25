@@ -283,11 +283,20 @@ async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promi
   };
 }
 
+/**
+ * Resolve a Chrome/Chromium executable path for Lighthouse.
+ *
+ * Priority:
+ *  1. $CHROME_PATH environment variable (user override)
+ *  2. Playwright's bundled Chromium (detected via playwright module)
+ *  3. undefined — let chrome-launcher search system defaults
+ */
 function resolveChromePath(): string | undefined {
   if (process.env.CHROME_PATH) {
     return process.env.CHROME_PATH;
   }
 
+  // Try Playwright's bundled Chromium
   try {
     const pw = requireSync("playwright") as { chromium: { executablePath: () => string } };
     const execPath = pw.chromium.executablePath();
@@ -295,7 +304,7 @@ function resolveChromePath(): string | undefined {
       return execPath;
     }
   } catch {
-    // Playwright not installed.
+    // Playwright not installed — fall through
   }
 
   return undefined;

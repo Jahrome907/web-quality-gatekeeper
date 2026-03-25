@@ -44,23 +44,24 @@ describe("validateOutputDirectory", () => {
     }
   });
 
-  it("rejects symlinked output paths that resolve outside cwd", async () => {
+  it("rejects symlinked output paths that escape the workspace", async () => {
+    const originalCwd = process.cwd();
     const workspace = await mkdtemp(path.join(tmpdir(), "wqg-fs-workspace-"));
     const outside = await mkdtemp(path.join(tmpdir(), "wqg-fs-outside-"));
-    const linkPath = path.join(workspace, "artifacts-link");
-    const previousCwd = process.cwd();
 
     try {
-      const linkType = process.platform === "win32" ? "junction" : "dir";
-      const target = process.platform === "win32" ? outside : path.relative(workspace, outside);
-      await symlink(target, linkPath, linkType);
-
+      await symlink(
+        outside,
+        path.join(workspace, "artifacts"),
+        process.platform === "win32" ? "junction" : "dir"
+      );
       process.chdir(workspace);
-      expect(() => validateOutputDirectory("artifacts-link")).toThrow(
+
+      expect(() => validateOutputDirectory("artifacts")).toThrow(
         "Output directory must be within the working directory or GITHUB_WORKSPACE"
       );
     } finally {
-      process.chdir(previousCwd);
+      process.chdir(originalCwd);
       await rm(workspace, { recursive: true, force: true });
       await rm(outside, { recursive: true, force: true });
     }

@@ -1,0 +1,11 @@
+[package]
+name = "wqg-visual-diff-native-spike"
+version = "0.1.0"
+edition = "2021"
+description = "Optional native benchmark spike for visual diff pixel counting."
+license = "MIT"
+publish = false
+
+[profile.release]
+codegen-units = 1
+lto = "thin"

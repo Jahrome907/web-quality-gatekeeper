@@ -796,7 +796,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         <li>Performance score: <strong>${categoryScores?.performance !== undefined ? `${Math.round(categoryScores.performance * 100)}/100` : "n/a"}</strong></li>
         <li>LCP: <strong>${escapeHtml(formatMs(vitalValues.lcp))}</strong>, CLS: <strong>${escapeHtml(formatRatio(vitalValues.cls))}</strong>, TBT: <strong>${escapeHtml(formatMs(vitalValues.tbt))}</strong></li>
         <li>FCP: <strong>${escapeHtml(formatMs(vitalValues.fcp))}</strong>, TTFB: <strong>${escapeHtml(formatMs(vitalValues.ttfb))}</strong></li>
-        <li>Budget checks: <strong>${perf?.budgetResults ? `${perf.budgetResults.performance ? "Perf OK" : "Perf Fail"}, ${perf.budgetResults.lcp ? "LCP OK" : "LCP Fail"}, ${perf.budgetResults.cls ? "CLS OK" : "CLS Fail"}, ${perf.budgetResults.tbt ? "TBT OK" : "TBT Fail"}` : "n/a"}</strong></li>
+        <li>Budget checks: <strong>${perf?.budgetResults ? `${perf.budgetResults.performance ? "Performance pass" : "Performance fail"}, ${perf.budgetResults.lcp ? "LCP pass" : "LCP fail"}, ${perf.budgetResults.cls ? "CLS pass" : "CLS fail"}, ${perf.budgetResults.tbt ? "TBT pass" : "TBT fail"}` : "n/a"}</strong></li>
       </ul>
     </article>
     <article id="gauge-detail-accessibility" class="gauge-detail card" hidden aria-live="polite">
@@ -1150,8 +1150,8 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       --muted: #5f6c7e;
       --border: #d7dee9;
       --accent: #0d6efd;
-      --good: #127a3a;
-      --warn: #9d5800;
+      --good: #0c5a2c;
+      --warn: #6f3f00;
       --bad: #b42318;
       --shadow: 0 10px 26px rgba(26, 35, 49, 0.09);
       --chart-js: #0b6e99;
@@ -1436,7 +1436,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     }
 
     .pill.pass {
-      background: color-mix(in srgb, var(--good) 16%, transparent);
+      background: color-mix(in srgb, var(--good) 12%, transparent);
       color: var(--good);
     }
 
@@ -1446,7 +1446,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     }
 
     .pill.skipped {
-      background: color-mix(in srgb, var(--warn) 22%, transparent);
+      background: color-mix(in srgb, var(--warn) 16%, transparent);
       color: var(--warn);
     }
 
@@ -1461,12 +1461,12 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     }
 
     .tone-badge.good {
-      background: color-mix(in srgb, var(--good) 14%, transparent);
+      background: color-mix(in srgb, var(--good) 10%, transparent);
       color: var(--good);
     }
 
     .tone-badge.warn {
-      background: color-mix(in srgb, var(--warn) 18%, transparent);
+      background: color-mix(in srgb, var(--warn) 12%, transparent);
       color: var(--warn);
     }
 

@@ -17,9 +17,16 @@ function credentialsNotAllowedMessage(raw: string): string {
   return `Invalid URL: ${raw}. Username/password in URLs are not allowed. Use --header/--cookie inputs instead.`;
 }
 
-const LOCAL_HOST_PATTERNS = [/^localhost$/i, /^localhost\.localdomain$/i];
+const LOCAL_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^localhost\.localdomain$/i
+];
 
-const INTERNAL_HOST_PATTERNS = [/^127\.\d+\.\d+\.\d+$/, /^\[?::1\]?$/, /^0\.0\.0\.0$/];
+const INTERNAL_HOST_PATTERNS = [
+  /^127\.\d+\.\d+\.\d+$/,
+  /^\[?::1\]?$/,
+  /^0\.0\.0\.0$/
+];
 
 const INTERNAL_IP_BLOCK_LIST = new BlockList();
 INTERNAL_IP_BLOCK_LIST.addAddress("0.0.0.0", "ipv4");

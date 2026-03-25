@@ -683,6 +683,7 @@ export async function writeTrendSnapshot(
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;
       }
+      // A concurrent cleanup may remove the same snapshot between readdir and unlink.
     }
   }
 }
