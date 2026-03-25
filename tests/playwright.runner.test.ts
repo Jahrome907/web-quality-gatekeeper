@@ -1,6 +1,9 @@
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const { mockLookup } = vi.hoisted(() => ({
+  mockLookup: vi.fn()
+}));
 const mockLaunch = vi.fn();
 const mockRetry = vi.fn();
 const mockEnsureDir = vi.fn();
@@ -9,6 +12,9 @@ vi.mock("playwright", () => ({
   chromium: {
     launch: mockLaunch
   }
+}));
+vi.mock("node:dns/promises", () => ({
+  lookup: mockLookup
 }));
 vi.mock("../src/utils/retry.js", () => ({
   retry: mockRetry
@@ -28,6 +34,7 @@ function createPageDouble() {
     setDefaultNavigationTimeout: vi.fn(),
     setDefaultTimeout: vi.fn(),
     goto: vi.fn().mockResolvedValue(undefined),
+    url: vi.fn().mockReturnValue("https://example.com/"),
     addStyleTag: vi.fn().mockResolvedValue(undefined),
     emulateMedia: vi.fn().mockResolvedValue(undefined),
     waitForTimeout: vi.fn().mockResolvedValue(undefined),
@@ -46,6 +53,7 @@ describe("playwright runner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRetry.mockImplementation(async (fn: () => unknown) => fn());
+    mockLookup.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
   });
 
   it("opens page with auth headers and cookies", async () => {
@@ -102,11 +110,15 @@ describe("playwright runner", () => {
     ]);
     expect(page.on).toHaveBeenCalledWith("console", expect.any(Function));
     expect(page.on).toHaveBeenCalledWith("request", expect.any(Function));
-    expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
-      maxRetries: 2,
-      baseDelayMs: 10,
-      logger
-    });
+    expect(mockRetry).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        maxRetries: 2,
+        baseDelayMs: 10,
+        logger,
+        isRetryable: expect.any(Function)
+      })
+    );
     expect(result.runtimeSignals.snapshot()).toEqual({
       console: {
         total: 0,
@@ -249,11 +261,99 @@ describe("playwright runner", () => {
     expect(page.waitForTimeout).toHaveBeenCalledWith(100);
     expect(page.addStyleTag).toHaveBeenCalledTimes(1);
     expect(page.emulateMedia).toHaveBeenCalledWith({ reducedMotion: "reduce" });
-    expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
-      maxRetries: 2,
-      baseDelayMs: 15,
-      logger
+    expect(mockRetry).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        maxRetries: 2,
+        baseDelayMs: 15,
+        logger,
+        isRetryable: expect.any(Function)
+      })
+    );
+  });
+
+  it("blocks internal subresource requests in sensitive mode", async () => {
+    const page = createPageDouble();
+    let routeHandler:
+      | ((route: {
+          request: () => { isNavigationRequest: () => boolean; url: () => string };
+          abort: (reason?: string) => Promise<void>;
+          continue: () => Promise<void>;
+        }) => Promise<void>)
+      | null = null;
+    const route = vi.fn().mockImplementation(async (_matcher, handler) => {
+      routeHandler = handler;
     });
+    page.goto.mockImplementation(async () => {
+      if (!routeHandler) {
+        throw new Error("route handler not registered");
+      }
+      await routeHandler({
+        request: () => ({
+          isNavigationRequest: () => false,
+          url: () => "http://127.0.0.1:4010/private-script.js"
+        }),
+        abort: vi.fn().mockResolvedValue(undefined),
+        continue: vi.fn().mockResolvedValue(undefined)
+      });
+      return undefined;
+    });
+
+    const closePage = vi.fn().mockResolvedValue(undefined);
+    const closeContext = vi.fn().mockResolvedValue(undefined);
+    const closeBrowser = vi.fn().mockResolvedValue(undefined);
+    const newPage = vi.fn().mockResolvedValue({
+      ...page,
+      close: closePage
+    });
+    const newContext = vi.fn().mockResolvedValue({
+      addCookies: vi.fn().mockResolvedValue(undefined),
+      newPage,
+      route,
+      close: closeContext
+    });
+    mockLaunch.mockResolvedValue({
+      newContext,
+      close: closeBrowser
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { openPage } = await import("../src/runner/playwright.js");
+
+    await expect(
+      openPage(
+        "https://example.com",
+        {
+          timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+          retries: { count: 1, delayMs: 10 },
+          playwright: {
+            viewport: { width: 1280, height: 720 },
+            userAgent: "wqg/3.0.0",
+            locale: "en-US",
+            colorScheme: "light"
+          },
+          screenshots: [{ name: "home", path: "/", fullPage: true }],
+          lighthouse: {
+            budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+            formFactor: "desktop"
+          },
+          visual: { threshold: 0.01 },
+          toggles: { a11y: true, perf: true, visual: true }
+        } as never,
+        logger as never,
+        null,
+        {
+          targetPolicy: {
+            allowInternalTargets: false,
+            blockInternalTargets: true
+          }
+        }
+      )
+    ).rejects.toThrow("Blocked internal request target");
+
+    expect(closePage).toHaveBeenCalledTimes(1);
+    expect(closeContext).toHaveBeenCalledTimes(1);
+    expect(closeBrowser).toHaveBeenCalledTimes(1);
   });
 
   it("captures additional viewport screenshots when screenshot gallery mode is enabled", async () => {

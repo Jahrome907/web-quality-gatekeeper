@@ -166,7 +166,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: null
     });
     mockCaptureScreenshots.mockResolvedValue([
       {
@@ -292,7 +294,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: null
     });
     mockCaptureScreenshots.mockResolvedValue([
       {
@@ -334,7 +338,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: null
     });
     mockCaptureScreenshots.mockResolvedValue([]);
     mockBuildSummary.mockReturnValue(createSummary("fail"));
@@ -364,7 +370,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: null
     });
     mockRunAxeScan.mockRejectedValue(new Error("axe failed"));
     mockCaptureScreenshots.mockResolvedValue([]);
@@ -396,7 +404,9 @@ describe("runAudit orchestration", () => {
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) }
+      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: "MAP example.com 104.18.27.120"
     });
     mockCaptureScreenshots.mockResolvedValue([]);
     mockRunLighthouseAudit.mockResolvedValue({
@@ -428,14 +438,28 @@ describe("runAudit orchestration", () => {
       "https://example.com/",
       expect.any(Object),
       expect.any(Object),
-      auth
+      auth,
+      expect.objectContaining({
+        hostResolverRules: expect.any(String),
+        targetPolicy: expect.objectContaining({
+          allowInternalTargets: false,
+          blockInternalTargets: true
+        })
+      })
     );
     expect(mockRunLighthouseAudit).toHaveBeenCalledWith(
       "https://example.com/",
       expect.any(String),
       expect.any(Object),
       expect.any(Object),
-      auth
+      auth,
+      expect.objectContaining({
+        hostResolverRules: expect.any(String),
+        targetPolicy: expect.objectContaining({
+          allowInternalTargets: false,
+          blockInternalTargets: true
+        })
+      })
     );
   });
 

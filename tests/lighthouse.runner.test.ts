@@ -95,11 +95,15 @@ describe("lighthouse runner", () => {
       ttiMs: 3000.2,
       ttfbMs: 110.1
     });
-    expect(mockRetry).toHaveBeenCalledWith(expect.any(Function), {
-      maxRetries: 2,
-      baseDelayMs: 50,
-      logger: { debug: expect.any(Function) }
-    });
+    expect(mockRetry).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({
+        maxRetries: 2,
+        baseDelayMs: 50,
+        logger: { debug: expect.any(Function) },
+        isRetryable: expect.any(Function)
+      })
+    );
     expect(mockWriteJson).toHaveBeenCalledWith(
       path.join("/tmp/artifacts", "lighthouse.json"),
       expect.any(Object)
@@ -394,7 +398,7 @@ describe("lighthouse runner", () => {
       if (process.platform === "win32") {
         expect(launchLocalAppData).toBe("C:\\Users\\Joey\\AppData\\Local");
       } else {
-        expect(launchLocalAppData).toBe(path.join("/tmp/artifacts", ".lighthouse-localappdata"));
+        expect(launchLocalAppData).toMatch(/\.lighthouse-runtime-.*[\\/]localappdata$/);
       }
     } finally {
       if (previousLocalAppData === undefined) {

@@ -19,6 +19,21 @@ const FIXTURE_DIR = path.join(ROOT, "tests", "fixtures", "site");
 const TEST_CONFIG = path.join(ROOT, "tests", "fixtures", "integration-config.json");
 const SUMMARY_SCHEMA = path.join(ROOT, "schemas", "summary.v1.json");
 
+function buildBuildCommand(): { file: string; args: string[] } {
+  const npmExecPath = process.env.npm_execpath;
+  if (npmExecPath) {
+    return {
+      file: process.execPath,
+      args: [npmExecPath, "run", "build"]
+    };
+  }
+
+  return {
+    file: process.platform === "win32" ? "npm.cmd" : "npm",
+    args: ["run", "build"]
+  };
+}
+
 interface CliResult {
   status: number;
   stdout: string;
@@ -156,7 +171,8 @@ describe("CLI integration", () => {
 
   beforeAll(async () => {
     // Ensure CLI artifact is current for deterministic integration behavior.
-    execFileSync("npm", ["run", "build"], {
+    const buildCommand = buildBuildCommand();
+    execFileSync(buildCommand.file, buildCommand.args, {
       cwd: ROOT,
       timeout: 120000,
       env: { ...process.env, NO_COLOR: "1" },
@@ -246,6 +262,14 @@ describe("CLI integration", () => {
     const run = await runCli(["audit", "not-a-url"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain("Invalid URL");
+    expect(run.stderr).toContain("Expected an absolute http:// or https:// URL");
+  }, 15000);
+
+  it("returns exit code 2 for unsupported URL protocols with actionable guidance", async () => {
+    const run = await runCli(["audit", "ws://example.com/socket"], 10000);
+    expect(run.status).toBe(2);
+    expect(run.stderr).toContain("Invalid URL");
+    expect(run.stderr).toContain("Use http:// or https:// URLs only.");
   }, 15000);
 
   it("returns exit code 2 for invalid --format", async () => {
