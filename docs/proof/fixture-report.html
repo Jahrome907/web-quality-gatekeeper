@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Web Quality Gatekeeper Report</title>
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232566d9'/%3E%3Cpath d='M18 17h7l7 21 7-21h7l-11 30h-6z' fill='%23fff'/%3E%3C/svg%3E" />
   <style>
     /* Theme/print/responsive CSS */
     :root {
@@ -426,8 +429,8 @@
     /* Radar chart */
     .scores-layout {
       display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 16px;
+      grid-template-columns: minmax(320px, 392px) 1fr;
+      gap: 20px;
       margin-bottom: 16px;
       align-items: start;
     }
@@ -435,6 +438,7 @@
     .scores-radar {
       display: grid;
       place-items: center;
+      min-width: 0;
     }
 
     .scores-gauges .grid {
@@ -444,13 +448,15 @@
     .radar-wrapper {
       display: grid;
       place-items: center;
-      padding: 16px 8px;
+      width: 100%;
+      padding: 18px 16px 12px;
     }
 
     .radar-chart {
       width: 100%;
-      max-width: 260px;
+      max-width: 340px;
       height: auto;
+      overflow: visible;
     }
 
     .radar-grid {
@@ -497,6 +503,10 @@
       font-size: 12px;
       font-weight: 700;
       fill: var(--text);
+    }
+
+    .radar-label-text {
+      letter-spacing: 0.01em;
     }
 
     .radar-score {
@@ -561,7 +571,6 @@
       transform: rotate(-90deg);
       transform-origin: 60px 60px;
       stroke-linecap: round;
-      transition: stroke-dasharray 1.2s ease-out;
     }
 
     .gauge-progress.good {
@@ -732,6 +741,13 @@
       overflow: hidden;
     }
 
+    .capture-visual {
+      padding: 14px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--card) 82%, var(--bg-strong) 18%), var(--bg));
+      border-bottom: 1px solid var(--border);
+    }
+
     .zoom-trigger {
       display: block;
       width: 100%;
@@ -740,15 +756,24 @@
       padding: 0;
       background: transparent;
       cursor: zoom-in;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
     }
 
     .capture-card img,
     .capture-card .image-fallback {
       width: 100%;
-      height: 220px;
+      height: clamp(220px, 26vw, 320px);
       object-fit: cover;
+      object-position: top left;
       display: block;
       background: color-mix(in srgb, var(--bg-strong) 70%, transparent);
+    }
+
+    .capture-card img {
+      transform: scale(2.15);
+      transform-origin: top left;
     }
 
     .capture-meta {
@@ -928,6 +953,7 @@
       width: 100%;
       height: 180px;
       object-fit: cover;
+      object-position: top left;
       background: color-mix(in srgb, var(--bg-strong) 70%, transparent);
     }
 
@@ -1169,6 +1195,10 @@
       .scores-layout {
         grid-template-columns: 1fr;
       }
+
+      .radar-chart {
+        max-width: 320px;
+      }
     }
 
     @media (max-width: 720px) {
@@ -1182,6 +1212,15 @@
 
       table {
         font-size: 12px;
+      }
+
+      .capture-visual {
+        padding: 12px;
+      }
+
+      .capture-card img,
+      .capture-card .image-fallback {
+        height: 240px;
       }
     }
 
@@ -1227,8 +1266,8 @@
     <div class="header">
       <div>
         <h1>Web Quality Gatekeeper</h1>
-        <div class="meta">http://127.0.0.1:4173/</div>
-        <div class="meta">Started <time data-iso="2026-03-12T03:06:49.581Z" datetime="2026-03-12T03:06:49.581Z">2026-03-12T03:06:49.581Z</time> · Duration 7,621 ms</div>
+        <div class="meta">https://fixture.example/</div>
+        <div class="meta">Started <time data-iso="2026-03-25T20:28:00.771Z" datetime="2026-03-25T20:28:00.771Z">2026-03-25T20:28:00.771Z</time> · Duration 12,281 ms</div>
       </div>
       <div class="header-actions">
         <div class="view-toggle-group" role="group" aria-label="Report view mode">
@@ -1303,15 +1342,35 @@
         <div class="scores-radar card">
           
     <div class="radar-wrapper">
-      <svg viewBox="0 0 280 280" class="radar-chart" role="img"
+      <svg viewBox="0 0 340 340" class="radar-chart" role="img"
            aria-label="Category scores radar chart — Performance: 99, Accessibility: 100, SEO: 90, Best Practices: 96">
-        <polygon points="140,121 159,140 140,159 121,140" class="radar-grid" /><polygon points="140,102 178,140 140,178 102,140" class="radar-grid" /><polygon points="140,83 197,140 140,197 83,140" class="radar-grid" /><polygon points="140,64 216,140 140,216 64,140" class="radar-grid" /><polygon points="140,45 235,140 140,235 45,140" class="radar-grid" />
-        <line x1="140" y1="140" x2="140" y2="45" class="radar-axis" /><line x1="140" y1="140" x2="235" y2="140" class="radar-axis" /><line x1="140" y1="140" x2="140" y2="235" class="radar-axis" /><line x1="140" y1="140" x2="45" y2="140" class="radar-axis" />
-        <polygon points="140,46 235,140 140,225.5 48.8,140" class="radar-area" />
-        <polygon points="140,46 235,140 140,225.5 48.8,140" class="radar-outline" />
-        <circle cx="140" cy="46" r="4.5" class="radar-dot good" /><circle cx="235" cy="140" r="4.5" class="radar-dot good" /><circle cx="140" cy="225.5" r="4.5" class="radar-dot good" /><circle cx="48.8" cy="140" r="4.5" class="radar-dot good" />
-        <text x="140" y="27" text-anchor="middle" dominant-baseline="auto" class="radar-label">Perf <tspan class="radar-score">99</tspan></text><text x="253" y="140" text-anchor="start" dominant-baseline="middle" class="radar-label">A11y <tspan class="radar-score">100</tspan></text><text x="140" y="253" text-anchor="middle" dominant-baseline="hanging" class="radar-label">SEO <tspan class="radar-score">90</tspan></text><text x="27" y="140" text-anchor="end" dominant-baseline="middle" class="radar-label">Best <tspan class="radar-score">96</tspan></text>
-        <text x="144" y="117" class="radar-marker">20</text><text x="144" y="98" class="radar-marker">40</text><text x="144" y="79" class="radar-marker">60</text><text x="144" y="60" class="radar-marker">80</text><text x="144" y="41" class="radar-marker">100</text>
+        <polygon points="170,152.8 189.2,172 170,191.2 150.8,172" class="radar-grid" /><polygon points="170,133.6 208.4,172 170,210.4 131.6,172" class="radar-grid" /><polygon points="170,114.4 227.6,172 170,229.6 112.4,172" class="radar-grid" /><polygon points="170,95.2 246.8,172 170,248.8 93.2,172" class="radar-grid" /><polygon points="170,76 266,172 170,268 74,172" class="radar-grid" />
+        <line x1="170" y1="172" x2="170" y2="76" class="radar-axis" /><line x1="170" y1="172" x2="266" y2="172" class="radar-axis" /><line x1="170" y1="172" x2="170" y2="268" class="radar-axis" /><line x1="170" y1="172" x2="74" y2="172" class="radar-axis" />
+        <polygon points="170,77 266,172 170,258.4 77.8,172" class="radar-area" />
+        <polygon points="170,77 266,172 170,258.4 77.8,172" class="radar-outline" />
+        <circle cx="170" cy="77" r="4.5" class="radar-dot good" /><circle cx="266" cy="172" r="4.5" class="radar-dot good" /><circle cx="170" cy="258.4" r="4.5" class="radar-dot good" /><circle cx="77.8" cy="172" r="4.5" class="radar-dot good" />
+        
+      <text x="170" y="48" text-anchor="middle" class="radar-label">
+        <tspan x="170" class="radar-label-text">Perf</tspan>
+        <tspan x="170" dy="14" class="radar-score">99</tspan>
+      </text>
+    
+      <text x="304" y="176" text-anchor="start" class="radar-label">
+        <tspan x="304" class="radar-label-text">A11y</tspan>
+        <tspan x="304" dy="0" class="radar-score"> 100</tspan>
+      </text>
+    
+      <text x="170" y="298" text-anchor="middle" class="radar-label">
+        <tspan x="170" class="radar-label-text">SEO</tspan>
+        <tspan x="170" dy="14" class="radar-score">90</tspan>
+      </text>
+    
+      <text x="36" y="176" text-anchor="end" class="radar-label">
+        <tspan x="36" class="radar-label-text">Best</tspan>
+        <tspan x="36" dy="0" class="radar-score"> 96</tspan>
+      </text>
+    
+        <text x="178" y="166.8" class="radar-marker">20</text><text x="178" y="147.6" class="radar-marker">40</text><text x="178" y="128.4" class="radar-marker">60</text><text x="178" y="109.2" class="radar-marker">80</text><text x="178" y="90" class="radar-marker">100</text>
       </svg>
     </div>
   
@@ -1424,8 +1483,8 @@
       <h3>Performance Score Breakdown</h3>
       <ul class="breakdown-list">
         <li>Performance score: <strong>99/100</strong></li>
-        <li>LCP: <strong>751 ms</strong>, CLS: <strong>0.0000</strong>, TBT: <strong>0 ms</strong></li>
-        <li>FCP: <strong>615 ms</strong>, TTFB: <strong>0 ms</strong></li>
+        <li>LCP: <strong>752 ms</strong>, CLS: <strong>0.0000</strong>, TBT: <strong>0 ms</strong></li>
+        <li>FCP: <strong>624 ms</strong>, TTFB: <strong>1 ms</strong></li>
         <li>Budget checks: <strong>Performance pass, LCP pass, CLS pass, TBT pass</strong></li>
       </ul>
     </article>
@@ -1452,7 +1511,7 @@
       <ul class="breakdown-list">
         <li>SEO score: <strong>90/100</strong></li>
         <li>Total requests: <strong>2</strong></li>
-        <li>Transfer size: <strong>590 B</strong></li>
+        <li>Transfer size: <strong>618 B</strong></li>
         <li>Top opportunity: <strong>n/a</strong></li>
       </ul>
     </article>
@@ -1471,13 +1530,13 @@
     <article class="vital-card card">
       <header>
         <h3>FCP</h3>
-        <span class="vital-value">615 ms</span>
+        <span class="vital-value">624 ms</span>
       </header>
       <div class="vital-bar" role="img" aria-label="FCP is Pass. Pass threshold: 1800, needs improvement threshold: 3000.">
         <span class="vital-segment pass"></span>
         <span class="vital-segment warn"></span>
         <span class="vital-segment fail"></span>
-        <span class="vital-marker pass" style="left:14.7%"></span>
+        <span class="vital-marker pass" style="left:14.9%"></span>
       </div>
       <div class="vital-legend">
         <span>Pass <= 1800 ms</span>
@@ -1489,7 +1548,7 @@
     <article class="vital-card card">
       <header>
         <h3>LCP</h3>
-        <span class="vital-value">751 ms</span>
+        <span class="vital-value">752 ms</span>
       </header>
       <div class="vital-bar" role="img" aria-label="LCP is Pass. Pass threshold: 2500, needs improvement threshold: 4000.">
         <span class="vital-segment pass"></span>
@@ -1543,7 +1602,7 @@
     <article class="vital-card card">
       <header>
         <h3>TTFB</h3>
-        <span class="vital-value">0 ms</span>
+        <span class="vital-value">1 ms</span>
       </header>
       <div class="vital-bar" role="img" aria-label="TTFB is Pass. Pass threshold: 800, needs improvement threshold: 1800.">
         <span class="vital-segment pass"></span>
@@ -1570,7 +1629,8 @@
       <div class="capture-gallery">
         
       <article class="capture-card card">
-        
+        <div class="capture-visual">
+          
     <button
       type="button"
       class="zoom-trigger"
@@ -1581,9 +1641,10 @@
       <img src="screenshots/home.png" alt="home Playwright screenshot" loading="lazy" />
     </button>
   
+        </div>
         <div class="capture-meta">
           <h3>home</h3>
-          <p class="capture-url">http://127.0.0.1:4173/</p>
+          <p class="capture-url">https://fixture.example/</p>
           <p class="capture-path">screenshots/home.png</p>
         </div>
       </article>
@@ -1675,7 +1736,7 @@
     <section id="resource-breakdown" class="section card" data-view-section="detailed">
       <h2>Resource Breakdown</h2>
       <p class="muted">
-              Total transfer size: 590 B
+              Total transfer size: 618 B
               · Total requests: 2
               
             </p>
@@ -1707,7 +1768,7 @@
               <div class="resource-legend-item">
                 <span class="resource-legend-swatch other"></span>
                 <span>Other</span>
-                <span class="muted">(590 B)</span>
+                <span class="muted">(618 B)</span>
               </div>
             </div><div class="resource-stack" role="img" aria-label="Resource transfer size breakdown"><span class="resource-segment js" style="width:0.0%"
             tabindex="0"
@@ -1731,9 +1792,9 @@
             <span class="resource-segment-tooltip">Font: 0 B · 0 requests · 0.0%</span>
           </span><span class="resource-segment other" style="width:100.0%"
             tabindex="0"
-            aria-label="Other: 590 B · 2 requests · 100.0%"
+            aria-label="Other: 618 B · 2 requests · 100.0%"
           >
-            <span class="resource-segment-tooltip">Other: 590 B · 2 requests · 100.0%</span>
+            <span class="resource-segment-tooltip">Other: 618 B · 2 requests · 100.0%</span>
           </span></div>
       <table>
         <thead>
@@ -1776,7 +1837,7 @@
           
             <tr>
               <th>Other</th>
-              <td>590 B</td>
+              <td>618 B</td>
               <td>2</td>
               <td>100.0%</td>
             </tr>
@@ -1966,44 +2027,6 @@
         lightboxClose.addEventListener("click", closeLightbox);
       }
 
-      /* ---- Gauge + score counter animation ---- */
-      const CIRCUMFERENCE = 2 * Math.PI * 44;
-      const gaugeProgressEls = Array.from(document.querySelectorAll(".gauge-progress"));
-      const gaugeValueEls = Array.from(document.querySelectorAll(".gauge-value strong"));
-      const savedDash = gaugeProgressEls.map((el) => el.getAttribute("stroke-dasharray"));
-
-      // Set initial state (empty ring)
-      gaugeProgressEls.forEach((el) => el.setAttribute("stroke-dasharray", "0 " + CIRCUMFERENCE));
-      gaugeValueEls.forEach((el) => { el.dataset.target = el.textContent || "0"; el.textContent = "0"; });
-
-      function animateCountTo(el, target, duration) {
-        const start = performance.now();
-        function tick(now) {
-          const progress = Math.min((now - start) / duration, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          el.textContent = String(Math.round(target * eased));
-          if (progress < 1) requestAnimationFrame(tick);
-        }
-        requestAnimationFrame(tick);
-      }
-
-      const gaugeObserver = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          gaugeObserver.unobserve(entry.target);
-          const index = gaugeProgressEls.indexOf(entry.target);
-          if (index >= 0 && savedDash[index]) {
-            entry.target.setAttribute("stroke-dasharray", savedDash[index]);
-          }
-          if (index >= 0 && gaugeValueEls[index]) {
-            const target = parseInt(gaugeValueEls[index].dataset.target || "0", 10);
-            animateCountTo(gaugeValueEls[index], target, 1200);
-          }
-        });
-      }, { threshold: 0.3 });
-
-      gaugeProgressEls.forEach((el) => gaugeObserver.observe(el));
-
       /* ---- Human-readable timestamps ---- */
       document.querySelectorAll("time[data-iso]").forEach((el) => {
         try {
@@ -2024,7 +2047,7 @@
           const scores = gauges.map((g) => {
             const h3 = g.querySelector("h3");
             const val = g.querySelector(".gauge-value strong");
-            return (h3 ? h3.textContent : "?") + ": " + (val ? val.dataset.target || val.textContent : "n/a") + "/100";
+            return (h3 ? h3.textContent : "?") + ": " + (val ? val.textContent : "n/a") + "/100";
           }).join(" | ");
           const statusEl = document.querySelector(".status-chip");
           const urlEl = document.querySelector(".meta");

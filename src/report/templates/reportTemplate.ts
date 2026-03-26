@@ -233,9 +233,10 @@ function renderRadarChart(categoryScores: {
     return typeof raw === "number" ? clamp(Math.round(raw * 100), 0, 100) : 0;
   });
 
-  const cx = 140;
-  const cy = 140;
-  const maxR = 95;
+  const chartSize = 340;
+  const cx = 170;
+  const cy = 172;
+  const maxR = 96;
   const levels = 5;
   const n = axes.length;
   const step = (2 * Math.PI) / n;
@@ -271,27 +272,42 @@ function renderRadarChart(categoryScores: {
   });
 
   let labels = "";
-  const labelOffset = 18;
   axes.forEach((axis, i) => {
-    const lx = px(angles[i]!, maxR + labelOffset);
-    const ly = py(angles[i]!, maxR + labelOffset);
-    const anchor = lx > cx + 5 ? "start" : lx < cx - 5 ? "end" : "middle";
-    const baseline = ly < cy - 5 ? "auto" : ly > cy + 5 ? "hanging" : "middle";
-    labels += `<text x="${lx}" y="${ly}" text-anchor="${anchor}" dominant-baseline="${baseline}" class="radar-label">${escapeHtml(axis.label)} <tspan class="radar-score">${values[i]}</tspan></text>`;
+    const pointX = px(angles[i]!, maxR);
+    const pointY = py(angles[i]!, maxR);
+    const isRight = pointX > cx + 5;
+    const isLeft = pointX < cx - 5;
+    const anchor = isRight ? "start" : isLeft ? "end" : "middle";
+    const labelX = isLeft
+      ? Math.max(36, pointX - 40)
+      : isRight
+        ? Math.min(chartSize - 36, pointX + 40)
+        : cx;
+    const direction = pointY < cy - 5 ? "top" : pointY > cy + 5 ? "bottom" : "middle";
+    const labelY =
+      direction === "top" ? pointY - 28 : direction === "bottom" ? pointY + 30 : pointY + 4;
+    const scoreDy = direction === "middle" ? 0 : 14;
+    const scorePrefix = direction === "middle" ? " " : "";
+    labels += `
+      <text x="${labelX}" y="${labelY}" text-anchor="${anchor}" class="radar-label">
+        <tspan x="${labelX}" class="radar-label-text">${escapeHtml(axis.label)}</tspan>
+        <tspan x="${labelX}" dy="${scoreDy}" class="radar-score">${scorePrefix}${values[i]}</tspan>
+      </text>
+    `;
   });
 
   let markers = "";
   for (let lv = 1; lv <= levels; lv++) {
     const pct = Math.round((lv / levels) * 100);
     const r = (maxR * lv) / levels;
-    markers += `<text x="${cx + 4}" y="${py(-Math.PI / 2, r) - 4}" class="radar-marker">${pct}</text>`;
+    markers += `<text x="${cx + 8}" y="${py(-Math.PI / 2, Math.max(0, r - 10)) + 4}" class="radar-marker">${pct}</text>`;
   }
 
   const ariaLabel = axes.map((a, i) => `${a.full}: ${values[i]}`).join(", ");
 
   return `
     <div class="radar-wrapper">
-      <svg viewBox="0 0 280 280" class="radar-chart" role="img"
+      <svg viewBox="0 0 ${chartSize} ${chartSize}" class="radar-chart" role="img"
            aria-label="Category scores radar chart — ${escapeHtml(ariaLabel)}">
         ${gridPaths}
         ${axisLines}
@@ -832,11 +848,13 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     const screenshotPath = normalizeAssetPath(shot.path);
     return `
       <article class="capture-card card">
-        ${
-          screenshotPath
-            ? renderZoomableImage(screenshotPath, `${shot.name} Playwright screenshot`)
-            : `<div class="image-fallback">Screenshot unavailable</div>`
-        }
+        <div class="capture-visual">
+          ${
+            screenshotPath
+              ? renderZoomableImage(screenshotPath, `${shot.name} Playwright screenshot`)
+              : `<div class="image-fallback">Screenshot unavailable</div>`
+          }
+        </div>
         <div class="capture-meta">
           <h3>${escapeHtml(shot.name)}</h3>
           <p class="capture-url">${escapeHtml(shot.url)}</p>
@@ -1139,6 +1157,9 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Web Quality Gatekeeper Report</title>
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232566d9'/%3E%3Cpath d='M18 17h7l7 21 7-21h7l-11 30h-6z' fill='%23fff'/%3E%3C/svg%3E" />
   <style>
     /* Theme/print/responsive CSS */
     :root {
@@ -1561,8 +1582,8 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     /* Radar chart */
     .scores-layout {
       display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 16px;
+      grid-template-columns: minmax(320px, 392px) 1fr;
+      gap: 20px;
       margin-bottom: 16px;
       align-items: start;
     }
@@ -1570,6 +1591,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     .scores-radar {
       display: grid;
       place-items: center;
+      min-width: 0;
     }
 
     .scores-gauges .grid {
@@ -1579,13 +1601,15 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     .radar-wrapper {
       display: grid;
       place-items: center;
-      padding: 16px 8px;
+      width: 100%;
+      padding: 18px 16px 12px;
     }
 
     .radar-chart {
       width: 100%;
-      max-width: 260px;
+      max-width: 340px;
       height: auto;
+      overflow: visible;
     }
 
     .radar-grid {
@@ -1632,6 +1656,10 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       font-size: 12px;
       font-weight: 700;
       fill: var(--text);
+    }
+
+    .radar-label-text {
+      letter-spacing: 0.01em;
     }
 
     .radar-score {
@@ -1696,7 +1724,6 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       transform: rotate(-90deg);
       transform-origin: 60px 60px;
       stroke-linecap: round;
-      transition: stroke-dasharray 1.2s ease-out;
     }
 
     .gauge-progress.good {
@@ -1867,6 +1894,13 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       overflow: hidden;
     }
 
+    .capture-visual {
+      padding: 14px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--card) 82%, var(--bg-strong) 18%), var(--bg));
+      border-bottom: 1px solid var(--border);
+    }
+
     .zoom-trigger {
       display: block;
       width: 100%;
@@ -1875,15 +1909,24 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       padding: 0;
       background: transparent;
       cursor: zoom-in;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
     }
 
     .capture-card img,
     .capture-card .image-fallback {
       width: 100%;
-      height: 220px;
+      height: clamp(220px, 26vw, 320px);
       object-fit: cover;
+      object-position: top left;
       display: block;
       background: color-mix(in srgb, var(--bg-strong) 70%, transparent);
+    }
+
+    .capture-card img {
+      transform: scale(2.15);
+      transform-origin: top left;
     }
 
     .capture-meta {
@@ -2063,6 +2106,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       width: 100%;
       height: 180px;
       object-fit: cover;
+      object-position: top left;
       background: color-mix(in srgb, var(--bg-strong) 70%, transparent);
     }
 
@@ -2304,6 +2348,10 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       .scores-layout {
         grid-template-columns: 1fr;
       }
+
+      .radar-chart {
+        max-width: 320px;
+      }
     }
 
     @media (max-width: 720px) {
@@ -2317,6 +2365,15 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
 
       table {
         font-size: 12px;
+      }
+
+      .capture-visual {
+        padding: 12px;
+      }
+
+      .capture-card img,
+      .capture-card .image-fallback {
+        height: 240px;
       }
     }
 
@@ -2782,44 +2839,6 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         lightboxClose.addEventListener("click", closeLightbox);
       }
 
-      /* ---- Gauge + score counter animation ---- */
-      const CIRCUMFERENCE = 2 * Math.PI * 44;
-      const gaugeProgressEls = Array.from(document.querySelectorAll(".gauge-progress"));
-      const gaugeValueEls = Array.from(document.querySelectorAll(".gauge-value strong"));
-      const savedDash = gaugeProgressEls.map((el) => el.getAttribute("stroke-dasharray"));
-
-      // Set initial state (empty ring)
-      gaugeProgressEls.forEach((el) => el.setAttribute("stroke-dasharray", "0 " + CIRCUMFERENCE));
-      gaugeValueEls.forEach((el) => { el.dataset.target = el.textContent || "0"; el.textContent = "0"; });
-
-      function animateCountTo(el, target, duration) {
-        const start = performance.now();
-        function tick(now) {
-          const progress = Math.min((now - start) / duration, 1);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          el.textContent = String(Math.round(target * eased));
-          if (progress < 1) requestAnimationFrame(tick);
-        }
-        requestAnimationFrame(tick);
-      }
-
-      const gaugeObserver = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          gaugeObserver.unobserve(entry.target);
-          const index = gaugeProgressEls.indexOf(entry.target);
-          if (index >= 0 && savedDash[index]) {
-            entry.target.setAttribute("stroke-dasharray", savedDash[index]);
-          }
-          if (index >= 0 && gaugeValueEls[index]) {
-            const target = parseInt(gaugeValueEls[index].dataset.target || "0", 10);
-            animateCountTo(gaugeValueEls[index], target, 1200);
-          }
-        });
-      }, { threshold: 0.3 });
-
-      gaugeProgressEls.forEach((el) => gaugeObserver.observe(el));
-
       /* ---- Human-readable timestamps ---- */
       document.querySelectorAll("time[data-iso]").forEach((el) => {
         try {
@@ -2840,7 +2859,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
           const scores = gauges.map((g) => {
             const h3 = g.querySelector("h3");
             const val = g.querySelector(".gauge-value strong");
-            return (h3 ? h3.textContent : "?") + ": " + (val ? val.dataset.target || val.textContent : "n/a") + "/100";
+            return (h3 ? h3.textContent : "?") + ": " + (val ? val.textContent : "n/a") + "/100";
           }).join(" | ");
           const statusEl = document.querySelector(".status-chip");
           const urlEl = document.querySelector(".meta");

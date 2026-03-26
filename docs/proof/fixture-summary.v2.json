@@ -4,9 +4,9 @@
   "toolVersion": "3.1.2",
   "mode": "single",
   "overallStatus": "pass",
-  "startedAt": "2026-03-12T03:06:49.581Z",
-  "durationMs": 7621,
-  "primaryUrl": "http://127.0.0.1:4173/",
+  "startedAt": "2026-03-25T19:00:00.000Z",
+  "durationMs": 12281,
+  "primaryUrl": "https://fixture.example/",
   "schemaPointers": {
     "v1": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
     "v2": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
@@ -40,10 +40,10 @@
     {
       "index": 0,
       "name": "default",
-      "url": "http://127.0.0.1:4173/",
+      "url": "https://fixture.example/",
       "overallStatus": "pass",
-      "startedAt": "2026-03-12T03:06:49.581Z",
-      "durationMs": 7586,
+      "startedAt": "2026-03-25T19:00:00.000Z",
+      "durationMs": 12178,
       "steps": {
         "playwright": "pass",
         "a11y": "pass",
@@ -68,9 +68,9 @@
         "schemaVersion": "2.2.0",
         "toolVersion": "3.1.2",
         "overallStatus": "pass",
-        "url": "http://127.0.0.1:4173/",
-        "startedAt": "2026-03-12T03:06:49.581Z",
-        "durationMs": 7586,
+        "url": "https://fixture.example/",
+        "startedAt": "2026-03-25T19:00:00.000Z",
+        "durationMs": 12178,
         "steps": {
           "playwright": "pass",
           "a11y": "pass",
@@ -84,14 +84,14 @@
           "lighthouse": "lighthouse.json",
           "screenshotsDir": "screenshots",
           "diffsDir": "diffs",
-          "baselineDir": "../baselines-perf",
+          "baselineDir": "../../baselines",
           "summaryV2": "summary.v2.json"
         },
         "screenshots": [
           {
             "name": "home",
             "path": "screenshots/home.png",
-            "url": "http://127.0.0.1:4173/",
+            "url": "https://fixture.example/",
             "fullPage": true
           }
         ],
@@ -115,7 +115,7 @@
         "performance": {
           "metrics": {
             "performanceScore": 0.99,
-            "lcpMs": 750.7429,
+            "lcpMs": 751.5851,
             "cls": 0,
             "tbtMs": 0
           },
@@ -139,10 +139,10 @@
             "seo": 0.9
           },
           "extendedMetrics": {
-            "fcpMs": 615.37145,
-            "speedIndexMs": 615.37145,
-            "ttiMs": 750.7429,
-            "ttfbMs": 0.3849999999999999
+            "fcpMs": 623.79255,
+            "speedIndexMs": 623.79255,
+            "ttiMs": 751.5851,
+            "ttfbMs": 0.875
           },
           "opportunities": []
         },
@@ -163,7 +163,7 @@
           "network": {
             "totalRequests": 2,
             "failedRequests": 0,
-            "transferSizeBytes": 590,
+            "transferSizeBytes": 618,
             "resourceTypeBreakdown": {
               "document": 2
             }
