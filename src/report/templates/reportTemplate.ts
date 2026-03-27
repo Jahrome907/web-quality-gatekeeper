@@ -286,8 +286,8 @@ function renderRadarChart(categoryScores: {
     const direction = pointY < cy - 5 ? "top" : pointY > cy + 5 ? "bottom" : "middle";
     const labelY =
       direction === "top" ? pointY - 28 : direction === "bottom" ? pointY + 30 : pointY + 4;
-    const scoreDy = direction === "middle" ? 0 : 14;
-    const scorePrefix = direction === "middle" ? " " : "";
+    const scoreDy = direction === "middle" ? 16 : 14;
+    const scorePrefix = "";
     labels += `
       <text x="${labelX}" y="${labelY}" text-anchor="${anchor}" class="radar-label">
         <tspan x="${labelX}" class="radar-label-text">${escapeHtml(axis.label)}</tspan>

@@ -108,6 +108,7 @@ describe("public story surface", () => {
 
     expect(summary.primaryUrl).toBe("https://fixture.example/");
     expect(summary.startedAt).toBe("2026-03-25T19:00:00.000Z");
+    expect(report).toContain(`data-iso="${summary.startedAt}"`);
     expect(summary.pages[0]?.url).toBe("https://fixture.example/");
     expect(summary.pages[0]?.startedAt).toBe("2026-03-25T19:00:00.000Z");
     expect(summary.pages[0]?.details?.url).toBe("https://fixture.example/");
