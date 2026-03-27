@@ -100,6 +100,7 @@ describe("public story surface", () => {
     const combined = `${report}\n${summarySource}\n${lighthouse}`;
 
     expect(combined).not.toMatch(/http:\/\/127\.0\.0\.1/i);
+    expect(combined).not.toMatch(/\b127\.0\.0\.1\b/i);
     expect(combined).not.toMatch(/localhost[:/]/i);
     expect(combined).not.toMatch(/C:\\Users\\/i);
     expect(combined).not.toMatch(/\/Users\//);
@@ -107,6 +108,7 @@ describe("public story surface", () => {
 
     expect(summary.primaryUrl).toBe("https://fixture.example/");
     expect(summary.startedAt).toBe("2026-03-25T19:00:00.000Z");
+    expect(report).toContain(`data-iso="${summary.startedAt}"`);
     expect(summary.pages[0]?.url).toBe("https://fixture.example/");
     expect(summary.pages[0]?.startedAt).toBe("2026-03-25T19:00:00.000Z");
     expect(summary.pages[0]?.details?.url).toBe("https://fixture.example/");

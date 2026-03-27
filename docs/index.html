@@ -281,6 +281,23 @@
       margin: 12px 0 14px;
     }
 
+    .evidence-card a {
+      color: #ffd59a;
+      font-weight: 600;
+      text-decoration-color: rgba(255, 213, 154, 0.72);
+    }
+
+    .evidence-card a:hover {
+      color: #fff1d7;
+      text-decoration-color: currentColor;
+    }
+
+    .evidence-card a:focus-visible {
+      outline: 3px solid rgba(255, 213, 154, 0.45);
+      outline-offset: 3px;
+      border-radius: 6px;
+    }
+
     .evidence-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -335,14 +352,25 @@
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
-      align-items: end;
+      align-items: start;
       gap: 18px;
-      margin-bottom: 18px;
+      margin-bottom: 24px;
+    }
+
+    .section-head > div {
+      display: grid;
+      gap: 14px;
+      max-width: 72ch;
+    }
+
+    .section-head h2 {
+      max-width: 26ch;
+      line-height: 1.08;
     }
 
     .section-head p {
       max-width: 62ch;
-      margin: 14px 0 0;
+      margin: 0;
       color: var(--muted);
       line-height: 1.6;
     }
@@ -584,6 +612,10 @@
       .artifact-frame {
         height: min(74vh, 520px);
         min-height: 420px;
+      }
+
+      .section-head h2 {
+        max-width: 100%;
       }
 
       .media-preview {

@@ -359,4 +359,16 @@ describe("buildHtmlReport", () => {
 
     expect(html).toContain('id="accessibility-summary" class="section card" data-view-section="detailed"');
   });
+
+  it("renders middle-axis radar scores on a separate line from the label text", () => {
+    const html = buildHtmlReport(summary);
+    const categorySection = html.match(/<h2>Category Scores<\/h2>[\s\S]*?<\/section>/);
+
+    expect(categorySection?.[0]).toMatch(
+      /<tspan x="[^"]+" class="radar-label-text">A11y<\/tspan>\s*<tspan x="[^"]+" dy="16" class="radar-score">94<\/tspan>/
+    );
+    expect(categorySection?.[0]).toMatch(
+      /<tspan x="[^"]+" class="radar-label-text">Best<\/tspan>\s*<tspan x="[^"]+" dy="16" class="radar-score">88<\/tspan>/
+    );
+  });
 });
