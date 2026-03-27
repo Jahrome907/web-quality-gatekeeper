@@ -14,8 +14,8 @@ describe("public story surface", () => {
     expect(source).toContain("Adopt In 5 Minutes");
     expect(source).toContain("Why Trust It");
     expect(source).toContain("Inspectable OSS proof surface");
-    expect(source).toContain("Proof bundle package version: <strong>3.1.2</strong>.");
-    expect(source).toContain("Published releases are tracked by");
+    expect(source).toContain("<strong>Proof bundle version:</strong> 3.1.2.");
+    expect(source).toContain("<strong>Release source:</strong> GitHub tags and Releases");
     expect(source).toContain("proof/fixture-report.html");
     expect(source).toContain("proof/fixture-summary.v2.json");
     expect(source).toContain("case-study-run.md");
@@ -78,5 +78,41 @@ describe("public story surface", () => {
 
     expect(proof.toolVersion).toBe(pkg.version);
     expect(proof.pages[0]?.details?.toolVersion).toBe(pkg.version);
+  });
+
+  it("sanitizes published proof artifacts for OSS distribution", () => {
+    const report = readRepoFile("docs/proof/fixture-report.html");
+    const summarySource = readRepoFile("docs/proof/fixture-summary.v2.json");
+    const lighthouse = readRepoFile("docs/proof/fixture-lighthouse.json");
+    const summary = JSON.parse(summarySource) as {
+      startedAt: string;
+      primaryUrl: string;
+      pages: Array<{
+        url?: string;
+        startedAt?: string;
+        details?: {
+          url?: string;
+          startedAt?: string;
+          screenshots?: Array<{ url?: string }>;
+        };
+      }>;
+    };
+    const combined = `${report}\n${summarySource}\n${lighthouse}`;
+
+    expect(combined).not.toMatch(/http:\/\/127\.0\.0\.1/i);
+    expect(combined).not.toMatch(/\b127\.0\.0\.1\b/i);
+    expect(combined).not.toMatch(/localhost[:/]/i);
+    expect(combined).not.toMatch(/C:\\Users\\/i);
+    expect(combined).not.toMatch(/\/Users\//);
+    expect(combined).not.toMatch(/file:\/\//i);
+
+    expect(summary.primaryUrl).toBe("https://fixture.example/");
+    expect(summary.startedAt).toBe("2026-03-25T19:00:00.000Z");
+    expect(report).toContain(`data-iso="${summary.startedAt}"`);
+    expect(summary.pages[0]?.url).toBe("https://fixture.example/");
+    expect(summary.pages[0]?.startedAt).toBe("2026-03-25T19:00:00.000Z");
+    expect(summary.pages[0]?.details?.url).toBe("https://fixture.example/");
+    expect(summary.pages[0]?.details?.startedAt).toBe("2026-03-25T19:00:00.000Z");
+    expect(summary.pages[0]?.details?.screenshots?.[0]?.url).toBe("https://fixture.example/");
   });
 });
