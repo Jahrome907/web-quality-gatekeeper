@@ -792,7 +792,7 @@
             "resourceType": "Document",
             "priority": "VeryHigh",
             "experimentalFromMainFrame": true,
-            "entity": "127.0.0.1"
+            "entity": "fixture.example"
           },
           {
             "url": "https://fixture.example/favicon.ico",
@@ -809,7 +809,7 @@
             "resourceType": "Other",
             "priority": "High",
             "experimentalFromMainFrame": true,
-            "entity": "127.0.0.1"
+            "entity": "fixture.example"
           }
         ],
         "debugData": {
@@ -4799,7 +4799,7 @@
   "stackPacks": [],
   "entities": [
     {
-      "name": "127.0.0.1",
+      "name": "fixture.example",
       "origins": [
         "https://fixture.example"
       ],
