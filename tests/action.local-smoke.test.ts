@@ -8,8 +8,21 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const HAS_ACTION_BASH =
   spawnSync("bash", ["--version"], { stdio: "ignore" }).status === 0 &&
   spawnSync("bash", ["-lc", "command -v node >/dev/null 2>&1"], { stdio: "ignore" }).status === 0;
+const HAS_ACTION_PLAYWRIGHT_BROWSER =
+  HAS_ACTION_BASH &&
+  spawnSync(
+    "bash",
+    [
+      "-lc",
+      "node -e \"const fs=require('node:fs');const { chromium } = require('playwright');process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)\""
+    ],
+    {
+      cwd: ROOT,
+      stdio: "ignore"
+    }
+  ).status === 0;
 
-describe.skipIf(!HAS_ACTION_BASH)("local composite action smoke", () => {
+describe.skipIf(!HAS_ACTION_PLAYWRIGHT_BROWSER)("local composite action smoke", () => {
   it("executes the checked-in action from a workspace consumer context", async () => {
     const { stdout } = await execFileAsync(
       "node",

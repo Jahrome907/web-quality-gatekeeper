@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" fill="none">
   <defs>
     <linearGradient id="bg" x1="140" y1="64" x2="1140" y2="700" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#f7faf7"/>
       <stop offset="1" stop-color="#edf4ef"/>
     </linearGradient>
-    <linearGradient id="accent" x1="240" y1="0" x2="1040" y2="760" gradientUnits="userSpaceOnUse">
+    <linearGradient id="accent" x1="240" y1="0" x2="1040" y2="800" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#0f6a44" stop-opacity="0.10"/>
       <stop offset="1" stop-color="#215ea6" stop-opacity="0.08"/>
     </linearGradient>
@@ -16,8 +16,8 @@
     </marker>
   </defs>
 
-  <rect width="1280" height="760" rx="28" fill="url(#bg)"/>
-  <rect width="1280" height="760" rx="28" fill="url(#accent)"/>
+  <rect width="1280" height="800" rx="28" fill="url(#bg)"/>
+  <rect width="1280" height="800" rx="28" fill="url(#accent)"/>
 
   <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif" fill="#12261a">
     <text x="92" y="104" font-size="16" font-weight="700" letter-spacing="0.16em" fill="#406653">WEB QUALITY GATEKEEPER</text>
@@ -46,13 +46,14 @@
     <text x="128" y="405" font-size="16" fill="#496052">URL, policy, budgets, auth,</text>
     <text x="128" y="426" font-size="16" fill="#496052">baselines, output paths.</text>
 
-    <rect x="106" y="452" width="210" height="82" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
+    <rect x="106" y="452" width="210" height="96" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
     <text x="128" y="484" font-size="24" font-weight="700" fill="#12261a">Safety Rails</text>
-    <text x="128" y="511" font-size="16" fill="#496052">SSRF-sensitive target checks,</text>
-    <text x="128" y="532" font-size="16" fill="#496052">redirect scrutiny, host pinning.</text>
+    <text x="128" y="507" font-size="14" fill="#496052">SSRF-sensitive target checks,</text>
+    <text x="128" y="527" font-size="14" fill="#496052">redirect scrutiny,</text>
+    <text x="128" y="547" font-size="14" fill="#496052">host pinning.</text>
 
-    <rect x="106" y="558" width="210" height="58" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="211" y="586" text-anchor="middle" font-size="15" font-weight="700" fill="#12261a">
+    <rect x="106" y="578" width="210" height="58" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
+    <text x="211" y="606" text-anchor="middle" font-size="15" font-weight="700" fill="#12261a">
       <tspan x="211" dy="0">One requested audit,</tspan>
       <tspan x="211" dy="19">one resolved target</tspan>
     </text>
@@ -90,8 +91,8 @@
     <text x="972" y="521" font-size="15" fill="#5e5849">axe findings, action plans,</text>
     <text x="972" y="541" font-size="15" fill="#5e5849">trend snapshots.</text>
 
-    <rect x="950" y="564" width="238" height="52" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="1069" y="594" text-anchor="middle" font-size="13" font-weight="700" fill="#232015">
+    <rect x="950" y="584" width="238" height="52" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
+    <text x="1069" y="614" text-anchor="middle" font-size="13" font-weight="700" fill="#232015">
       CLI, CI, PR comments, release gates
     </text>
   </g>
@@ -102,7 +103,10 @@
   </g>
 
   <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
-    <rect x="76" y="648" width="1128" height="44" rx="14" fill="#102d1e"/>
-    <text x="640" y="675" text-anchor="middle" font-size="20" font-weight="700" fill="#f3f8f4">Same target. Same evidence trail. One release decision.</text>
+    <rect x="76" y="716" width="1128" height="56" rx="16" fill="#102d1e"/>
+    <text x="640" y="740" text-anchor="middle" font-size="18" font-weight="700" fill="#f3f8f4">
+      <tspan x="640" dy="0">Same target. Same evidence trail.</tspan>
+      <tspan x="640" dy="20">One release decision.</tspan>
+    </text>
   </g>
 </svg>

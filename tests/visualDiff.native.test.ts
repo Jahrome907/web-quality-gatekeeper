@@ -133,7 +133,7 @@ describe("runVisualDiff native spike", () => {
 
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);
       expect(logger.warn).toHaveBeenCalledWith(
-        "Native visual diff spike requested but no executable was provided; falling back to pixelmatch."
+        "Native visual diff engine requested but no executable was provided; falling back to pixelmatch."
       );
     } finally {
       await rm(tempDir, { recursive: true, force: true });
@@ -207,7 +207,7 @@ describe("runVisualDiff native spike", () => {
 
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);
       expect(logger.warn).toHaveBeenCalledWith(
-        "Native visual diff spike failed; falling back to pixelmatch. Timed out after 50ms."
+        "Native visual diff engine failed; falling back to pixelmatch. Timed out after 50ms."
       );
     } finally {
       if (originalTimeout === undefined) {

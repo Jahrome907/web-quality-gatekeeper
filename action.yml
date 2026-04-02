@@ -106,28 +106,107 @@ runs:
         INPUT_HEADERS: ${{ inputs.headers }}
         INPUT_COOKIES: ${{ inputs.cookies }}
       run: |
-        resolve_workspace_path() {
+        normalize_shell_path() {
           local candidate="$1"
+          if [[ "$candidate" =~ ^[A-Za-z]:[\\/].* ]]; then
+            if command -v wslpath >/dev/null 2>&1; then
+              local converted
+              if converted="$(wslpath -a "$candidate" 2>/dev/null)"; then
+                printf '%s\n' "$converted"
+                return
+              fi
+            fi
+            if command -v cygpath >/dev/null 2>&1; then
+              local converted
+              if converted="$(cygpath -u "$candidate" 2>/dev/null)"; then
+                printf '%s\n' "$converted"
+                return
+              fi
+            fi
+
+            local drive_letter="${candidate%%:*}"
+            local remainder="${candidate#?:}"
+            remainder="${remainder//\\//}"
+            drive_letter="$(printf '%s' "$drive_letter" | tr '[:upper:]' '[:lower:]')"
+            printf '/%s%s\n' "$drive_letter" "$remainder"
+            return
+          fi
+          printf '%s\n' "$candidate"
+        }
+
+        normalize_node_path() {
+          local candidate="$1"
+          if [[ "$candidate" =~ ^[A-Za-z]:[\\/].* ]]; then
+            printf '%s\n' "${candidate//\\//}"
+            return
+          fi
+          printf '%s\n' "$candidate"
+        }
+
+        NODE_PLATFORM="$(node -p "process.platform")"
+
+        is_absolute_path() {
+          local candidate="$1"
+          [[ "$candidate" = /* || "$candidate" =~ ^[A-Za-z]:[\\/].* || "$candidate" =~ ^\\\\ ]]
+        }
+
+        ACTION_ROOT_SHELL="$(normalize_shell_path "$GITHUB_ACTION_PATH")"
+        WORKSPACE_ROOT_SHELL="$(normalize_shell_path "$GITHUB_WORKSPACE")"
+
+        normalize_runtime_path() {
+          local candidate="$1"
+          if [[ "$NODE_PLATFORM" == "win32" ]]; then
+            normalize_node_path "$candidate"
+          else
+            normalize_shell_path "$candidate"
+          fi
+        }
+
+        ACTION_ROOT_RUNTIME="$(normalize_runtime_path "$GITHUB_ACTION_PATH")"
+        WORKSPACE_ROOT_RUNTIME="$(normalize_runtime_path "$GITHUB_WORKSPACE")"
+        if [[ "$NODE_PLATFORM" != "win32" ]]; then
+          export GITHUB_ACTION_PATH="$ACTION_ROOT_RUNTIME"
+          export GITHUB_WORKSPACE="$WORKSPACE_ROOT_RUNTIME"
+        fi
+        GITHUB_OUTPUT_PATH="${GITHUB_OUTPUT:-}"
+        if [[ -n "$GITHUB_OUTPUT_PATH" ]]; then
+          GITHUB_OUTPUT_PATH="$(normalize_shell_path "$GITHUB_OUTPUT_PATH")"
+        fi
+
+        resolve_workspace_path_shell() {
+          local candidate="$1"
+          candidate="$(normalize_shell_path "$candidate")"
           if [[ "$candidate" = /* ]]; then
             printf '%s\n' "$candidate"
           else
-            printf '%s\n' "${GITHUB_WORKSPACE}/${candidate}"
+            printf '%s\n' "${WORKSPACE_ROOT_SHELL}/${candidate}"
+          fi
+        }
+
+        resolve_workspace_path_node() {
+          local candidate="$1"
+          if is_absolute_path "$candidate"; then
+            printf '%s\n' "$(normalize_runtime_path "$candidate")"
+          else
+            printf '%s/%s\n' "${WORKSPACE_ROOT_RUNTIME}" "$candidate"
           fi
         }
 
         resolve_config_path() {
           local candidate="$1"
-          local workspace_candidate
-          workspace_candidate="$(resolve_workspace_path "$candidate")"
-          if [[ -f "$workspace_candidate" ]]; then
-            printf '%s\n' "$workspace_candidate"
+          local workspace_candidate_shell
+          local workspace_candidate_node
+          workspace_candidate_shell="$(resolve_workspace_path_shell "$candidate")"
+          workspace_candidate_node="$(resolve_workspace_path_node "$candidate")"
+          if [[ -f "$workspace_candidate_shell" ]]; then
+            printf '%s\n' "$workspace_candidate_node"
             return
           fi
-          if [[ "$candidate" == "configs/default.json" && -f "${GITHUB_ACTION_PATH}/configs/default.json" ]]; then
-            printf '%s\n' "${GITHUB_ACTION_PATH}/configs/default.json"
+          if [[ "$candidate" == "configs/default.json" && -f "${ACTION_ROOT_SHELL}/configs/default.json" ]]; then
+            printf '%s\n' "${ACTION_ROOT_RUNTIME}/configs/default.json"
             return
           fi
-          printf '%s\n' "$workspace_candidate"
+          printf '%s\n' "$workspace_candidate_node"
         }
 
         resolve_policy_reference() {
@@ -154,18 +233,18 @@ runs:
               ;;
             *)
               if [[ "$had_policy_prefix" == "true" ]]; then
-                printf '%s\n' "$(resolve_workspace_path "$by_prefix")"
+                printf '%s\n' "$(resolve_workspace_path_node "$by_prefix")"
               else
-                printf '%s\n' "$(resolve_workspace_path "$trimmed")"
+                printf '%s\n' "$(resolve_workspace_path_node "$trimmed")"
               fi
               ;;
           esac
         }
 
         CONFIG_PATH="$(resolve_config_path "$INPUT_CONFIG")"
-        BASELINE_PATH="$(resolve_workspace_path "$INPUT_BASELINE")"
+        BASELINE_PATH="$(resolve_workspace_path_node "$INPUT_BASELINE")"
         POLICY_REFERENCE="$(resolve_policy_reference "$INPUT_POLICY")"
-        OUT_DIR="${GITHUB_WORKSPACE}/artifacts"
+        OUT_DIR="${WORKSPACE_ROOT_RUNTIME}/artifacts"
 
         ARGS=(
           "$INPUT_URL"
@@ -195,7 +274,7 @@ runs:
           done
         fi
 
-        node "${GITHUB_ACTION_PATH}/dist/cli.js" audit "${ARGS[@]}"
-        STATUS=$(node -e "const s=require(process.argv[1]);console.log(s.overallStatus)" "${OUT_DIR}/summary.json")
-        echo "status=$STATUS" >> "$GITHUB_OUTPUT"
-        echo "summary-path=artifacts/summary.json" >> "$GITHUB_OUTPUT"
+        node "${ACTION_ROOT_RUNTIME}/dist/cli.js" audit "${ARGS[@]}"
+        STATUS=$(node -e "const fs=require('node:fs');const s=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));console.log(s.overallStatus)" "${OUT_DIR}/summary.json")
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT_PATH"
+        echo "summary-path=artifacts/summary.json" >> "$GITHUB_OUTPUT_PATH"

@@ -1,6 +1,6 @@
 /* global console, process */
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, rm, cp, mkdir } from "node:fs/promises";
 import { assertActionSmoke } from "./assert-action-smoke.mjs";
 import {
@@ -56,7 +56,44 @@ function toBashLiteral(value) {
   return `'${String(value).replace(/'/g, `'"'"'`)}'`;
 }
 
+function hasActionBash() {
+  return (
+    spawnSync("bash", ["--version"], { stdio: "ignore" }).status === 0 &&
+    spawnSync("bash", ["-lc", "command -v node >/dev/null 2>&1"], { stdio: "ignore" }).status === 0
+  );
+}
+
+function hasActionPlaywrightBrowser() {
+  if (!hasActionBash()) {
+    return false;
+  }
+
+  return (
+    spawnSync(
+      "bash",
+      [
+        "-lc",
+        "node -e \"const fs=require('node:fs');const { chromium } = require('playwright');process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)\""
+      ],
+      {
+        cwd: ROOT,
+        stdio: "ignore"
+      }
+    ).status === 0
+  );
+}
+
 async function runLocalActionSmoke() {
+  if (!hasActionPlaywrightBrowser()) {
+    const message =
+      "Local action smoke skipped: bash node runtime does not have a Playwright browser installed.";
+    if (process.env.WQG_ACTION_SMOKE_REQUIRED === "true") {
+      throw new Error(`${message} Install the browser or rerun in a provisioned environment.`);
+    }
+    console.log(message);
+    return;
+  }
+
   await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-action-local-"] });
   const workspace = await mkdtemp(path.join(ROOT, ".tmp-action-local-"));
   let fixtureServer = null;

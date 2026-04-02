@@ -139,22 +139,22 @@ Commands run on 2026-03-12 to capture the current shipping baseline:
 ```bash
 npm pack --json
 npm pack --silent
-tar -tzf web-quality-gatekeeper-3.1.2.tgz | sort
+tar -tzf web-quality-gatekeeper-3.1.3.tgz | sort
 TMP_DIR=$(mktemp -d /tmp/wqg-pack-XXXXXX)
-cp web-quality-gatekeeper-3.1.2.tgz "$TMP_DIR/"
+cp web-quality-gatekeeper-3.1.3.tgz "$TMP_DIR/"
 cd "$TMP_DIR"
 npm init -y
-npm install "./web-quality-gatekeeper-3.1.2.tgz" --ignore-scripts
+npm install "./web-quality-gatekeeper-3.1.3.tgz" --ignore-scripts
 ./node_modules/.bin/wqg --version
 ```
 
 Observed results:
 
-- Tarball filename: `web-quality-gatekeeper-3.1.2.tgz`
+- Tarball filename: `web-quality-gatekeeper-3.1.3.tgz`
 - Tarball size: `245127` bytes
 - Unpacked size: `1115215` bytes
 - Entry count: `16`
-- Clean install result: `wqg --version` printed `3.1.2`
+- Clean install result: `wqg --version` printed `3.1.3`
 
 Current tarball contents:
 

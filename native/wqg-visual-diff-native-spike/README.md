@@ -1,7 +1,7 @@
-# Native Visual Diff Spike
+# Native Visual Diff Engine
 
-This crate is an isolated, optional Rust spike for visual-diff benchmarking.
-It is intentionally not wired into the TypeScript runtime path.
+This crate is an optional Rust-backed visual diff engine for Web Quality Gatekeeper.
+It can be exercised through the benchmark harness or wired into normal audits as an opt-in runtime path.
 
 ## What It Does
 
@@ -14,6 +14,30 @@ It is intentionally not wired into the TypeScript runtime path.
   - `mismatchRatio`
   - `pixelCount`
   - `elapsedMs`
+
+## Runtime Integration
+
+After building the binary, enable it in a config file:
+
+```json
+{
+  "visual": {
+    "threshold": 0.01,
+    "engine": "native-rust-spike",
+    "nativeBinaryPath": "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike"
+  }
+}
+```
+
+Or use environment variables for one-off runs:
+
+```bash
+WQG_VISUAL_DIFF_ENGINE=native-rust-spike \
+WQG_VISUAL_DIFF_NATIVE_BIN=native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike \
+node dist/cli.js audit https://example.com --config configs/default.json
+```
+
+If the binary is missing, times out, or the run requests unsupported `includeAA=true` semantics, Web Quality Gatekeeper falls back to `pixelmatch` automatically.
 
 ## Inputs
 

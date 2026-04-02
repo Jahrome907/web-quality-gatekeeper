@@ -8,7 +8,7 @@ The benchmark harness lives at:
 - `benchmarks/visual-diff-benchmark.mjs`
 - sample output: `benchmarks/results/visual-diff-benchmark.sample.json`
 
-The isolated native spike lives at:
+The optional native engine lives at:
 
 - `native/wqg-visual-diff-native-spike/`
 
@@ -17,11 +17,11 @@ The isolated native spike lives at:
 The harness compares two paths on deterministic synthetic RGBA fixtures:
 
 - the current TypeScript reference engine using `pixelmatch`
-- the optional Rust spike invoked through the same file-based adapter contract used by
+- the optional Rust engine invoked through the same file-based adapter contract used by
   `src/runner/visualDiffEngine.ts`
 
 The benchmark intentionally includes process-spawn and temporary-file overhead for the
-native spike. That makes the result honest for the current integration seam, rather than
+native engine. That makes the result honest for the current integration seam, rather than
 measuring a hypothetical future shared-library path.
 
 Recorded output includes:
@@ -40,7 +40,7 @@ TypeScript-only baseline:
 node benchmarks/visual-diff-benchmark.mjs --iterations 5 --out /tmp/wqg-visual-bench.json
 ```
 
-With the Rust spike after building it:
+With the Rust engine after building it:
 
 ```bash
 cargo build --manifest-path native/wqg-visual-diff-native-spike/Cargo.toml --release
@@ -50,7 +50,7 @@ node benchmarks/visual-diff-benchmark.mjs \
   --out /tmp/wqg-visual-bench.json
 ```
 
-You can also point the runtime seam at the same binary for an explicit local spike run.
+You can also point the runtime seam at the same binary for an explicit local audit run.
 To actually exercise the diff engine instead of only seeding a baseline, run the audit twice
 against a visual-enabled config and keep the same baseline directory across both runs:
 
@@ -82,7 +82,7 @@ node dist/cli.js audit http://127.0.0.1:4173 \
 ## Native binary contract
 
 The current adapter boundary is deliberately simple so the TypeScript path remains the
-source of truth.
+default and reference implementation.
 
 Arguments:
 
@@ -104,7 +104,7 @@ Inputs and outputs:
 Current scope boundaries:
 
 - anti-alias-aware diff semantics still belong to the TypeScript path
-- the native spike is allowed to fall back automatically when unavailable or unsupported
+- the native engine is allowed to fall back automatically when unavailable or unsupported
 - no install scripts or required native artifact downloads are allowed in the default consumer path
 
 ## Measured decision rule

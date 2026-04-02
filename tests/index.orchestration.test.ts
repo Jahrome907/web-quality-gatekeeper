@@ -164,6 +164,8 @@ function createFullConfig() {
     toggles: { a11y: true, perf: true, visual: true },
     visual: {
       threshold: 0.01,
+      engine: "native-rust-spike",
+      nativeBinaryPath: "native/bin/wqg-visual-diff",
       pixelmatch: { includeAA: true, threshold: 0.2 },
       ignoreRegions: [{ x: 5, y: 5, width: 10, height: 10 }]
     }
@@ -290,6 +292,8 @@ describe("runAudit orchestration", () => {
       0.01,
       expect.anything(),
       {
+        engine: "native-rust-spike",
+        nativeBinaryPath: "native/bin/wqg-visual-diff",
         pixelmatch: { includeAA: true, threshold: 0.2 },
         ignoreRegions: [{ x: 5, y: 5, width: 10, height: 10 }]
       }

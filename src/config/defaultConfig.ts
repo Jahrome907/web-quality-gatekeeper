@@ -1,4 +1,4 @@
-import type { Config } from "./schema.js";
+import { DEFAULT_VISUAL_DIFF_ENGINE, type Config } from "./schema.js";
 
 export const defaultConfig: Config = {
   timeouts: {
@@ -36,7 +36,8 @@ export const defaultConfig: Config = {
     formFactor: "desktop"
   },
   visual: {
-    threshold: 0.01
+    threshold: 0.01,
+    engine: DEFAULT_VISUAL_DIFF_ENGINE
   },
   toggles: {
     a11y: true,

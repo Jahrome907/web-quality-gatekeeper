@@ -14,7 +14,7 @@ describe("public story surface", () => {
     expect(source).toContain("Adopt In 5 Minutes");
     expect(source).toContain("Why Trust It");
     expect(source).toContain("Inspectable OSS proof surface");
-    expect(source).toContain("<strong>Proof bundle version:</strong> 3.1.2.");
+    expect(source).toContain("<strong>Proof bundle version:</strong> 3.1.3.");
     expect(source).toContain("<strong>Release source:</strong> GitHub tags and Releases");
     expect(source).toContain("proof/fixture-report.html");
     expect(source).toContain("proof/fixture-summary.v2.json");

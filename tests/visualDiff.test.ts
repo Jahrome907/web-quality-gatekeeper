@@ -356,6 +356,52 @@ describe("runVisualDiff", () => {
     }
   });
 
+  it("fails closed when the baseline manifest is corrupt", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+
+    const baseline = new PNG({ width: 1, height: 1 });
+    baseline.data.fill(255);
+    const current = new PNG({ width: 1, height: 1 });
+    current.data.fill(0);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+    await writeFile(path.join(baselineDir, "baseline-manifest.json"), "{not-json", "utf8");
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger
+      );
+
+      expect(summary.failed).toBe(true);
+      expect(summary.results[0]).toEqual({
+        name: "home",
+        currentPath,
+        baselinePath,
+        diffPath: null,
+        mismatchRatio: null,
+        status: "diffed"
+      });
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Baseline integrity manifest is unreadable or invalid; skipping visual comparisons until baselines are reset or rewritten."
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Skipping comparison for home because baseline integrity metadata is corrupt."
+      );
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("masks ignore regions so excluded pixels do not contribute to mismatch", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();

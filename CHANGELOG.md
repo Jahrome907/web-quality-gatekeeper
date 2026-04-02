@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.3] - 2026-04-02
+
+### Added
+
+- Optional native visual diff engine support:
+  - config surface for `visual.engine` and `visual.nativeBinaryPath`
+  - runtime fallback seam from the Rust binary to `pixelmatch`
+  - public docs and benchmark guidance for the opt-in native path
+
+### Changed
+
+- Release and proof surfaces now align on `3.1.3` across package metadata, published proof assets, and compatibility documentation.
+- Local Action smoke now skips when Playwright's Chromium binary is unavailable instead of failing preflight in environments without browsers.
+
+### Fixed
+
+- Dependabot runtime alerts:
+  - refreshed the locked `lodash-es` transitive dependency to `4.18.1` on the Lighthouse chain
+- GitHub Action Windows compatibility:
+  - shell path normalization no longer rewrites `GITHUB_WORKSPACE` into a Node-hostile path before the CLI runs
+  - `wslpath` and `cygpath` normalization now fail open instead of aborting mixed Windows shells
+- Sensitive Lighthouse target validation:
+  - repeated requests to newly discovered hosts are re-resolved instead of inheriting trust from a cache that Chrome never received
+- Auth header handling:
+  - explicit CLI auth headers now override environment-provided values
+  - explicit `Cookie` headers are preserved regardless of header casing
+- Visual diff hardening:
+  - corrupt baseline integrity manifests now fail closed and skip comparisons until the baseline metadata is repaired
+
 ## [3.1.2] - 2026-03-14
 
 ### Added
@@ -178,5 +207,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
-[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.2...HEAD
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.3...HEAD
 [3.1.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.1...v3.1.2
+[3.1.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.2...v3.1.3

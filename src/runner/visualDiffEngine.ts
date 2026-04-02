@@ -106,7 +106,7 @@ async function runNativeRustSpike(
 ): Promise<VisualDiffComputation | null> {
   if (options.includeAA) {
     options.logger.warn(
-      "Native visual diff spike does not support includeAA=true yet; falling back to pixelmatch."
+      "Native visual diff engine does not support includeAA=true yet; falling back to pixelmatch."
     );
     return null;
   }
@@ -114,7 +114,7 @@ async function runNativeRustSpike(
   const binaryPath = options.nativeBinaryPath ?? process.env.WQG_VISUAL_DIFF_NATIVE_BIN;
   if (!binaryPath || !(await pathExists(binaryPath))) {
     options.logger.warn(
-      "Native visual diff spike requested but no executable was provided; falling back to pixelmatch."
+      "Native visual diff engine requested but no executable was provided; falling back to pixelmatch."
     );
     return null;
   }
@@ -153,13 +153,13 @@ async function runNativeRustSpike(
     const diffPixels =
       typeof parsed.diffPixels === "number" ? Math.trunc(parsed.diffPixels) : Number.NaN;
     if (!Number.isFinite(diffPixels) || diffPixels < 0) {
-      throw new Error(`Native visual diff spike returned invalid diff pixel count: ${stdout.trim()}`);
+      throw new Error(`Native visual diff engine returned invalid diff pixel count: ${stdout.trim()}`);
     }
 
     const nativeDiff = await readFile(diffPath);
     if (nativeDiff.length !== diff.length) {
       throw new Error(
-        `Native visual diff spike returned ${nativeDiff.length} diff bytes for ${diff.length} expected bytes.`
+        `Native visual diff engine returned ${nativeDiff.length} diff bytes for ${diff.length} expected bytes.`
       );
     }
     diff.set(nativeDiff);
@@ -169,7 +169,7 @@ async function runNativeRustSpike(
     };
   } catch (error) {
     options.logger.warn(
-      `Native visual diff spike failed; falling back to pixelmatch. ${formatNativeSpikeFailure(error, timeoutMs)}`
+      `Native visual diff engine failed; falling back to pixelmatch. ${formatNativeSpikeFailure(error, timeoutMs)}`
     );
     return null;
   } finally {
