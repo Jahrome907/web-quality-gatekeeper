@@ -332,6 +332,66 @@ describe("lighthouse runner", () => {
     });
   });
 
+  it("preserves explicit cookie headers regardless of header casing", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({
+      connect: puppeteer.connect
+    });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        categories: {
+          performance: { score: 0.95 }
+        },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1700 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.03 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 110 }
+        }
+      }
+    });
+
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await runLighthouseAudit(
+      "https://example.com",
+      "/tmp/artifacts",
+      createBaseConfig() as never,
+      { debug: vi.fn() } as never,
+      {
+        headers: {
+          Authorization: "Bearer token-123",
+          cookie: "already=set"
+        },
+        cookies: [{ name: "session_id", value: "abc123" }]
+      }
+    );
+
+    const requestHandler = puppeteer.getRequestHandler();
+    if (!requestHandler) {
+      throw new Error("request handler not registered");
+    }
+    const continueRequest = vi.fn().mockResolvedValue(undefined);
+    await requestHandler({
+      isNavigationRequest: () => true,
+      url: () => "https://example.com/",
+      headers: () => ({
+        Accept: "text/html",
+        Cookie: "browser=value"
+      }),
+      continue: continueRequest,
+      abort: vi.fn().mockResolvedValue(undefined)
+    });
+
+    expect(continueRequest).toHaveBeenCalledWith({
+      headers: {
+        Accept: "text/html",
+        Authorization: "Bearer token-123",
+        Cookie: "already=set"
+      }
+    });
+  });
+
   it("applies mobile emulation config for mobile formFactor", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
@@ -639,12 +699,16 @@ describe("lighthouse runner", () => {
     const requestContinue = vi.fn().mockResolvedValue(undefined);
     const requestAbort = vi.fn().mockResolvedValue(undefined);
 
+    let cdnLookupCount = 0;
     mockLookup.mockImplementation(async (hostname: string) => {
       if (hostname === "example.com") {
         return [{ address: "203.0.113.10", family: 4 }];
       }
       if (hostname === "cdn.example.net") {
-        return [{ address: "203.0.113.20", family: 4 }];
+        cdnLookupCount += 1;
+        return cdnLookupCount === 1
+          ? [{ address: "203.0.113.20", family: 4 }]
+          : [{ address: "10.0.0.5", family: 4 }];
       }
       return [{ address: "203.0.113.30", family: 4 }];
     });
@@ -702,12 +766,10 @@ describe("lighthouse runner", () => {
           }
         }
       )
-    ).resolves.toMatchObject({
-      metrics: expect.any(Object)
-    });
+    ).rejects.toThrow("Blocked internal Lighthouse request target");
 
-    expect(requestContinue).toHaveBeenCalledTimes(2);
-    expect(requestAbort).not.toHaveBeenCalled();
+    expect(requestContinue).toHaveBeenCalledTimes(1);
+    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
     expect(mockLookup).toHaveBeenCalledTimes(3);
     expect(mockLookup.mock.calls.map((call) => call[0])).toEqual([
       "example.com",

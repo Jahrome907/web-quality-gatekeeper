@@ -3,7 +3,7 @@
 [![Quality Gate](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
 [![Pack Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml)
 [![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
-[![Source Version 3.1.2](https://img.shields.io/badge/source-3.1.2-17355c?logo=git&logoColor=white)](./package.json)
+[![Source Version 3.1.3](https://img.shields.io/badge/source-3.1.3-17355c?logo=git&logoColor=white)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
@@ -14,6 +14,8 @@ Release source of truth: use GitHub tags and Releases for published versions. Th
 <p align="center">
   <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
 </p>
+
+The diagram follows the same three-step audit path described below: validate and pin the target, collect evidence once against the resolved host, then emit stable outputs for people and CI.
 
 ## Install
 
@@ -41,6 +43,7 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 - [Install](#install)
 - [How It Works](#how-it-works)
 - [Proof & Reproducibility](#proof--reproducibility)
+- [Architecture & References](#architecture--references)
 - [Features](#features)
 - [Quickstart](#quickstart)
 - [CLI Usage](#cli-usage)
@@ -66,12 +69,21 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 - Reproduce the local fixture walkthrough from [docs/case-study-run.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study-run.md).
 - See the public OSS evidence protocol in [docs/case-study/public-oss-repro.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md).
 
+## Architecture & References
+
+- Start with the maintainer-facing [Architecture Map](docs/engineering/ARCHITECTURE_MAP.md) to see where CLI, runner, reporting, and release changes belong.
+- Use the [Testing Matrix](docs/testing-matrix.md) to map a behavior change to the narrowest validation layer that should fail.
+- Review [SECURITY.md](SECURITY.md) before changing target resolution, authenticated audits, or CI publication behavior.
+- See [CONTRIBUTING.md](CONTRIBUTING.md) for the maintainer and contributor command set that mirrors repo automation.
+- The optional native path is documented in [native/wqg-visual-diff-native-spike/README.md](native/wqg-visual-diff-native-spike/README.md), with benchmarks in [benchmarks/visual-diff-benchmark.mjs](benchmarks/visual-diff-benchmark.mjs).
+
 ## Features
 
 - **Playwright Smoke Runner** — Deterministic screenshots with configurable viewports
 - **axe-core Accessibility** — WCAG compliance scanning with severity counts
 - **Lighthouse Performance** — Budget enforcement for score, LCP, CLS, and TBT
 - **Visual Regression** — Baseline management with pixel-level diff detection
+- **Optional Native Visual Engine** — Opt-in Rust-backed diff execution with automatic fallback to `pixelmatch`
 - **Actionable Remediation** — Prioritized fix guidance per failure with evidence and verification steps
 - **Trend Dashboard** — Rolling history insights from prior snapshots (`trends/dashboard.html`)
 - **Policy Templates** — Built-in multi-page/site templates (`marketing`, `docs`, `ecommerce`, `saas`)
@@ -170,7 +182,7 @@ Default config lives at `configs/default.json`.
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/3.1.2",
+    "userAgent": "wqg/3.1.3",
     "locale": "en-US",
     "colorScheme": "light"
   },
@@ -183,10 +195,27 @@ Default config lives at `configs/default.json`.
     "budgets": { "performance": 0.8, "lcpMs": 2500, "cls": 0.1, "tbtMs": 200 },
     "formFactor": "desktop"
   },
-  "visual": { "threshold": 0.01 },
+  "visual": {
+    "threshold": 0.01,
+    "engine": "pixelmatch"
+  },
   "toggles": { "a11y": true, "perf": true, "visual": true }
 }
 ```
+
+To opt into the native visual diff engine, point the config at a compiled binary and keep the TypeScript path as fallback:
+
+```json
+{
+  "visual": {
+    "threshold": 0.01,
+    "engine": "native-rust-spike",
+    "nativeBinaryPath": "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike"
+  }
+}
+```
+
+The same seam can also be toggled ad hoc with `WQG_VISUAL_DIFF_ENGINE=native-rust-spike` and `WQG_VISUAL_DIFF_NATIVE_BIN=/path/to/binary`.
 
 ## CI (GitHub Action)
 
@@ -262,6 +291,7 @@ Maintainer references:
 | [axe-core](https://github.com/dequelabs/axe-core) | Accessibility testing |
 | [Lighthouse](https://developer.chrome.com/docs/lighthouse/) | Performance auditing |
 | [pixelmatch](https://github.com/mapbox/pixelmatch) | Visual diff comparison |
+| [Rust](https://www.rust-lang.org/) | Optional native visual diff engine |
 | [Zod](https://zod.dev/) | Configuration validation |
 | [Commander](https://github.com/tj/commander.js) | CLI framework |
 
@@ -297,6 +327,12 @@ Roughly **30–90 seconds** depending on page complexity, Lighthouse throttling,
 <summary><strong>Can I audit multiple pages?</strong></summary>
 
 Yes — add entries to the `screenshots` array in your config. Each entry gets its own screenshot, axe scan, and visual diff.
+</details>
+
+<details>
+<summary><strong>Can I use the Rust visual diff path in normal audits?</strong></summary>
+
+Yes. Build the crate in `native/wqg-visual-diff-native-spike/`, then set `visual.engine` to `native-rust-spike` and `visual.nativeBinaryPath` in config, or provide the equivalent `WQG_VISUAL_DIFF_*` environment variables. Unsupported settings, missing binaries, or runtime failures fall back to `pixelmatch` automatically.
 </details>
 
 ## Author

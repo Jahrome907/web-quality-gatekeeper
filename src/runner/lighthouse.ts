@@ -316,7 +316,8 @@ function buildLighthouseHeaders(auth: AuditAuth | null): Record<string, string> 
   }
 
   const headers: Record<string, string> = { ...auth.headers };
-  if (!headers.Cookie) {
+  const hasCookieHeader = Object.keys(headers).some((key) => key.toLowerCase() === "cookie");
+  if (!hasCookieHeader) {
     const cookieHeader = toCookieHeader(auth.cookies);
     if (cookieHeader) {
       headers.Cookie = cookieHeader;
@@ -364,21 +365,20 @@ export async function runLighthouseAudit(
     let blockedRequestError: Error | null = null;
     try {
       const verifiedNavigationTargets = new Map<string, { url: string; hostResolverRules: string | null }>();
-      const pinnedHostResolverRules = new Map<string, string | null>();
+      const launchPinnedHostResolverRules = new Map<string, string | null>();
 
       if (initialTarget) {
-        pinnedHostResolverRules.set(initialTarget.classification.hostname, effectiveHostResolverRules);
+        launchPinnedHostResolverRules.set(initialTarget.classification.hostname, effectiveHostResolverRules);
       }
 
-      const cachePinnedTarget = (
+      const cacheVerifiedTarget = (
         targetUrl: string,
         verifiedTarget: { url: string; hostResolverRules: string | null }
       ) => {
         const verifiedHostname = normalizeUrlHostname(verifiedTarget.url);
-        if (!pinnedHostResolverRules.has(verifiedHostname)) {
+        if (!launchPinnedHostResolverRules.has(verifiedHostname)) {
           return;
         }
-
         verifiedNavigationTargets.set(targetUrl, verifiedTarget);
         verifiedNavigationTargets.set(verifiedTarget.url, verifiedTarget);
       };
@@ -388,18 +388,17 @@ export async function runLighthouseAudit(
           return null;
         }
 
-        const existing = verifiedNavigationTargets.get(targetUrl);
-        if (existing) {
-          return existing;
-        }
-
         const targetHostname = normalizeUrlHostname(targetUrl);
-        if (pinnedHostResolverRules.has(targetHostname)) {
+        if (launchPinnedHostResolverRules.has(targetHostname)) {
+          const existing = verifiedNavigationTargets.get(targetUrl);
+          if (existing) {
+            return existing;
+          }
           const trustedTarget = {
             url: new URL(targetUrl).toString(),
-            hostResolverRules: pinnedHostResolverRules.get(targetHostname) ?? null
+            hostResolverRules: launchPinnedHostResolverRules.get(targetHostname) ?? null
           };
-          cachePinnedTarget(targetUrl, trustedTarget);
+          cacheVerifiedTarget(targetUrl, trustedTarget);
           return trustedTarget;
         }
 
@@ -410,7 +409,6 @@ export async function runLighthouseAudit(
           url: resolvedTarget.url,
           hostResolverRules: resolvedTarget.hostResolverRules
         };
-        cachePinnedTarget(targetUrl, verifiedTarget);
         return verifiedTarget;
       };
 

@@ -24,6 +24,7 @@ export const DEFAULT_PIXELMATCH_INCLUDE_AA = false;
 export const DEFAULT_PIXELMATCH_THRESHOLD = 0.1;
 export const DEFAULT_SCREENSHOT_GALLERY_ENABLED = false;
 export const DEFAULT_SCREENSHOT_GALLERY_MAX_PER_PATH = 12;
+export const DEFAULT_VISUAL_DIFF_ENGINE = "pixelmatch";
 
 function isSafeRelativeTrendHistoryPath(path: string): boolean {
   if (isAbsolute(path) || WINDOWS_DRIVE_PREFIX.test(path) || WINDOWS_UNC_ABSOLUTE_PATH.test(path)) {
@@ -145,6 +146,8 @@ export const ConfigSchema = z.object({
   }),
   visual: z.object({
     threshold: z.number().min(0).max(1),
+    engine: z.enum(["pixelmatch", "native-rust-spike"]).default(DEFAULT_VISUAL_DIFF_ENGINE),
+    nativeBinaryPath: z.string().min(1).max(500).optional(),
     pixelmatch: z
       .object({
         includeAA: z.boolean().default(DEFAULT_PIXELMATCH_INCLUDE_AA),

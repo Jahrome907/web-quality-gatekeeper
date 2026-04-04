@@ -15,22 +15,50 @@ interface BaselineManifest {
   checksums: Record<string, string>;
 }
 
+interface LoadedBaselineManifest {
+  manifest: BaselineManifest | null;
+  corrupt: boolean;
+}
+
 const MANIFEST_FILENAME = "baseline-manifest.json";
 
 function computeSha256(buffer: Buffer): string {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
-async function loadManifest(baselineDir: string): Promise<BaselineManifest | null> {
+function isBaselineManifest(value: unknown): value is BaselineManifest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  if (candidate.version !== 1 || typeof candidate.generatedAt !== "string") {
+    return false;
+  }
+
+  const checksums = candidate.checksums;
+  if (typeof checksums !== "object" || checksums === null || Array.isArray(checksums)) {
+    return false;
+  }
+
+  return Object.values(checksums).every((entry) => typeof entry === "string");
+}
+
+async function loadBaselineManifest(baselineDir: string): Promise<LoadedBaselineManifest> {
   const manifestPath = path.join(baselineDir, MANIFEST_FILENAME);
   if (!(await pathExists(manifestPath))) {
-    return null;
+    return { manifest: null, corrupt: false };
   }
+
   try {
     const raw = await readFile(manifestPath, "utf8");
-    return JSON.parse(raw) as BaselineManifest;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isBaselineManifest(parsed)) {
+      return { manifest: null, corrupt: true };
+    }
+    return { manifest: parsed, corrupt: false };
   } catch {
-    return null;
+    return { manifest: null, corrupt: true };
   }
 }
 
@@ -216,26 +244,32 @@ export async function runVisualDiff(
   const ignoreRegions = options.ignoreRegions ?? [];
 
   // Security: Load existing manifest for integrity verification and backfill.
-  const manifest = await loadManifest(baselineDir);
-  const existingChecksums = manifest?.checksums ?? {};
+  const loadedManifest = await loadBaselineManifest(baselineDir);
+  const existingChecksums = loadedManifest.manifest?.checksums ?? {};
   const newChecksums: Record<string, string> = { ...existingChecksums };
   let backfilledChecksums = 0;
 
-  const baselineFiles = await readdir(baselineDir);
-  for (const fileName of baselineFiles) {
-    if (!fileName.toLowerCase().endsWith(".png")) {
-      continue;
+  if (!loadedManifest.corrupt) {
+    const baselineFiles = await readdir(baselineDir);
+    for (const fileName of baselineFiles) {
+      if (!fileName.toLowerCase().endsWith(".png")) {
+        continue;
+      }
+      if (newChecksums[fileName]) {
+        continue;
+      }
+      const baselinePath = path.join(baselineDir, fileName);
+      if (!(await pathExists(baselinePath))) {
+        continue;
+      }
+      const buffer = await readFile(baselinePath);
+      newChecksums[fileName] = computeSha256(buffer);
+      backfilledChecksums += 1;
     }
-    if (newChecksums[fileName]) {
-      continue;
-    }
-    const baselinePath = path.join(baselineDir, fileName);
-    if (!(await pathExists(baselinePath))) {
-      continue;
-    }
-    const buffer = await readFile(baselinePath);
-    newChecksums[fileName] = computeSha256(buffer);
-    backfilledChecksums += 1;
+  } else {
+    logger.warn(
+      "Baseline integrity manifest is unreadable or invalid; skipping visual comparisons until baselines are reset or rewritten."
+    );
   }
 
   const results: VisualDiffResult[] = [];
@@ -264,6 +298,20 @@ export async function runVisualDiff(
         diffPath: null,
         mismatchRatio: null,
         status
+      });
+      continue;
+    }
+
+    if (loadedManifest.corrupt) {
+      logger.warn(`Skipping comparison for ${shot.name} because baseline integrity metadata is corrupt.`);
+      failed = true;
+      results.push({
+        name: shot.name,
+        currentPath: shot.path,
+        baselinePath,
+        diffPath: null,
+        mismatchRatio: null,
+        status: "diffed"
       });
       continue;
     }

@@ -35,6 +35,20 @@ describe("parseAuditAuth", () => {
     });
   });
 
+  it("lets explicit CLI headers override environment-provided values", () => {
+    const auth = parseAuditAuth(["Authorization: Bearer cli-token"], [], {
+      WQG_AUTH_HEADERS: '{"authorization":"Bearer env-token","X-Trace":"trace-1"}'
+    });
+
+    expect(auth).toEqual({
+      headers: {
+        Authorization: "Bearer cli-token",
+        "X-Trace": "trace-1"
+      },
+      cookies: []
+    });
+  });
+
   it("returns null when no auth inputs are provided", () => {
     expect(parseAuditAuth([], [], {})).toBeNull();
   });

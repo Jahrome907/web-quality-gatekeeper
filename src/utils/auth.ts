@@ -117,13 +117,14 @@ function collectHeaderInputs(
   cliHeaders: string[],
   env: NodeJS.ProcessEnv
 ): string[] {
-  const values = [...cliHeaders];
+  const values: string[] = [];
   if (env.WQG_AUTH_HEADER) {
     values.push(env.WQG_AUTH_HEADER);
   }
   if (env.WQG_AUTH_HEADERS) {
     values.push(...parseHeaderEnv(env.WQG_AUTH_HEADERS));
   }
+  values.push(...cliHeaders);
   return values;
 }
 
@@ -131,14 +132,28 @@ function collectCookieInputs(
   cliCookies: string[],
   env: NodeJS.ProcessEnv
 ): string[] {
-  const values = [...cliCookies];
+  const values: string[] = [];
   if (env.WQG_AUTH_COOKIE) {
     values.push(env.WQG_AUTH_COOKIE);
   }
   if (env.WQG_AUTH_COOKIES) {
     values.push(...parseCookieEnv(env.WQG_AUTH_COOKIES));
   }
+  values.push(...cliCookies);
   return values;
+}
+
+function parseHeaderEntries(entries: string[]): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const entry of entries) {
+    const [name, value] = parseHeaderEntry(entry);
+    const existingKey = findHeaderKeyInsensitive(headers, name);
+    if (existingKey && existingKey !== name) {
+      delete headers[existingKey];
+    }
+    headers[name] = value;
+  }
+  return headers;
 }
 
 export function applyScopedAuthHeaders(params: {
@@ -181,7 +196,7 @@ export function parseAuditAuth(
   const headerEntries = collectHeaderInputs(cliHeaders, env);
   const cookieEntries = collectCookieInputs(cliCookies, env);
 
-  const headers = Object.fromEntries(headerEntries.map(parseHeaderEntry));
+  const headers = parseHeaderEntries(headerEntries);
   const cookies = cookieEntries.map(parseCookieEntry);
 
   if (Object.keys(headers).length === 0 && cookies.length === 0) {

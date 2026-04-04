@@ -25,8 +25,38 @@ describe("ConfigSchema boundaries", () => {
     const parsed = ConfigSchema.parse(createValidConfig());
     expect(parsed.retries).toBeUndefined();
     expect(parsed.axe).toBeUndefined();
+    expect(parsed.visual.engine).toBe("pixelmatch");
+    expect(parsed.visual.nativeBinaryPath).toBeUndefined();
     expect(parsed.visual.pixelmatch).toBeUndefined();
     expect(parsed.visual.ignoreRegions).toBeUndefined();
+  });
+
+  it("accepts native visual diff engine settings", () => {
+    const parsed = ConfigSchema.parse({
+      ...createValidConfig(),
+      visual: {
+        threshold: 0.01,
+        engine: "native-rust-spike",
+        nativeBinaryPath: "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike"
+      }
+    });
+
+    expect(parsed.visual.engine).toBe("native-rust-spike");
+    expect(parsed.visual.nativeBinaryPath).toBe(
+      "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike"
+    );
+  });
+
+  it("rejects unsupported visual diff engine values", () => {
+    const result = ConfigSchema.safeParse({
+      ...createValidConfig(),
+      visual: {
+        threshold: 0.01,
+        engine: "native"
+      }
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("defaults screenshot fullPage to true when omitted", () => {

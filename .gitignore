@@ -16,6 +16,7 @@ test-results/
 .tmp-int-*
 .tmp-docs-audit/
 .tmp-action-local-*
+.tmp-action-debug-*
 .tmp-pack-smoke-*
 .tmp-pack-debug-*
 \\wsl.localhost*

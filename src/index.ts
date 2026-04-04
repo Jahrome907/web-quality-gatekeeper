@@ -184,6 +184,10 @@ async function runTargetAudit(params: {
 
     if (config.toggles.visual) {
       const visualDiffOptions: VisualDiffRuntimeOptions = {
+        ...(config.visual.engine ? { engine: config.visual.engine } : {}),
+        ...(config.visual.nativeBinaryPath
+          ? { nativeBinaryPath: config.visual.nativeBinaryPath }
+          : {}),
         ...(config.visual.pixelmatch ? { pixelmatch: config.visual.pixelmatch } : {}),
         ...(config.visual.ignoreRegions ? { ignoreRegions: config.visual.ignoreRegions } : {})
       };

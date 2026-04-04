@@ -3,14 +3,19 @@ import { runChecked } from "./_shared.mjs";
 
 async function runReleaseDryRun() {
   for (const command of [
-    ["npm", ["run", "validate:full"]],
-    ["npm", ["run", "contracts:check"]],
-    ["npm", ["run", "security:audit"]],
-    ["npm", ["run", "smoke:pack"]],
-    ["npm", ["run", "smoke:action"]]
+    { binary: "npm", args: ["run", "validate:full"] },
+    { binary: "npm", args: ["run", "contracts:check"] },
+    { binary: "npm", args: ["run", "security:audit"] },
+    { binary: "npm", args: ["run", "smoke:pack"] },
+    {
+      binary: "npm",
+      args: ["run", "smoke:action"],
+      env: { WQG_ACTION_SMOKE_REQUIRED: "true" }
+    }
   ]) {
-    const [binary, args] = command;
-    await runChecked(binary, args);
+    await runChecked(command.binary, command.args, {
+      env: command.env
+    });
   }
 
   console.log("Release dry-run checks completed.");
