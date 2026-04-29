@@ -16,6 +16,7 @@ import {
   type PuppeteerPageLike
 } from "./lighthousePuppeteer.js";
 import {
+  NavigationTargetVerifier,
   isAuditableHttpUrl,
   normalizeUrlHostname,
   resolveAuditedTarget,
@@ -364,53 +365,16 @@ export async function runLighthouseAudit(
     let puppeteerPage: PuppeteerPageLike | null = null;
     let blockedRequestError: Error | null = null;
     try {
-      const verifiedNavigationTargets = new Map<string, { url: string; hostResolverRules: string | null }>();
       const launchPinnedHostResolverRules = new Map<string, string | null>();
 
       if (initialTarget) {
         launchPinnedHostResolverRules.set(initialTarget.classification.hostname, effectiveHostResolverRules);
       }
 
-      const cacheVerifiedTarget = (
-        targetUrl: string,
-        verifiedTarget: { url: string; hostResolverRules: string | null }
-      ) => {
-        const verifiedHostname = normalizeUrlHostname(verifiedTarget.url);
-        if (!launchPinnedHostResolverRules.has(verifiedHostname)) {
-          return;
-        }
-        verifiedNavigationTargets.set(targetUrl, verifiedTarget);
-        verifiedNavigationTargets.set(verifiedTarget.url, verifiedTarget);
-      };
-
-      const verifyNavigationTarget = async (targetUrl: string, contextLabel: string) => {
-        if (!options.targetPolicy) {
-          return null;
-        }
-
-        const targetHostname = normalizeUrlHostname(targetUrl);
-        if (launchPinnedHostResolverRules.has(targetHostname)) {
-          const existing = verifiedNavigationTargets.get(targetUrl);
-          if (existing) {
-            return existing;
-          }
-          const trustedTarget = {
-            url: new URL(targetUrl).toString(),
-            hostResolverRules: launchPinnedHostResolverRules.get(targetHostname) ?? null
-          };
-          cacheVerifiedTarget(targetUrl, trustedTarget);
-          return trustedTarget;
-        }
-
-        const resolvedTarget = await resolveAuditedTarget(targetUrl, logger, options.targetPolicy, {
-          context: contextLabel
-        });
-        const verifiedTarget = {
-          url: resolvedTarget.url,
-          hostResolverRules: resolvedTarget.hostResolverRules
-        };
-        return verifiedTarget;
-      };
+      const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
+        initialTrustedHosts: launchPinnedHostResolverRules,
+        trustResolvedHosts: false
+      });
 
       if (options.targetPolicy || authHeaders) {
         const puppeteer = await loadLighthousePuppeteer();
@@ -426,7 +390,7 @@ export async function runLighthouseAudit(
               const contextLabel = request.isNavigationRequest()
                 ? "Lighthouse navigation target"
                 : "Lighthouse request target";
-              await verifyNavigationTarget(request.url(), contextLabel);
+              await navigationTargetVerifier.verify(request.url(), contextLabel);
             }
 
             const scopedHeaders = applyScopedAuthHeaders({
@@ -513,7 +477,7 @@ export async function runLighthouseAudit(
             : url;
       if (options.targetPolicy) {
         if (normalizeUrlHostname(finalNavigationUrl) !== normalizeUrlHostname(url)) {
-          await verifyNavigationTarget(finalNavigationUrl, "final Lighthouse target");
+          await navigationTargetVerifier.verify(finalNavigationUrl, "final Lighthouse target");
         }
       }
       const lcpAudit = lhr.audits["largest-contentful-paint"];
