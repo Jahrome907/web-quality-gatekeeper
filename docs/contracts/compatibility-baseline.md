@@ -130,6 +130,7 @@ Current repo workflow behaviors worth freezing before later hardening:
 - `release.yml`
   - currently triggers on all `v*` tags
   - treats any hyphenated tag as a prerelease
+  - creates the GitHub Release without requiring npm publication
   - still force-moves the stable major tag after release creation; this behavior is frozen as current baseline and scheduled for future hardening
 
 ## Packaging Baseline

@@ -831,9 +831,9 @@
             <span class="section-kicker">Adopt In 5 Minutes</span>
             <h2>Pick the path that matches how you want to use the project.</h2>
             <p>
-              Public usage is split into two lanes. Install the CLI from npm when you want local
-              checks or scripted CI usage, or use the GitHub Action in your own repository. Both
-              lanes become public once the tagged release workflow completes.
+              Public usage is split into two lanes. Use the GitHub Action in your own repository
+              for CI gating, or run the CLI from a source checkout when you want local evaluation.
+              npm publication is reserved for a later maintainer backfill release.
             </p>
           </div>
         </div>
@@ -856,11 +856,14 @@
           </article>
 
           <article class="adoption-card">
-            <h3>Run the CLI from npm</h3>
-            <p>Use this path when you want local evaluation or scripted CI usage.</p>
-            <pre tabindex="0" aria-label="CLI adoption example"><code>npm i -D web-quality-gatekeeper
+            <h3>Run the CLI from source</h3>
+            <p>Use this path when you want local evaluation before wiring CI.</p>
+            <pre tabindex="0" aria-label="Source CLI adoption example"><code>git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
+cd web-quality-gatekeeper
+npm ci
 npx playwright install
-npx wqg audit https://your-site.example --policy marketing</code></pre>
+npm run build
+node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
             <p style="margin-top: 12px;">
               If you need custom settings, keep them in a consumer-owned path such as
               <code>.github/web-quality/config.json</code> rather than copying repo-internal

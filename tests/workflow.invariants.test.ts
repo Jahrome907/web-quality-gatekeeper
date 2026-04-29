@@ -142,30 +142,21 @@ describe("workflow invariants", () => {
     expect(source).not.toContain("Publish to npm with trusted publishing");
   });
 
-  it("keeps release workflow as the primary publish path", () => {
+  it("keeps release workflow focused on GitHub Release and stable Action tag publication", () => {
     const source = readRepoFile(".github/workflows/release.yml");
-    const trustedPublishIndex = source.indexOf("Publish to npm with trusted publishing");
-    const tokenPublishIndex = source.indexOf("Publish to npm with token fallback");
     const releaseIndex = source.indexOf("Create GitHub release");
     const majorTagIndex = source.indexOf("Update major version tag");
 
     expect(source).toContain("Enforce tag and package version parity");
-    expect(source).toContain("Ensure package version is unpublished");
-    expect(source).toContain("Configure npm auth token fallback");
-    expect(source).toContain("Configure npm registry for trusted publishing");
-    expect(source).toContain("Verify trusted publishing runtime");
-    expect(source).toContain("npm publish --provenance --access public");
-    expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
+    expect(source).toContain("Verify release runtime");
     expect(source).toContain("node-version: 24");
-    expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
-    expect(source).toContain("if: env.HAS_NPM_TOKEN != 'true'");
-    expect(source).toContain("if: env.HAS_NPM_TOKEN == 'true'");
-    expect(trustedPublishIndex).toBeGreaterThanOrEqual(0);
-    expect(tokenPublishIndex).toBeGreaterThanOrEqual(0);
+    expect(source).toContain("npm run release:dry-run");
+    expect(source).not.toContain("npm publish --provenance --access public");
+    expect(source).not.toContain("HAS_NPM_TOKEN");
+    expect(source).not.toContain("id-token: write");
+    expect(source).not.toContain("Ensure package version is unpublished");
     expect(releaseIndex).toBeGreaterThanOrEqual(0);
     expect(majorTagIndex).toBeGreaterThanOrEqual(0);
-    expect(trustedPublishIndex).toBeLessThan(releaseIndex);
-    expect(tokenPublishIndex).toBeLessThan(releaseIndex);
     expect(releaseIndex).toBeLessThan(majorTagIndex);
   });
 
