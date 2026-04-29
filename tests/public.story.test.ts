@@ -23,7 +23,7 @@ describe("public story surface", () => {
     expect(source).toContain("case-study-run.md");
     expect(source).toContain("case-study/public-oss-repro.md");
     expect(source).toContain('title="Sample Web Quality Gatekeeper report"');
-    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v6");
+    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
     expect(source).toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("baseline-dir: baselines");
     expect(source).toContain('tabindex="0" aria-label="CLI adoption example"');

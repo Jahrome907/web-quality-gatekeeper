@@ -447,7 +447,7 @@ describe("buildHtmlReport", () => {
         $schema:
           "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
         schemaVersion: "2.2.0",
-        toolVersion: "6.1.2",
+        toolVersion: "3.1.4",
         mode: "multi",
         overallStatus: "pass",
         startedAt: "2026-04-29T00:00:00.000Z",
