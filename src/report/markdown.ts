@@ -38,6 +38,14 @@ interface TrendDeltaSummary {
     visualFailures: TrendNumericDelta;
   } | null;
   pages: TrendPageDelta[];
+  insights: TrendInsight[];
+}
+
+interface TrendInsight {
+  id: string;
+  severity: "high" | "medium" | "low";
+  title: string;
+  recommendation: string;
 }
 
 interface PageSummaryEntry {
@@ -238,6 +246,23 @@ function renderInsightsSection(lines: string[], details: SummaryV2): void {
   lines.push("");
 }
 
+function renderTrendInsightsSection(
+  lines: string[],
+  insights: TrendInsight[] | undefined,
+  headingLevel: "##" | "###"
+): void {
+  if (!insights || insights.length === 0) {
+    return;
+  }
+
+  lines.push(`${headingLevel} Trend Insights`);
+  lines.push("");
+  insights.forEach((insight, index) => {
+    lines.push(`- ${index + 1}. [${insight.severity}] ${insight.title}: ${insight.recommendation}`);
+  });
+  lines.push("");
+}
+
 function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
   const lines: string[] = [];
 
@@ -278,6 +303,7 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
     });
     lines.push("");
   }
+  renderTrendInsightsSection(lines, summary.trend.insights, "##");
 
   lines.push("## Pages");
   lines.push("");

@@ -64,7 +64,7 @@ const v1BaseParams = {
   url: "https://example.com",
   startedAt: "2026-03-12T00:00:00.000Z",
   durationMs: 1234,
-  toolVersion: "3.1.3",
+  toolVersion: "6.1.2",
   screenshots: [{ name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }],
   artifacts: {
     summary: SUMMARY_ARTIFACT_NAMES.summary,
@@ -86,7 +86,7 @@ const v2BaseParams = {
   url: "https://example.com",
   startedAt: "2026-03-12T00:00:00.000Z",
   durationMs: 1234,
-  toolVersion: "3.1.3",
+  toolVersion: "6.1.2",
   screenshots: [{ name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }],
   artifacts: {
     summary: SUMMARY_ARTIFACT_NAMES.summary,

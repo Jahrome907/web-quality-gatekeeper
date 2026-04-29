@@ -1,6 +1,8 @@
-import type { Summary, SummaryV2 } from "./summary.js";
+import { createReportViewModel, type HtmlReportSource } from "./viewModel.js";
 import { renderReportTemplate } from "./templates/reportTemplate.js";
 
-export function buildHtmlReport(summary: Summary | SummaryV2): string {
-  return renderReportTemplate(summary);
+export type { AggregateHtmlReport, HtmlReportSource, ReportViewModel } from "./viewModel.js";
+
+export function buildHtmlReport(summary: HtmlReportSource): string {
+  return renderReportTemplate(createReportViewModel(summary));
 }

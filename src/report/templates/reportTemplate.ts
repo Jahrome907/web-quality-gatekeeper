@@ -1,4 +1,5 @@
 import type { Summary, SummaryV2 } from "../summary.js";
+import type { ReportViewModel } from "../viewModel.js";
 
 type ScoreTone = "good" | "warn" | "bad" | "muted";
 type VitalState = "pass" | "needs-improvement" | "fail" | "unknown";
@@ -728,16 +729,18 @@ function extractResourceBreakdown(summary: Summary | SummaryV2): ResourceBreakdo
   };
 }
 
-export function renderReportTemplate(summary: Summary | SummaryV2): string {
+export function renderReportTemplate(view: ReportViewModel): string {
+  const summary = view.summary;
   const a11y = summary.a11y;
   const perf = summary.performance;
   const visual = summary.visual;
+  const screenshots = Array.isArray(summary.screenshots) ? summary.screenshots : [];
   const diagnostics = extractDiagnostics(summary);
   const resources = extractResourceBreakdown(summary);
   const root = summary as unknown as Record<string, unknown>;
   const runtimeSignals = toRecord(root.runtimeSignals);
   const runtimeNetwork = toRecord(runtimeSignals?.network);
-  const insightsRecord = toRecord((summary as unknown as Record<string, unknown>).insights);
+  const insightsRecord = toRecord(view.insights as unknown as Record<string, unknown> | null);
   const insightRecommendations = Array.isArray(insightsRecord?.recommendations)
     ? insightsRecord.recommendations
         .map((entry) => toRecord(entry))
@@ -765,10 +768,10 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
   ].join("");
   const radarChartMarkup = renderRadarChart(categoryScores);
   const statusChipsMarkup = [
-    `<span class="status-chip ${summary.overallStatus}">Overall ${escapeHtml(summary.overallStatus.toUpperCase())}</span>`,
-    `<span class="status-chip ${summary.steps.a11y}">A11y ${escapeHtml(summary.steps.a11y.toUpperCase())}</span>`,
-    `<span class="status-chip ${summary.steps.perf}">Perf ${escapeHtml(summary.steps.perf.toUpperCase())}</span>`,
-    `<span class="status-chip ${summary.steps.visual}">Visual ${escapeHtml(summary.steps.visual.toUpperCase())}</span>`
+    `<span class="status-chip ${view.overallStatus}">Overall ${escapeHtml(view.overallStatus.toUpperCase())}</span>`,
+    `<span class="status-chip ${view.steps.a11y}">A11y ${escapeHtml(view.steps.a11y.toUpperCase())}</span>`,
+    `<span class="status-chip ${view.steps.perf}">Perf ${escapeHtml(view.steps.perf.toUpperCase())}</span>`,
+    `<span class="status-chip ${view.steps.visual}">Visual ${escapeHtml(view.steps.visual.toUpperCase())}</span>`
   ].join("");
 
   const perfRecord = perf ? (perf as unknown as Record<string, unknown>) : null;
@@ -844,7 +847,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     </article>
   `;
 
-  const screenshotCards = summary.screenshots.map((shot) => {
+  const screenshotCards = screenshots.map((shot) => {
     const screenshotPath = normalizeAssetPath(shot.path);
     return `
       <article class="capture-card card">
@@ -1150,6 +1153,103 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
           })
           .join("")
       : `<p class="muted">No remediation recommendations were generated for this run.</p>`;
+
+  const isAggregateView = Boolean(view.aggregate && view.aggregate.pageCount > 1);
+  const headerTargetMarkup = escapeHtml(view.displayTarget);
+  const overviewCopy = isAggregateView
+    ? `Overall status is <strong>${escapeHtml(view.overallStatus.toUpperCase())}</strong>.
+        This aggregate report combines automated accessibility, Lighthouse performance diagnostics,
+        and deterministic visual diff checks across ${view.aggregate!.pageCount} audited pages.
+        Detailed score, vitals, screenshot, accessibility, performance, visual, and runtime sections below
+        focus on the primary page ${escapeHtml(view.aggregate!.primaryPageName ?? "default")} (${escapeHtml(view.aggregate!.primaryPageUrl)}).`
+    : `Overall status is <strong>${escapeHtml(view.overallStatus.toUpperCase())}</strong>.
+        This report combines automated accessibility, Lighthouse performance diagnostics,
+        and deterministic visual diff checks for a single review surface.`;
+  const summaryPointsMarkup = isAggregateView
+    ? `
+        <div class="summary-point">Audited pages: ${view.aggregate!.pageCount}</div>
+        <div class="summary-point">Failed pages: ${view.aggregate!.failedPages}</div>
+        <div class="summary-point">Aggregate accessibility step: ${statusPill(view.steps.a11y)}</div>
+        <div class="summary-point">Aggregate performance step: ${statusPill(view.steps.perf)}</div>
+      `
+    : `
+        <div class="summary-point">Accessibility step: ${statusPill(view.steps.a11y)}</div>
+        <div class="summary-point">Performance step: ${statusPill(view.steps.perf)}</div>
+        <div class="summary-point">Visual step: ${statusPill(view.steps.visual)}</div>
+        <div class="summary-point">Captured screenshots: ${screenshots.length}</div>
+      `;
+  const targetCoverageRows = isAggregateView
+    ? view.aggregate!.pages
+        .map(
+          (page) => `
+            <tr>
+              <th scope="row">${escapeHtml(page.name)}</th>
+              <td>${escapeHtml(page.url)}</td>
+              <td>${statusPill(page.overallStatus)}</td>
+              <td>${page.metrics.a11yViolations}</td>
+              <td>${page.metrics.performanceScore === null ? "n/a" : formatNumber(page.metrics.performanceScore * 100, 0)}</td>
+              <td>${page.durationMs}</td>
+            </tr>
+          `
+        )
+        .join("")
+    : "";
+  const targetCoverageSection = isAggregateView
+    ? `
+        <section id="target-coverage" class="section card" data-view-section="simple">
+          <h2>Target Coverage</h2>
+          <p class="muted">
+            This root report aggregates all audited pages. The detailed sections below focus on
+            <strong>${escapeHtml(view.aggregate!.primaryPageName ?? "default")}</strong>
+            at ${escapeHtml(view.aggregate!.primaryPageUrl)}.
+          </p>
+          <table data-target-coverage-table="true">
+            <thead>
+              <tr>
+                <th scope="col">Page</th>
+                <th scope="col">URL</th>
+                <th scope="col">Status</th>
+                <th scope="col">A11y Violations</th>
+                <th scope="col">Perf Score</th>
+                <th scope="col">Duration (ms)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${targetCoverageRows}
+            </tbody>
+          </table>
+        </section>
+      `
+    : "";
+  const primaryDetailNote = isAggregateView
+    ? `<p class="muted">Detailed metrics below represent the primary page ${escapeHtml(
+        view.aggregate!.primaryPageName ?? "default"
+      )} at ${escapeHtml(view.aggregate!.primaryPageUrl)}.</p>`
+    : "";
+  const trendInsightMarkup =
+    view.trendInsights.length > 0
+      ? `
+          <div class="trend-insight-group">
+            <h3>Trend Insights</h3>
+            ${view.trendInsights
+              .map(
+                (insight) => `
+                  <article class="violation-item">
+                    <div class="violation-content">
+                      <p>
+                        <span class="rule-id">${escapeHtml(insight.title)}</span>
+                        <span class="impact-badge ${escapeHtml(insight.severity)}">${escapeHtml(insight.severity)}</span>
+                        <span class="node-count">trend</span>
+                      </p>
+                      <p>${escapeHtml(insight.recommendation)}</p>
+                    </div>
+                  </article>
+                `
+              )
+              .join("")}
+          </div>
+        `
+      : "";
 
   return `<!doctype html>
 <html lang="en" data-report-view="detailed">
@@ -2405,6 +2505,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       <ul class="jump-nav-list">
         <li><a class="jump-nav-link" href="#overview">Overview</a></li>
         <li><a class="jump-nav-link" href="#action-plan">Action Plan</a></li>
+        ${isAggregateView ? '<li><a class="jump-nav-link" href="#target-coverage">Targets</a></li>' : ""}
         <li><a class="jump-nav-link" href="#category-scores">Scores</a></li>
         <li><a class="jump-nav-link" href="#core-web-vitals">Vitals</a></li>
         <li><a class="jump-nav-link" href="#playwright-captures">Screenshots</a></li>
@@ -2419,8 +2520,8 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
     <div class="header">
       <div>
         <h1>Web Quality Gatekeeper</h1>
-        <div class="meta">${escapeHtml(summary.url)}</div>
-        <div class="meta">Started <time data-iso="${escapeHtml(summary.startedAt)}" datetime="${escapeHtml(summary.startedAt)}">${escapeHtml(summary.startedAt)}</time> · Duration ${formatNumber(summary.durationMs, 0)} ms</div>
+        <div class="meta">${headerTargetMarkup}</div>
+        <div class="meta">Started <time data-iso="${escapeHtml(view.startedAt)}" datetime="${escapeHtml(view.startedAt)}">${escapeHtml(view.startedAt)}</time> · Duration ${formatNumber(view.durationMs, 0)} ms</div>
       </div>
       <div class="header-actions">
         <div class="view-toggle-group" role="group" aria-label="Report view mode">
@@ -2444,19 +2545,12 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
 
     <section id="overview" class="section card summary-card" data-view-section="simple">
       <h2>Executive Summary</h2>
-      <p>
-        Overall status is <strong>${escapeHtml(summary.overallStatus.toUpperCase())}</strong>.
-        This report combines automated accessibility, Lighthouse performance diagnostics,
-        and deterministic visual diff checks for a single review surface.
-      </p>
+      <p>${overviewCopy}</p>
       <div class="status-chip-row">
         ${statusChipsMarkup}
       </div>
       <div class="summary-points">
-        <div class="summary-point">Accessibility step: ${statusPill(summary.steps.a11y)}</div>
-        <div class="summary-point">Performance step: ${statusPill(summary.steps.perf)}</div>
-        <div class="summary-point">Visual step: ${statusPill(summary.steps.visual)}</div>
-        <div class="summary-point">Captured screenshots: ${summary.screenshots.length}</div>
+        ${summaryPointsMarkup}
       </div>
     </section>
 
@@ -2464,24 +2558,27 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
       <h2>Action Plan</h2>
       <p class="muted">Prioritized remediation guidance generated from accessibility, performance, visual, and runtime failures.</p>
       ${insightMarkup}
+      ${trendInsightMarkup}
     </section>
+
+    ${targetCoverageSection}
 
     <div class="grid">
       <div class="card">
         <h3>Overall</h3>
-        <strong>${statusPill(summary.overallStatus)}</strong>
+        <strong>${statusPill(view.overallStatus)}</strong>
       </div>
       <div class="card">
         <h3>Accessibility</h3>
-        <strong>${statusPill(summary.steps.a11y)}</strong>
+        <strong>${statusPill(view.steps.a11y)}</strong>
       </div>
       <div class="card">
         <h3>Performance</h3>
-        <strong>${statusPill(summary.steps.perf)}</strong>
+        <strong>${statusPill(view.steps.perf)}</strong>
       </div>
       <div class="card">
         <h3>Visual</h3>
-        <strong>${statusPill(summary.steps.visual)}</strong>
+        <strong>${statusPill(view.steps.visual)}</strong>
       </div>
     </div>
 
@@ -2491,6 +2588,7 @@ export function renderReportTemplate(summary: Summary | SummaryV2): string {
         <summary>More info</summary>
         <p>Category scores come from Lighthouse (0-100). Simple view surfaces quick quality posture, detailed view adds diagnostics and opportunities.</p>
       </details>
+      ${primaryDetailNote}
       <div class="scores-layout">
         <div class="scores-radar card">
           ${radarChartMarkup}

@@ -10,6 +10,7 @@ import { buildHtmlReport } from "./report/html.js";
 import { buildInsights } from "./report/insights.js";
 import { buildActionPlanMarkdown } from "./report/actionPlan.js";
 import { buildTrendDashboardHtml } from "./report/trendDashboard.js";
+import type { AggregateHtmlReport } from "./report/viewModel.js";
 import {
   ensureDir,
   validateOutputDirectory,
@@ -50,6 +51,7 @@ type OverallStatus = "pass" | "fail";
 export type { Summary, SummaryV2 } from "./report/summary.js";
 export { SCHEMA_VERSION } from "./report/summary.js";
 export type { Config } from "./config/schema.js";
+export type { AggregateHtmlReport, HtmlReportSource, ReportViewModel } from "./report/viewModel.js";
 export type {
   TrendNumericDelta,
   TrendPageDelta,
@@ -366,6 +368,8 @@ export async function runAudit(
     ? "fail"
     : "pass";
   const runInsights = aggregateRunInsights(results);
+  const pages = results.map((result) => buildPageEntry(result));
+  const rollup = buildRollup(pages);
 
   const compatibilitySummary: Summary = {
     ...results[0]!.summary,
@@ -380,26 +384,6 @@ export async function runAudit(
   };
 
   await writeJson(path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summary), compatibilitySummary);
-
-  // Render report.html from the richer v2 payload so detailed Lighthouse/runtime
-  // sections (including extended vitals) are available in the UI.
-  const reportSummary: SummaryV2 = {
-    ...results[0]!.summaryV2,
-    overallStatus,
-    durationMs: compatibilitySummary.durationMs,
-    steps: compatibilitySummary.steps,
-    artifacts: {
-      ...results[0]!.summaryV2.artifacts,
-      summary: summaryReport.SUMMARY_ARTIFACT_NAMES.summary,
-      summaryV2: summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2,
-      report: summaryReport.SUMMARY_ARTIFACT_NAMES.report
-    },
-    insights: runInsights ?? results[0]!.summaryV2.insights ?? null
-  };
-  await writeText(path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.report), buildHtmlReport(reportSummary));
-
-  const pages = results.map((result) => buildPageEntry(result));
-  const rollup = buildRollup(pages);
 
   const trendSettings = resolveTrendSettings(config);
   const trendHistoryDir = path.isAbsolute(trendSettings.historyDir)
@@ -474,7 +458,20 @@ export async function runAudit(
   }
 
   await writeJson(path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2), summaryV2);
-  await writeText(actionPlanPath, buildActionPlanMarkdown(summaryV2.insights ?? null));
+  const reportSource: AggregateHtmlReport = {
+    kind: "aggregate",
+    summary: summaryV2,
+    steps: compatibilitySummary.steps
+  };
+
+  await writeText(
+    path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.report),
+    buildHtmlReport(reportSource)
+  );
+  await writeText(
+    actionPlanPath,
+    buildActionPlanMarkdown(summaryV2.insights ?? null, summaryV2.trend.insights)
+  );
 
   if (trendSettings.enabled) {
     await writeJson(trendHistoryJsonPath, summaryV2.trend.history);
