@@ -36,7 +36,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement at the contact information listed in the Security Policy.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by opening an issue for the maintainers in this repository or by contacting the repository owner through https://github.com/Jahrome907. GitHub Security Advisories are reserved for vulnerability reports and should not be used for Code of Conduct matters.
 
 ## Enforcement Guidelines
 

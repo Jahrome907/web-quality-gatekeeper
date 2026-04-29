@@ -326,10 +326,20 @@ describe("runAudit orchestration", () => {
     expect(summaryV2Args.runtimeSignals).toEqual(createRuntimeSignals());
     expect(summaryV2Args.artifacts.summaryV2).toBe("summary.v2.json");
 
-    const reportSummaryArg = mockBuildHtmlReport.mock.calls.at(-1)?.[0] as SummaryV2;
-    expect(reportSummaryArg.performance?.extendedMetrics?.fcpMs).toBe(900);
-    expect(reportSummaryArg.performance?.categoryScores?.performance).toBe(0.95);
-    expect(reportSummaryArg.runtimeSignals).toEqual(createRuntimeSignals());
+    const reportSummaryArg = mockBuildHtmlReport.mock.calls.at(-1)?.[0] as {
+      kind: string;
+      summary: {
+        mode: string;
+        trend: { insights: unknown[] };
+        pages: Array<{ details?: SummaryV2 }>;
+      };
+    };
+    expect(reportSummaryArg.kind).toBe("aggregate");
+    expect(reportSummaryArg.summary.mode).toBe("single");
+    expect(reportSummaryArg.summary.trend.insights).toEqual([]);
+    expect(reportSummaryArg.summary.pages[0]?.details?.performance?.extendedMetrics?.fcpMs).toBe(900);
+    expect(reportSummaryArg.summary.pages[0]?.details?.performance?.categoryScores?.performance).toBe(0.95);
+    expect(reportSummaryArg.summary.pages[0]?.details?.runtimeSignals).toEqual(createRuntimeSignals());
   });
 
   it("skips disabled checks and passes null summaries", async () => {

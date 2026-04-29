@@ -243,3 +243,74 @@ export async function resolveAuditedTarget(
     classification
   };
 }
+
+export interface VerifiedAuditTarget {
+  url: string;
+  hostResolverRules: string | null;
+}
+
+export interface NavigationTargetVerifierOptions {
+  initialTrustedHosts?: Iterable<[string, string | null]>;
+  trustResolvedHosts?: boolean;
+}
+
+export class NavigationTargetVerifier {
+  private readonly verifiedTargets = new Map<string, VerifiedAuditTarget>();
+  private readonly trustedHostResolverRules = new Map<string, string | null>();
+  private readonly trustResolvedHosts: boolean;
+
+  constructor(
+    private readonly logger: WarningLogger,
+    private readonly policy: TargetResolutionPolicy | null | undefined,
+    options: NavigationTargetVerifierOptions = {}
+  ) {
+    this.trustResolvedHosts = options.trustResolvedHosts ?? true;
+    for (const [hostname, hostResolverRules] of options.initialTrustedHosts ?? []) {
+      this.trustedHostResolverRules.set(normalizeHostname(hostname), hostResolverRules);
+    }
+  }
+
+  async verify(targetUrl: string, context: string): Promise<VerifiedAuditTarget | null> {
+    if (!this.policy) {
+      return null;
+    }
+
+    const existing = this.verifiedTargets.get(targetUrl);
+    if (existing) {
+      return existing;
+    }
+
+    const targetHostname = normalizeUrlHostname(targetUrl);
+    if (this.trustedHostResolverRules.has(targetHostname)) {
+      const trustedTarget = {
+        url: new URL(targetUrl).toString(),
+        hostResolverRules: this.trustedHostResolverRules.get(targetHostname) ?? null
+      };
+      this.cacheVerifiedTarget(targetUrl, trustedTarget);
+      return trustedTarget;
+    }
+
+    const resolvedTarget = await resolveAuditedTarget(targetUrl, this.logger, this.policy, {
+      context
+    });
+    const verifiedTarget = {
+      url: resolvedTarget.url,
+      hostResolverRules: resolvedTarget.hostResolverRules
+    };
+
+    if (this.trustResolvedHosts) {
+      this.trustedHostResolverRules.set(
+        resolvedTarget.classification.hostname,
+        resolvedTarget.hostResolverRules
+      );
+      this.cacheVerifiedTarget(targetUrl, verifiedTarget);
+    }
+
+    return verifiedTarget;
+  }
+
+  private cacheVerifiedTarget(targetUrl: string, verifiedTarget: VerifiedAuditTarget): void {
+    this.verifiedTargets.set(targetUrl, verifiedTarget);
+    this.verifiedTargets.set(verifiedTarget.url, verifiedTarget);
+  }
+}

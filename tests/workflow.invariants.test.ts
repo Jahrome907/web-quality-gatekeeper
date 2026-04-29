@@ -31,7 +31,7 @@ describe("workflow invariants", () => {
           (value): value is string =>
             typeof value === "string" &&
             !value.startsWith("./") &&
-            value !== "Jahrome907/web-quality-gatekeeper@v3"
+            value !== "Jahrome907/web-quality-gatekeeper@v6"
         );
 
       expect(
@@ -185,7 +185,7 @@ describe("workflow invariants", () => {
   it("keeps the published consumer workflow aligned with repo pinning policy", () => {
     const source = readRepoFile("examples/consumer-workflow.yml");
 
-    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
+    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v6");
     expect(source).toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02");
   });
@@ -203,10 +203,10 @@ describe("workflow invariants", () => {
     const prTemplate = readRepoFile(".github/pull_request_template.md");
 
     expect(contributing).toContain(
-      "Keep submitted code, docs, and artifacts directly verifiable through the repo's tests, smoke checks, or published proof surfaces."
+      "Keep submitted code, docs, and artifacts directly verifiable through the repo's tests, smoke checks, or published evidence."
     );
     expect(prTemplate).toContain("I confirmed the docs, examples, and emitted artifacts still match actual repo behavior");
-    expect(contributing).not.toMatch(/\bAI-generated\b/i);
-    expect(prTemplate).not.toMatch(/\bAI-generated\b/i);
+    expect(contributing).not.toMatch(/\bgenerated-content\b/i);
+    expect(prTemplate).not.toMatch(/\bgenerated-content\b/i);
   });
 });

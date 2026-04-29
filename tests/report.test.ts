@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildHtmlReport } from "../src/report/html.js";
-import type { Summary } from "../src/report/summary.js";
+import type { Summary, SummaryV2 } from "../src/report/summary.js";
+import type { AggregateHtmlReport } from "../src/report/viewModel.js";
 
 const summary: Summary = {
   $schema:
@@ -118,6 +119,45 @@ const summary: Summary = {
     maxMismatchRatio: 0
   }
 };
+
+function createSummaryV2(overrides?: Partial<SummaryV2>): SummaryV2 {
+  return {
+    ...summary,
+    $schema:
+      "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+    schemaVersion: "2.2.0",
+    artifacts: {
+      ...summary.artifacts,
+      summaryV2: "summary.v2.json"
+    },
+    runtimeSignals: {
+      console: {
+        total: 0,
+        errorCount: 0,
+        warningCount: 0,
+        dropped: 0,
+        messages: []
+      },
+      jsErrors: {
+        total: 0,
+        dropped: 0,
+        errors: []
+      },
+      network: {
+        totalRequests: 4,
+        failedRequests: 0,
+        transferSizeBytes: 2048,
+        resourceTypeBreakdown: {
+          document: 1,
+          script: 2,
+          stylesheet: 1
+        }
+      }
+    },
+    insights: null,
+    ...overrides
+  };
+}
 
 describe("buildHtmlReport", () => {
   it("renders key sections", () => {
@@ -370,5 +410,192 @@ describe("buildHtmlReport", () => {
     expect(categorySection?.[0]).toMatch(
       /<tspan x="[^"]+" class="radar-label-text">Best<\/tspan>\s*<tspan x="[^"]+" dy="16" class="radar-score">88<\/tspan>/
     );
+  });
+
+  it("renders aggregate coverage honestly and includes trend insights for root reports", () => {
+    const landing = createSummaryV2({
+      url: "https://example.com/",
+      screenshots: [
+        {
+          name: "landing",
+          path: "pages/01-landing/screenshots/home.png",
+          url: "https://example.com/",
+          fullPage: true
+        }
+      ]
+    });
+    const pricing = createSummaryV2({
+      url: "https://example.com/pricing",
+      screenshots: [
+        {
+          name: "pricing",
+          path: "pages/02-pricing/screenshots/home.png",
+          url: "https://example.com/pricing",
+          fullPage: true
+        }
+      ]
+    });
+    const aggregateReport: AggregateHtmlReport = {
+      kind: "aggregate",
+      steps: {
+        playwright: "pass",
+        a11y: "pass",
+        perf: "pass",
+        visual: "pass"
+      },
+      summary: {
+        $schema:
+          "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+        schemaVersion: "2.2.0",
+        toolVersion: "6.1.2",
+        mode: "multi",
+        overallStatus: "pass",
+        startedAt: "2026-04-29T00:00:00.000Z",
+        durationMs: 3456,
+        primaryUrl: "https://example.com/",
+        schemaPointers: {
+          v1: "https://example.com/summary.v1.json",
+          v2: "https://example.com/summary.v2.json"
+        },
+        schemaVersions: {
+          v1: "1.1.0",
+          v2: "2.2.0"
+        },
+        compatibility: {
+          v1SummaryPath: "summary.json",
+          v1Schema: "https://example.com/summary.v1.json",
+          v1SchemaVersion: "1.1.0",
+          note: "compat"
+        },
+        artifacts: {
+          summary: "summary.json",
+          summaryV2: "summary.v2.json",
+          report: "report.html",
+          trendDashboardHtml: null,
+          trendHistoryJson: null,
+          actionPlanMd: "action-plan.md"
+        },
+        rollup: {
+          pageCount: 2,
+          failedPages: 0,
+          a11yViolations: 0,
+          performanceBudgetFailures: 0,
+          visualFailures: 0
+        },
+        pages: [
+          {
+            index: 0,
+            name: "landing",
+            url: "https://example.com/",
+            overallStatus: "pass",
+            startedAt: landing.startedAt,
+            durationMs: landing.durationMs,
+            steps: landing.steps,
+            artifacts: {
+              summary: "pages/01-landing/summary.json",
+              summaryV2: "pages/01-landing/summary.v2.json",
+              report: "pages/01-landing/report.html"
+            },
+            metrics: {
+              a11yViolations: 0,
+              performanceScore: 0.92,
+              maxMismatchRatio: 0,
+              consoleErrors: 0,
+              jsErrors: 0,
+              failedRequests: 0
+            },
+            details: landing
+          },
+          {
+            index: 1,
+            name: "pricing",
+            url: "https://example.com/pricing",
+            overallStatus: "pass",
+            startedAt: pricing.startedAt,
+            durationMs: pricing.durationMs,
+            steps: pricing.steps,
+            artifacts: {
+              summary: "pages/02-pricing/summary.json",
+              summaryV2: "pages/02-pricing/summary.v2.json",
+              report: "pages/02-pricing/report.html"
+            },
+            metrics: {
+              a11yViolations: 0,
+              performanceScore: 0.91,
+              maxMismatchRatio: 0,
+              consoleErrors: 0,
+              jsErrors: 0,
+              failedRequests: 0
+            },
+            details: pricing
+          }
+        ],
+        trend: {
+          status: "ready",
+          historyDir: ".wqg-history",
+          previousSnapshotPath: "prev.summary.v2.json",
+          message: null,
+          metrics: null,
+          pages: [],
+          history: null,
+          insights: [
+            {
+              id: "trend:perf-regression",
+              severity: "medium",
+              title: "Performance budget failures increased",
+              recommendation: "Address high-savings Lighthouse opportunities before tightening budgets."
+            }
+          ]
+        },
+        insights: {
+          recommendations: [
+            {
+              id: "runtime:errors",
+              source: "runtime",
+              severity: "medium",
+              title: "Fix runtime and console errors",
+              why: "Runtime errors often cause broken UX and can mask quality regressions.",
+              evidence: ["Console errors: 0"],
+              remediation: ["Triage top repeated error signatures first."],
+              verification: ["Re-run WQG and verify runtime error counts trend downward."],
+              expectedImpact: "Improved runtime stability and fewer downstream test failures.",
+              references: []
+            }
+          ]
+        }
+      }
+    };
+
+    const html = buildHtmlReport(aggregateReport);
+    expect(html).toContain("Aggregate report for 2 pages");
+    expect(html).toContain("<h2>Target Coverage</h2>");
+    expect(html).toContain('data-target-coverage-table="true"');
+    expect(html).toContain("landing");
+    expect(html).toContain("pricing");
+    expect(html).toContain("https://example.com/");
+    expect(html).toContain("https://example.com/pricing");
+    expect(html).toContain("Detailed metrics below represent the primary page landing");
+    expect(html).toContain("Trend Insights");
+    expect(html).toContain("Performance budget failures increased");
+
+    const singleTargetReport: AggregateHtmlReport = {
+      ...aggregateReport,
+      summary: {
+        ...aggregateReport.summary,
+        mode: "single",
+        rollup: {
+          ...aggregateReport.summary.rollup,
+          pageCount: 1
+        },
+        pages: [aggregateReport.summary.pages[0]!]
+      }
+    };
+    const singleTargetHtml = buildHtmlReport(singleTargetReport);
+
+    expect(singleTargetHtml).toContain("https://example.com/");
+    expect(singleTargetHtml).toContain("Trend Insights");
+    expect(singleTargetHtml).toContain("Performance budget failures increased");
+    expect(singleTargetHtml).not.toContain("Aggregate report for 1 pages");
+    expect(singleTargetHtml).not.toContain("<h2>Target Coverage</h2>");
   });
 });

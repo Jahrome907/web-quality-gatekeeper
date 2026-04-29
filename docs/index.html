@@ -636,7 +636,7 @@
         <div class="brand-mark">WQG</div>
         <div class="brand-copy">
           <strong>Web Quality Gatekeeper</strong>
-          <span>Release-grade web quality gates with inspectable evidence.</span>
+          <span>Web quality audits with inspectable evidence.</span>
         </div>
       </div>
       <nav class="nav">
@@ -651,23 +651,22 @@
     <main id="main">
       <section class="hero">
         <div class="hero-card">
-          <span class="eyebrow">Inspectable OSS proof surface</span>
+          <span class="eyebrow">Inspectable OSS evidence</span>
           <h1>Gate web changes with artifacts you can actually open.</h1>
           <p class="hero-copy">
             Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans,
-            Lighthouse budgets, and visual regression in one CLI and GitHub Action. The point
-            is not a green check. The point is a proof surface your team can inspect: HTML
-            report, machine-readable summaries, screenshots, and policy-backed workflow behavior.
+            Lighthouse budgets, and visual regression in one CLI and GitHub Action. Install
+            the CLI from npm for local checks, or use the GitHub Action for CI gating.
           </p>
           <div class="cta-row">
             <a class="button" href="proof/fixture-report.html">Open Sample Report</a>
-            <a class="button-secondary" href="#adopt">Adopt In 5 Minutes</a>
-            <a class="button-secondary" href="#trust">Why Trust It</a>
+            <a class="button-secondary" href="#adopt">Usage Paths</a>
+            <a class="button-secondary" href="https://github.com/Jahrome907/web-quality-gatekeeper#readme">README</a>
           </div>
           <div class="fact-strip" aria-label="Key project facts">
             <div class="fact">
               <strong><code>wqg audit</code></strong>
-              <span>Stable CLI entrypoint preserved through this release cycle.</span>
+              <span>Primary CLI entrypoint for local npm and CI runs.</span>
             </div>
             <div class="fact">
               <strong><code>summary.json</code> + <code>summary.v2.json</code></strong>
@@ -682,11 +681,11 @@
 
         <aside class="evidence-card" aria-labelledby="proof-run-title">
           <span class="section-kicker">Published proof run</span>
-          <h2 id="proof-run-title">A real fixture audit, checked in with provenance.</h2>
+          <h2 id="proof-run-title">A fixture audit with published artifacts and provenance.</h2>
           <div class="evidence-grid">
             <div class="metric">
               <strong>7.6 s</strong>
-              <span>Total runtime for the published proof run.</span>
+              <span>Total runtime for the sample proof run.</span>
             </div>
             <div class="metric">
               <strong>0.99</strong>
@@ -714,7 +713,7 @@
               <a href="proof/fixture-action-plan.md">action-plan.md</a>.
             </p>
             <p>
-              <strong>Proof bundle version:</strong> 3.1.3.
+              <strong>Proof bundle version:</strong> 6.1.2.
               <strong>Release source:</strong> GitHub tags and Releases, not a working-branch package field.
             </p>
           </div>
@@ -724,12 +723,12 @@
       <section class="section" id="proof">
         <div class="section-head">
           <div>
-            <span class="section-kicker">Proof Surface</span>
+            <span class="section-kicker">Published Evidence</span>
             <h2>See the exact artifacts a reviewer would inspect.</h2>
             <p>
-              The landing page should not ask anyone to trust feature claims. This page links to
-              real artifacts generated from a committed fixture and exposes the exact docs needed
-              to reproduce or challenge the result.
+              Open the same report, summary, and raw evidence files a reviewer would use.
+              Everything linked here comes from a committed fixture run and can be reproduced
+              from the repository docs.
             </p>
           </div>
         </div>
@@ -738,8 +737,8 @@
           <article class="panel">
             <h3>Live report preview</h3>
             <p>
-              This is not a static mockup. The panel below is the published sample
-              <code>report.html</code> committed under <code>docs/proof/</code>.
+              The panel below embeds the sample <code>report.html</code> committed under
+              <code>docs/proof/</code>.
             </p>
             <iframe
               class="artifact-frame"
@@ -830,29 +829,19 @@
         <div class="section-head">
           <div>
             <span class="section-kicker">Adopt In 5 Minutes</span>
-            <h2>Pick the path that matches how you ship.</h2>
+            <h2>Pick the path that matches how you want to use the project.</h2>
             <p>
-              The consumer path should not look like contributor setup. Use the CLI if you want a
-              local or CI script immediately. Use the composite Action if you want a copy-paste
-              GitHub workflow in an existing repo.
+              Public usage is split into two lanes. Install the CLI from npm when you want local
+              checks or scripted CI usage, or use the GitHub Action in your own repository. Both
+              lanes become public once the tagged release workflow completes.
             </p>
           </div>
         </div>
 
         <div class="adoption-grid">
           <article class="adoption-card">
-            <h3>Use it from your existing repo</h3>
-            <p>Install the package, download Playwright once, and keep the generated artifacts in your CI output.</p>
-            <pre tabindex="0" aria-label="CLI adoption example"><code>npm i -D web-quality-gatekeeper
-npx playwright install
-npx wqg audit https://your-site.example \
-  --out artifacts \
-  --config configs/default.json</code></pre>
-          </article>
-
-          <article class="adoption-card">
-            <h3>Use the GitHub Action path</h3>
-            <p>Start from the composite Action when you want a repo-native check with artifact upload and policy controls.</p>
+            <h3>Use the GitHub Action in your repo</h3>
+            <p>This is the supported consumer path for CI usage in a separate repository.</p>
             <pre tabindex="0" aria-label="GitHub Action adoption example"><code>jobs:
   web-quality:
     runs-on: ubuntu-latest
@@ -860,14 +849,23 @@ npx wqg audit https://your-site.example \
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
-      - uses: Jahrome907/web-quality-gatekeeper@v3
+      - uses: Jahrome907/web-quality-gatekeeper@v6
         with:
           url: https://your-site.example
           baseline-dir: baselines</code></pre>
-          <p style="margin-top: 12px;">
-            Action consumers keep the same protected output names and can still inspect
-            <code>summary.json</code>, <code>summary.v2.json</code>, and <code>report.html</code>.
-          </p>
+          </article>
+
+          <article class="adoption-card">
+            <h3>Run the CLI from npm</h3>
+            <p>Use this path when you want local evaluation or scripted CI usage.</p>
+            <pre tabindex="0" aria-label="CLI adoption example"><code>npm i -D web-quality-gatekeeper
+npx playwright install
+npx wqg audit https://your-site.example --policy marketing</code></pre>
+            <p style="margin-top: 12px;">
+              If you need custom settings, keep them in a consumer-owned path such as
+              <code>.github/web-quality/config.json</code> rather than copying repo-internal
+              maintainer paths.
+            </p>
         </article>
         </div>
       </section>
@@ -878,8 +876,8 @@ npx wqg audit https://your-site.example \
             <span class="section-kicker">Workflow</span>
             <h2>One run produces both human review surface and automation surface.</h2>
             <p>
-              The tool is intentionally opinionated about what gets emitted so a maintainer, a CI
-              workflow, and a downstream dashboard are all looking at the same run.
+              One audit writes the review artifacts and summary contracts that teams usually end
+              up assembling by hand across separate tools.
             </p>
           </div>
         </div>
@@ -914,9 +912,8 @@ npx wqg audit https://your-site.example \
             <span class="section-kicker">Why Trust It</span>
             <h2>Trust comes from explicit contracts, reproducibility, and boring guardrails.</h2>
             <p>
-              This repo is trying to read like disciplined engineering work, not a feature dump.
-              The public story should point directly at the rules, tests, and compatibility documents
-              that make the outputs credible.
+              The public docs point to the rules, sample outputs, and compatibility notes that
+              explain what the tool does and what it promises to keep stable.
             </p>
           </div>
         </div>
@@ -925,9 +922,9 @@ npx wqg audit https://your-site.example \
           <article class="trust-card">
             <h3>Why this exists</h3>
             <p>
-              Many QA wrappers stop at pass/fail. That leaves reviewers to chase screenshots, logs,
-              and schema assumptions across tools. WQG keeps the evidence bundle in one place so
-              decisions are inspectable and repeatable.
+              Many QA wrappers stop at pass or fail. That leaves reviewers to chase screenshots,
+              logs, and schema assumptions across tools. WQG keeps the evidence bundle in one
+              place so teams can review one artifact set instead of reconstructing it later.
             </p>
             <ul class="list">
               <li>One run for smoke, a11y, perf, and visual review.</li>
@@ -937,12 +934,12 @@ npx wqg audit https://your-site.example \
           </article>
 
           <article class="trust-card">
-            <h3>Differentiators that are easy to miss in a feature grid</h3>
+            <h3>What the public docs substantiate</h3>
             <ul class="list">
-              <li>Schema and docs are contract-checked, not hand-waved.</li>
-              <li>Workflow behavior is hardened for forks, token limits, and release-tag safety.</li>
-              <li>CLI, Action, and summary contracts are explicitly held stable in this cycle.</li>
-              <li>Case-study claims are backed by reproducibility docs and checked-in sample evidence.</li>
+              <li>Schema and docs are contract-checked.</li>
+              <li>Workflow behavior documents how fork, token, and release-tag safety are handled.</li>
+              <li>CLI, Action, and summary contracts are described as public surfaces.</li>
+              <li>Case-study claims link back to reproducibility docs and committed sample evidence.</li>
             </ul>
           </article>
         </div>
@@ -974,7 +971,7 @@ npx wqg audit https://your-site.example \
     </main>
 
     <footer class="footer">
-      <div>Web Quality Gatekeeper is an MIT-licensed CLI and GitHub Action for release-grade web quality gating.</div>
+      <div>Web Quality Gatekeeper is an MIT-licensed CLI and GitHub Action for web quality audits.</div>
       <div class="footer-links">
         <a href="https://github.com/Jahrome907/web-quality-gatekeeper">Repository</a>
         <a href="proof/fixture-report.html">Sample report</a>

@@ -15,9 +15,9 @@ import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
 import { applyScopedAuthHeaders } from "../utils/auth.js";
 import {
+  NavigationTargetVerifier,
   isAuditableHttpUrl,
   normalizeUrlHostname,
-  resolveAuditedTarget,
   UsageError,
   type TargetResolutionPolicy
 } from "../utils/url.js";
@@ -343,42 +343,10 @@ async function launchNavigatedPage(
   let context: BrowserContext | null = null;
   let page: Page | null = null;
   const blockedRequestState: BlockedRequestState = { error: null };
-  const verifiedNavigationTargets = new Map<string, { url: string; hostResolverRules: string | null }>();
-  const trustedHostResolverRules = new Map(initialTrustedHosts);
-
-  const verifyNavigationTarget = async (targetUrl: string, contextLabel: string) => {
-    if (!options.targetPolicy) {
-      return null;
-    }
-
-    const existing = verifiedNavigationTargets.get(targetUrl);
-    if (existing) {
-      return existing;
-    }
-
-    const targetHostname = normalizeUrlHostname(targetUrl);
-    if (trustedHostResolverRules.has(targetHostname)) {
-      const trustedTarget = {
-        url: new URL(targetUrl).toString(),
-        hostResolverRules: trustedHostResolverRules.get(targetHostname) ?? null
-      };
-      verifiedNavigationTargets.set(targetUrl, trustedTarget);
-      verifiedNavigationTargets.set(trustedTarget.url, trustedTarget);
-      return trustedTarget;
-    }
-
-    const resolvedTarget = await resolveAuditedTarget(targetUrl, logger, options.targetPolicy, {
-      context: contextLabel
-    });
-    const verifiedTarget = {
-      url: resolvedTarget.url,
-      hostResolverRules: resolvedTarget.hostResolverRules
-    };
-    trustedHostResolverRules.set(resolvedTarget.classification.hostname, resolvedTarget.hostResolverRules);
-    verifiedNavigationTargets.set(targetUrl, verifiedTarget);
-    verifiedNavigationTargets.set(verifiedTarget.url, verifiedTarget);
-    return verifiedTarget;
-  };
+  const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
+    initialTrustedHosts,
+    trustResolvedHosts: true
+  });
 
   try {
     context = await browser.newContext({
@@ -411,7 +379,7 @@ async function launchNavigatedPage(
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
           try {
             const contextLabel = request.isNavigationRequest() ? "navigation target" : "request target";
-            await verifyNavigationTarget(request.url(), contextLabel);
+            await navigationTargetVerifier.verify(request.url(), contextLabel);
           } catch (error) {
             recordBlockedRequest(blockedRequestState, error);
             await route.abort("blockedbyclient");
@@ -449,7 +417,7 @@ async function launchNavigatedPage(
       context,
       page: createdPage,
       runtimeSignals,
-      resolvedTarget: await verifyNavigationTarget(createdPage.url(), "final navigation target")
+      resolvedTarget: await navigationTargetVerifier.verify(createdPage.url(), "final navigation target")
     };
   } catch (error) {
     await closeQuietly(page, logger, "page");

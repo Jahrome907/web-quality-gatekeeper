@@ -3,13 +3,15 @@
 [![Quality Gate](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
 [![Pack Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml)
 [![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
-[![Source Version 3.1.3](https://img.shields.io/badge/source-3.1.3-17355c?logo=git&logoColor=white)](./package.json)
+[![Source Version 6.1.2](https://img.shields.io/badge/source-6.1.2-17355c?logo=git&logoColor=white)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-A production-ready quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs on every PR. Outputs a clean HTML report plus machine-readable JSON summaries.
+A quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs. It produces an HTML report plus machine-readable JSON summaries for local review and GitHub-based workflows.
 
 Release source of truth: use GitHub tags and Releases for published versions. The `package.json` version on `main` may move ahead during release preparation.
+
+Distribution status: tagged releases publish the npm package and GitHub Action major tag from the same validated source. If npm or the major Action tag is unavailable, the release has not completed; GitHub Releases remain the source of truth.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
@@ -17,12 +19,18 @@ Release source of truth: use GitHub tags and Releases for published versions. Th
 
 The diagram follows the same three-step audit path described below: validate and pin the target, collect evidence once against the resolved host, then emit stable outputs for people and CI.
 
-## Install
+## Supported Usage
+
+Use one of these public entry points:
+
+- npm CLI in your own repository for local checks or scripted CI usage.
+- GitHub Action in your own repository for CI-first adoption.
+- Source checkout when you want to contribute to this repository.
 
 ```bash
 npm i -D web-quality-gatekeeper
-npx playwright install                    # one-time browser download (~250 MB)
-npx wqg audit https://your-site.com       # that's it — results in ~30-90 s for a single page
+npx playwright install
+npx wqg audit https://your-site.example --policy marketing
 ```
 
 > The CLI writes `artifacts/report.html`, `artifacts/summary.json`, and `artifacts/summary.v2.json` by default.
@@ -32,27 +40,32 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 </p>
 
 <p align="center">
-  Proof sample: inspect the published <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-report.html">fixture report</a>,
-  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-summary.v2.json">summary.v2.json</a>, and
-  <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-proof-config.json">proof config</a>.
-  The proof bundle is checked into <code>docs/proof/</code> and refreshed alongside proof-surface changes.
+  Proof sample: inspect the published <a href="https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-report.html">fixture report</a>,
+  <a href="https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-summary.v2.json">summary.v2.json</a>, and
+  <a href="https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-proof-config.json">proof config</a>.
+  The proof bundle is checked into <code>docs/proof/</code> and refreshed alongside published evidence changes.
 </p>
+
+If you prefer the repository source view, the same proof artifacts are also available as GitHub blob files:
+[report.html](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-report.html),
+[summary.v2.json](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-summary.v2.json), and
+[fixture-proof-config.json](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-proof-config.json).
 
 ## Table of Contents
 
-- [Install](#install)
+- [Supported Usage](#supported-usage)
 - [How It Works](#how-it-works)
 - [Proof & Reproducibility](#proof--reproducibility)
 - [Architecture & References](#architecture--references)
 - [Features](#features)
-- [Quickstart](#quickstart)
+- [Consumer Usage](#consumer-usage)
 - [CLI Usage](#cli-usage)
 - [Baseline Workflow](#baseline-workflow)
 - [Configuration](#config)
 - [CI Integration](#ci-github-action)
 - [Output](#output)
 - [FAQ / Gotchas](#faq--gotchas)
-- [Development](#development)
+- [Repo Development](#repo-development)
 - [Tech Stack](#tech-stack)
 - [License](#license)
 
@@ -64,8 +77,8 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 
 ## Proof & Reproducibility
 
-- Open the published sample [report.html](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-report.html) and [summary.v2.json](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-summary.v2.json).
-- Review the exact [proof config](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/proof/fixture-proof-config.json) used for the published fixture run.
+- Open the published sample [report.html](https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-report.html) and [summary.v2.json](https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-summary.v2.json).
+- Review the exact [proof config](https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-proof-config.json) used for the published fixture run.
 - Reproduce the local fixture walkthrough from [docs/case-study-run.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study-run.md).
 - See the public OSS evidence protocol in [docs/case-study/public-oss-repro.md](https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md).
 
@@ -90,13 +103,34 @@ npx wqg audit https://your-site.com       # that's it — results in ~30-90 s fo
 - **HTML & JSON Reports** — Human-readable reports plus machine-readable summaries
 - **GitHub Action + Workflow Template** — Composite Action for consumer repos, plus this repo's hardened CI workflow
 
-## Quickstart
+## Consumer Usage
+
+### GitHub Action in your repository
+
+This is the supported consumer path when you want CI gating without maintaining a fork of this project.
+
+```yaml
+jobs:
+  web-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: Jahrome907/web-quality-gatekeeper@v6
+        with:
+          url: https://your-site.example
+          baseline-dir: .github/web-quality/baselines
+```
+
+### Local CLI from npm
+
+Use this path when you want to inspect outputs locally before wiring CI.
 
 ```bash
-npm ci
+npm i -D web-quality-gatekeeper
 npx playwright install
-npm run build
-npm run audit -- https://example.com
+npx wqg audit https://your-site.example --policy marketing
 ```
 
 Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` / `artifacts/summary.v2.json` for summary data.
@@ -111,9 +145,10 @@ Common options:
 
 ```bash
 wqg audit https://example.com \
-  --config configs/default.json \
+  --policy marketing \
+  --config .github/web-quality/config.json \
   --out artifacts \
-  --baseline-dir baselines
+  --baseline-dir .github/web-quality/baselines
 ```
 
 Flags:
@@ -164,14 +199,14 @@ wqg audit https://example.com --format md --out artifacts > report.stdout.md
 1. Run once to create baselines:
 
 ```bash
-npm run audit -- https://example.com --set-baseline
+npx wqg audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
 ```
 
-1. Commit `baselines/` to track visual regression.
+1. Commit `.github/web-quality/baselines/` to track visual regression.
 
 ## Config
 
-Default config lives at `configs/default.json`.
+For a consuming repository, keep configuration in a path you own such as `.github/web-quality/config.json`. Start with a built-in policy when possible, then layer in only the settings your site actually needs.
 
 ```json
 {
@@ -182,7 +217,7 @@ Default config lives at `configs/default.json`.
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/3.1.3",
+    "userAgent": "wqg/6.1.2",
     "locale": "en-US",
     "colorScheme": "light"
   },
@@ -202,6 +237,8 @@ Default config lives at `configs/default.json`.
   "toggles": { "a11y": true, "perf": true, "visual": true }
 }
 ```
+
+The repository's maintainer default lives in `configs/default.json`, but that path is repo-internal and not the recommended public example for consumers.
 
 To opt into the native visual diff engine, point the config at a compiled binary and keep the TypeScript path as fallback:
 
@@ -223,6 +260,8 @@ This repo includes:
 
 - A composite Action (`action.yml`) you can call from your own workflows.
 - A hardened workflow (`.github/workflows/quality-gate.yml`) used by this repository.
+
+For most consumers, the composite Action is the supported starting point.
 
 Workflow behavior (`.github/workflows/quality-gate.yml`):
 
@@ -261,7 +300,9 @@ Example summary snippet:
 }
 ```
 
-## Development
+## Repo Development
+
+These commands are for maintainers and contributors working in this repository itself. Consumers using the Action do not need the full repo validation stack.
 
 ```bash
 npm ci

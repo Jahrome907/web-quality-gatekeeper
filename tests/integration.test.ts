@@ -421,7 +421,9 @@ describe("CLI integration", () => {
       expect(run.status).toBe(0);
 
       const summaryV2Path = path.join(multiOutDir, "summary.v2.json");
+      const reportPath = path.join(multiOutDir, "report.html");
       expect(existsSync(summaryV2Path), "summary.v2.json should exist").toBe(true);
+      expect(existsSync(reportPath), "report.html should exist").toBe(true);
 
       const summaryV2 = JSON.parse(await readFile(summaryV2Path, "utf8")) as {
         mode: string;
@@ -439,6 +441,15 @@ describe("CLI integration", () => {
       expect(summaryV2.pages.every((page) => page.artifacts.summaryV2.endsWith("summary.v2.json"))).toBe(
         true
       );
+
+      const html = await readFile(reportPath, "utf8");
+      expect(html).toContain("Aggregate report for 2 pages");
+      expect(html).toContain("Target Coverage");
+      expect(html).toContain("landing");
+      expect(html).toContain("pricing");
+      expect(html).toContain(`${baseUrl}/`);
+      expect(html).toContain(`${baseUrl}/pricing.html`);
+      expect(html).toContain("pill pass");
     } finally {
       await rm(multiRoot, { recursive: true, force: true });
     }

@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { copyFile, mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
+
+const ATOMIC_RENAME_RETRY_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
 
 function resolveExistingPath(path: string): string {
   try {
@@ -88,6 +91,30 @@ export async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+function isRetryableAtomicRenameError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException).code;
+  return typeof code === "string" && ATOMIC_RENAME_RETRY_CODES.has(code);
+}
+
+async function renameWithRetry(tempPath: string, destinationPath: string): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await rename(tempPath, destinationPath);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableAtomicRenameError(error) || attempt === 4) {
+        break;
+      }
+      await delay(25 * (attempt + 1));
+    }
+  }
+
+  throw lastError;
+}
+
 async function writeFileAtomic(path: string, content: string): Promise<void> {
   const outputDir = dirname(path);
   await ensureDir(outputDir);
@@ -96,7 +123,7 @@ async function writeFileAtomic(path: string, content: string): Promise<void> {
 
   try {
     await writeFile(tempPath, content, "utf8");
-    await rename(tempPath, path);
+    await renameWithRetry(tempPath, path);
   } catch (error) {
     try {
       await unlink(tempPath);

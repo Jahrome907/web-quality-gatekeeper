@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.2] - 2026-04-29
+
+### Changed
+
+- Public OSS docs now document npm CLI usage and GitHub Action usage as the supported consumer paths for the published release.
+- README and docs site examples now use consumer-owned config locations or built-in policies instead of repo-internal maintainer paths.
+- Public proof links now target the GitHub Pages docs site where the rendered artifacts are easiest to inspect.
+- Community conduct reporting now points to maintainer contact routes instead of GitHub Security Advisories.
+- Maintainer release dry runs now require the local Action smoke browser only in CI or when `WQG_ACTION_SMOKE_REQUIRED=true`; local Windows dry runs can use the smoke script's provisioned-environment skip path.
+- Maintainer release dry runs now give the full validation suite enough time to complete package-smoke and integration audits before continuing.
+- Playwright and Lighthouse target verification now share the same navigation target verifier while preserving their existing host trust behavior.
+
+### Fixed
+
+- Multi-target root `report.html` now renders aggregate target coverage instead of showing only the first page as the entire report.
+- Action-plan markdown and aggregate markdown now include trend insights when trend analysis produces them.
+- Runtime audit gating now runs through the exception-aware `security:audit` script, and the runtime lockfile is clean for current audit advisories.
+- Windows artifact writes now retry transient `EPERM`/`EBUSY`/`EACCES` rename failures without deleting the existing artifact if replacement ultimately fails.
+
 ## [3.1.3] - 2026-04-02
 
 ### Added
@@ -20,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Release and proof surfaces now align on `3.1.3` across package metadata, published proof assets, and compatibility documentation.
+- Release and evidence surfaces now align on `3.1.3` across package metadata, published proof assets, and compatibility documentation.
 - Local Action smoke now skips when Playwright's Chromium binary is unavailable instead of failing preflight in environments without browsers.
 
 ### Fixed
@@ -44,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Maintainer-facing release documentation:
   - architecture/change-surface map in `docs/engineering/ARCHITECTURE_MAP.md`
-  - release verification handoff in `docs/engineering/RELEASE_HANDOFF.md`
+  - release verification handoff guidance under `docs/engineering/`
 
 ### Changed
 
@@ -207,6 +226,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
-[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.3...HEAD
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v6.1.2...HEAD
+[6.1.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.1...v6.1.2
 [3.1.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.1...v3.1.2
 [3.1.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.2...v3.1.3

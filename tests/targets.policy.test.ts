@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Config } from "../src/config/schema.js";
 import { resolveTargets } from "../src/audit/orchestration.js";
-import { UsageError } from "../src/utils/url.js";
+import { NavigationTargetVerifier, UsageError } from "../src/utils/url.js";
 
 const { mockLookup } = vi.hoisted(() => ({
   mockLookup: vi.fn()
@@ -127,5 +127,66 @@ describe("target resolution security policy", () => {
     expect(logger.warn).toHaveBeenCalledWith(
       expect.stringContaining("Could not resolve example.invalid during SSRF safety checks")
     );
+  });
+
+  it("reuses initially trusted host resolver rules without re-resolving DNS", async () => {
+    const logger = { warn: vi.fn() };
+    const verifier = new NavigationTargetVerifier(
+      logger,
+      {
+        allowInternalTargets: false,
+        blockInternalTargets: true
+      },
+      {
+        initialTrustedHosts: [["example.com", "MAP example.com 203.0.113.10"]]
+      }
+    );
+
+    await expect(verifier.verify("https://example.com/docs", "navigation target")).resolves.toEqual({
+      url: "https://example.com/docs",
+      hostResolverRules: "MAP example.com 203.0.113.10"
+    });
+    expect(mockLookup).not.toHaveBeenCalled();
+  });
+
+  it("can promote resolved hosts to trusted targets for browser relaunch flows", async () => {
+    mockLookup.mockResolvedValueOnce([{ address: "203.0.113.10", family: 4 }]);
+    const logger = { warn: vi.fn() };
+    const verifier = new NavigationTargetVerifier(logger, {
+      allowInternalTargets: false,
+      blockInternalTargets: true
+    });
+
+    await expect(verifier.verify("https://example.com/", "navigation target")).resolves.toEqual({
+      url: "https://example.com/",
+      hostResolverRules: "MAP example.com 203.0.113.10"
+    });
+    await expect(verifier.verify("https://example.com/pricing", "request target")).resolves.toEqual({
+      url: "https://example.com/pricing",
+      hostResolverRules: "MAP example.com 203.0.113.10"
+    });
+    expect(mockLookup).toHaveBeenCalledTimes(1);
+  });
+
+  it("can avoid promoting resolved hosts when the launched browser cannot use new resolver rules", async () => {
+    mockLookup
+      .mockResolvedValueOnce([{ address: "203.0.113.10", family: 4 }])
+      .mockResolvedValueOnce([{ address: "203.0.113.10", family: 4 }]);
+    const logger = { warn: vi.fn() };
+    const verifier = new NavigationTargetVerifier(
+      logger,
+      {
+        allowInternalTargets: false,
+        blockInternalTargets: true
+      },
+      {
+        trustResolvedHosts: false
+      }
+    );
+
+    await verifier.verify("https://example.com/", "Lighthouse target");
+    await verifier.verify("https://example.com/pricing", "Lighthouse request target");
+
+    expect(mockLookup).toHaveBeenCalledTimes(2);
   });
 });

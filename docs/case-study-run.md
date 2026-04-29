@@ -52,6 +52,6 @@ node scripts/case-study/run-fixture-case-study.mjs --out-dir .tmp-case-study
 
 ## Notes
 
-- This fixture run is for reproducibility and proof-surface verification, not ROI comparison across two commits.
+- This fixture run is for reproducibility and evidence verification, not ROI comparison across two commits.
 - The fixture happy path intentionally keeps performance and visual checks off so the clean-clone script remains stable across machines.
 - For public baseline/improved case studies, use the stricter protocol in `docs/case-study/public-oss-repro.md`.
