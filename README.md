@@ -11,7 +11,7 @@ A quality gate CLI and GitHub Action that runs Playwright smoke checks, axe acce
 
 Release source of truth: use GitHub tags and Releases for published versions. The `package.json` version on `main` may move ahead during release preparation.
 
-Distribution status: tagged releases publish the npm package and GitHub Action major tag from the same validated source. If npm or the major Action tag is unavailable, the release has not completed; GitHub Releases remain the source of truth.
+Distribution status: tagged releases create GitHub Releases and update the stable GitHub Action major tag from the same validated source. npm publication is deferred to the manual maintainer backfill workflow; until an npm release exists, use the GitHub Action or a source checkout.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
@@ -23,14 +23,16 @@ The diagram follows the same three-step audit path described below: validate and
 
 Use one of these public entry points:
 
-- npm CLI in your own repository for local checks or scripted CI usage.
 - GitHub Action in your own repository for CI-first adoption.
 - Source checkout when you want to contribute to this repository.
 
 ```bash
-npm i -D web-quality-gatekeeper
+git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
+cd web-quality-gatekeeper
+npm ci
 npx playwright install
-npx wqg audit https://your-site.example --policy marketing
+npm run build
+node dist/cli.js audit https://your-site.example --policy marketing
 ```
 
 > The CLI writes `artifacts/report.html`, `artifacts/summary.json`, and `artifacts/summary.v2.json` by default.
@@ -123,14 +125,17 @@ jobs:
           baseline-dir: .github/web-quality/baselines
 ```
 
-### Local CLI from npm
+### Local CLI from source checkout
 
-Use this path when you want to inspect outputs locally before wiring CI.
+Use this path when you want to inspect outputs locally before wiring CI or when contributing to this repository. The npm package publication path is deferred until a maintainer backfill release is cut.
 
 ```bash
-npm i -D web-quality-gatekeeper
+git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
+cd web-quality-gatekeeper
+npm ci
 npx playwright install
-npx wqg audit https://your-site.example --policy marketing
+npm run build
+node dist/cli.js audit https://your-site.example --policy marketing
 ```
 
 Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` / `artifacts/summary.v2.json` for summary data.

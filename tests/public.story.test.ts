@@ -26,7 +26,7 @@ describe("public story surface", () => {
     expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
     expect(source).toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("baseline-dir: baselines");
-    expect(source).toContain('tabindex="0" aria-label="CLI adoption example"');
+    expect(source).toContain('tabindex="0" aria-label="Source CLI adoption example"');
     expect(source).toContain('tabindex="0" aria-label="GitHub Action adoption example"');
     expect(source).not.toContain("output-dir: artifacts");
     expect(source).not.toContain("source commit");

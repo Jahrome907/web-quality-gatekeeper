@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Public OSS docs now document npm CLI usage and GitHub Action usage as the supported consumer paths for the published release.
+- Public OSS docs now document GitHub Action usage and source-checkout CLI usage as the supported consumer paths for the published release.
 - README and docs site examples now use consumer-owned config locations or built-in policies instead of repo-internal maintainer paths.
 - Public proof links now target the GitHub Pages docs site where the rendered artifacts are easiest to inspect.
 - Community conduct reporting now points to maintainer contact routes instead of GitHub Security Advisories.

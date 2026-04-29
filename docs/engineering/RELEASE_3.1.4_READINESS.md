@@ -2,14 +2,14 @@
 
 Date: 2026-04-29
 Branch: `release/3.1.4`
-Scope: release preparation for the next public `v3` patch line, npm publication, GitHub Release creation, and stable Action tag movement.
+Scope: release preparation for the next public `v3` patch line, GitHub Release creation, and stable Action tag movement.
 
 ## Release Contents
 
 - Public package version: `3.1.4`
 - Public stable Action tag: `v3`
 - Release tag: `v3.1.4`
-- npm package: `web-quality-gatekeeper@3.1.4`
+- npm package: deferred to the manual maintainer backfill workflow
 
 This release includes the OSS hardening work in the release branch:
 
@@ -24,7 +24,7 @@ This release includes the OSS hardening work in the release branch:
 ## Public Surface Checklist
 
 - `package.json` and lockfile root package entries align on `3.1.4`.
-- README and docs site advertise npm CLI usage and the `@v3` Action line.
+- README and docs site advertise source-checkout CLI usage and the `@v3` Action line.
 - `configs/default.json` uses the `wqg/3.1.4` default user agent.
 - Compatibility docs list `Jahrome907/web-quality-gatekeeper@v3` as the current stable Action usage.
 - Published proof artifacts are sanitized for public distribution and align with the package version.
@@ -54,9 +54,9 @@ After the PR merges to `main`:
 
 1. Confirm `main` is clean and contains `package.json` version `3.1.4`.
 2. Push tag `v3.1.4` at the merge commit.
-3. Monitor the release workflow until it publishes npm and creates the GitHub Release.
-4. Confirm npm shows `web-quality-gatekeeper@3.1.4`.
-5. Confirm the stable major tag `v3` points to `v3.1.4`.
-6. Confirm the GitHub Pages docs and README show npm install and `@v3` usage.
+3. Monitor the release workflow until it creates the GitHub Release.
+4. Confirm the stable major tag `v3` points to `v3.1.4`.
+5. Confirm the GitHub Pages docs and README show source-checkout CLI guidance and `@v3` usage.
+6. Leave npm publication for a later manual `NPM Publish` backfill run after maintainer npm credentials are configured.
 
-No remote mutation is complete until npm, GitHub Release, and stable major tag state all agree.
+No remote mutation is complete until the GitHub Release and stable major tag state agree.
