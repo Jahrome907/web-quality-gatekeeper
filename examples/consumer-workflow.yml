@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
 
       - name: Run quality gate (strict by default)
-        uses: Jahrome907/web-quality-gatekeeper@v3
+        uses: Jahrome907/web-quality-gatekeeper@v6
         with:
           url: https://your-site.example.com
           # Optional authenticated audits (recommended to source from secrets)
