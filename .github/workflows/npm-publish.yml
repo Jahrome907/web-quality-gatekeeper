@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag to backfill (for example v6.1.2)"
+        description: "Release tag to backfill (for example v3.1.4)"
         required: true
         type: string
 
@@ -55,7 +55,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::release_tag must be a semantic version tag (for example v6.1.2)."
+            echo "::error::release_tag must be a semantic version tag (for example v3.1.4)."
             exit 1
           fi
           PKG_VERSION="$(node -p "require('./package.json').version")"

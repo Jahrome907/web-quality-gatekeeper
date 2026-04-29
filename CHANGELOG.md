@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [6.1.2] - 2026-04-29
+## [3.1.4] - 2026-04-29
 
 ### Changed
 
@@ -226,7 +226,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
-[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v6.1.2...HEAD
-[6.1.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.1...v6.1.2
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.4...HEAD
+[3.1.4]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.3...v3.1.4
 [3.1.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.1...v3.1.2
 [3.1.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.2...v3.1.3

@@ -14,7 +14,7 @@ This document freezes the consumer-facing contract surface. Future changes may a
 | Summary v2 | `summary.v2.json` plus `schemas/summary.v2.json` | Additive evolution only in this cycle. |
 | Default output artifacts | `summary.json`, `summary.v2.json`, `report.html`, `action-plan.md`, supporting artifact directories | Keep default artifact names and locations stable unless a shim is documented. |
 | Package distribution | `dist`, `schemas`, `configs`, `README.md`, `LICENSE` ship in tarball | Preserve these install-time assets. |
-| Action usage | `uses: Jahrome907/web-quality-gatekeeper@v6` | Keep stable major tag consumption valid. |
+| Action usage | `uses: Jahrome907/web-quality-gatekeeper@v3` | Keep stable major tag consumption valid. |
 | Action inputs | `url`, `config-path`, `baseline-dir`, `policy`, `fail-on-a11y`, `fail-on-perf`, `fail-on-visual`, `allow-internal-targets`, `headers`, `cookies` | Preserve names and current semantics; additive-only inputs. |
 | Action outputs | `status`, `summary-path` | Preserve names and current meanings. |
 
@@ -139,22 +139,22 @@ Commands run on 2026-04-29 to capture the current shipping baseline:
 ```bash
 npm pack --json
 npm pack --silent
-tar -tzf web-quality-gatekeeper-6.1.2.tgz | sort
+tar -tzf web-quality-gatekeeper-3.1.4.tgz | sort
 TMP_DIR=$(mktemp -d /tmp/wqg-pack-XXXXXX)
-cp web-quality-gatekeeper-6.1.2.tgz "$TMP_DIR/"
+cp web-quality-gatekeeper-3.1.4.tgz "$TMP_DIR/"
 cd "$TMP_DIR"
 npm init -y
-npm install "./web-quality-gatekeeper-6.1.2.tgz" --ignore-scripts
+npm install "./web-quality-gatekeeper-3.1.4.tgz" --ignore-scripts
 ./node_modules/.bin/wqg --version
 ```
 
 Observed results:
 
-- Tarball filename: `web-quality-gatekeeper-6.1.2.tgz`
-- Tarball size: `294621` bytes
-- Unpacked size: `1360863` bytes
+- Tarball filename: `web-quality-gatekeeper-3.1.4.tgz`
+- Tarball size: `294688` bytes
+- Unpacked size: `1360994` bytes
 - Entry count: `17`
-- Clean install result: `wqg --version` printed `6.1.2`
+- Clean install result: `wqg --version` printed `3.1.4`
 
 Current tarball contents:
 
