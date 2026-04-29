@@ -7,21 +7,23 @@ function readRepoFile(relativePath: string): string {
 }
 
 describe("public story surface", () => {
-  it("keeps the Pages entry focused on proof, adoption, and trust", () => {
+  it("keeps the Pages entry focused on evidence, adoption, and trust", () => {
     const source = readRepoFile("docs/index.html");
 
-    expect(source).toContain("Proof Surface");
+    expect(source).toContain("Published Evidence");
     expect(source).toContain("Adopt In 5 Minutes");
     expect(source).toContain("Why Trust It");
-    expect(source).toContain("Inspectable OSS proof surface");
-    expect(source).toContain("<strong>Proof bundle version:</strong> 3.1.3.");
+    expect(source).toContain("Inspectable OSS evidence");
+    const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
+
+    expect(source).toContain(`<strong>Proof bundle version:</strong> ${pkg.version}.`);
     expect(source).toContain("<strong>Release source:</strong> GitHub tags and Releases");
     expect(source).toContain("proof/fixture-report.html");
     expect(source).toContain("proof/fixture-summary.v2.json");
     expect(source).toContain("case-study-run.md");
     expect(source).toContain("case-study/public-oss-repro.md");
     expect(source).toContain('title="Sample Web Quality Gatekeeper report"');
-    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
+    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v6");
     expect(source).toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("baseline-dir: baselines");
     expect(source).toContain('tabindex="0" aria-label="CLI adoption example"');
