@@ -57,7 +57,7 @@ function readExceptions(filePath) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to read audit exceptions from ${filePath}: ${message}`);
+    throw new Error(`Unable to read audit exceptions from ${filePath}: ${message}`, { cause: error });
   }
 }
 

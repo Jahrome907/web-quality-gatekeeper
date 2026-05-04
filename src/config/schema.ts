@@ -132,7 +132,7 @@ export const ConfigSchema = z.object({
     }),
     userAgent: z.string().min(1).max(500),
     locale: z.string().min(1).max(20),
-    colorScheme: z.enum(["light", "dark"])
+    colorScheme: z.enum(["light", "dark"] as const)
   }),
   screenshots: z.array(ScreenshotSchema).min(1).max(MAX_SCREENSHOTS),
   lighthouse: z.object({
@@ -142,7 +142,7 @@ export const ConfigSchema = z.object({
       cls: z.number().min(0),
       tbtMs: z.number().min(0)
     }),
-    formFactor: z.enum(["desktop", "mobile"])
+    formFactor: z.enum(["desktop", "mobile"] as const)
   }),
   visual: z.object({
     threshold: z.number().min(0).max(1),
