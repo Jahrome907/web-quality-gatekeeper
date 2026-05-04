@@ -2,9 +2,16 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please do not open a public issue. Instead, use GitHub Security Advisories for this repository so we can coordinate a fix and disclosure timeline. Code of Conduct concerns should follow `CODE_OF_CONDUCT.md`, not the security advisory flow.
+If you discover a security vulnerability, please do not open a public issue. Instead,
+report it privately through GitHub's Private Vulnerability Reporting flow:
 
-We aim to respond within 5 business days.
+- [Open a private report](https://github.com/Jahrome907/web-quality-gatekeeper/security/advisories/new)
+
+Using that flow lets us coordinate a fix and disclosure timeline without exposing the
+issue publicly. Code of Conduct concerns should follow `CODE_OF_CONDUCT.md`, not the
+security advisory flow.
+
+We aim to acknowledge new reports within 5 business days.
 
 ## Security Considerations
 
