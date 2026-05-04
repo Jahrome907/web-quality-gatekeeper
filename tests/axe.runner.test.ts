@@ -17,7 +17,8 @@ class MockAxeBuilder {
 }
 
 vi.mock("@axe-core/playwright", () => ({
-  default: MockAxeBuilder
+  default: MockAxeBuilder,
+  AxeBuilder: MockAxeBuilder
 }));
 vi.mock("../src/utils/fs.js", async () => {
   const actual = await vi.importActual("../src/utils/fs.js");

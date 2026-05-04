@@ -19,6 +19,10 @@ export default defineConfig([
     clean: false,
     target: "node20",
     outDir: "dist",
-    dts: true
+    dts: {
+      compilerOptions: {
+        ignoreDeprecations: "6.0"
+      }
+    }
   }
 ]);

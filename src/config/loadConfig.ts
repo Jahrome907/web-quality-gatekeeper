@@ -9,10 +9,11 @@ export interface LoadConfigOptions {
   policy?: string | null;
 }
 
-function formatZodError(error: { issues: Array<{ path: ReadonlyArray<string | number>; message: string }> }): string {
+function formatZodError(error: { issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }> }): string {
   return error.issues
     .map((issue) => {
-      const path = issue.path.length > 0 ? issue.path.join(".") : "config";
+      const segments = issue.path.map((segment) => String(segment));
+      const path = segments.length > 0 ? segments.join(".") : "config";
       return `${path}: ${issue.message}`;
     })
     .join("; ");
