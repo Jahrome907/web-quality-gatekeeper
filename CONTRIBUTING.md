@@ -92,6 +92,7 @@ and exercise the built CLI end-to-end. Packaged consumer smoke lives in
 ## Standards
 
 - Use conventional commits (e.g. `feat: add visual diff thresholds`).
+- Release commit subjects must match the version actually being shipped (e.g. `release: prepare v3.1.5` only when `package.json` is on `3.1.5`). Do not leave version-mismatched subjects on `main`; reword the squash-merge subject if the source branch ever drifts.
 - Keep changes scoped and add tests for behavior changes.
 - Run `npm run check` before opening a PR.
 - Keep `README.md`, `SECURITY.md`, and workflow examples aligned with actual script and workflow behavior.
