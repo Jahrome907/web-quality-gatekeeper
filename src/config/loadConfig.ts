@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import type { ZodError } from "zod";
 import { ConfigSchema } from "./schema.js";
 import type { Config } from "./schema.js";
 import { defaultConfig } from "./defaultConfig.js";
@@ -10,7 +9,7 @@ export interface LoadConfigOptions {
   policy?: string | null;
 }
 
-function formatZodError(error: ZodError): string {
+function formatZodError(error: { issues: Array<{ path: ReadonlyArray<string | number>; message: string }> }): string {
   return error.issues
     .map((issue) => {
       const path = issue.path.length > 0 ? issue.path.join(".") : "config";

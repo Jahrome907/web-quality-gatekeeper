@@ -99,7 +99,8 @@ export async function runChecked(command, args, options = {}) {
     const stderr = typeof err.stderr === "string" ? err.stderr : "";
     const details = [stdout.trim(), stderr.trim()].filter(Boolean).join("\n");
     throw new Error(
-      `Command failed: ${command} ${args.join(" ")}${details ? `\n${details}` : ""}`
+      `Command failed: ${command} ${args.join(" ")}${details ? `\n${details}` : ""}`,
+      { cause: error }
     );
   }
 }
