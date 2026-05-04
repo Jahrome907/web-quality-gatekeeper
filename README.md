@@ -3,7 +3,7 @@
 [![Quality Gate](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
 [![Pack Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml)
 [![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
-[![Source Version 3.1.4](https://img.shields.io/badge/source-3.1.4-17355c?logo=git&logoColor=white)](./package.json)
+[![Source Version 3.1.5](https://img.shields.io/badge/source-3.1.5-17355c?logo=git&logoColor=white)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
@@ -222,7 +222,7 @@ For a consuming repository, keep configuration in a path you own such as `.githu
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/3.1.4",
+    "userAgent": "wqg/3.1.5",
     "locale": "en-US",
     "colorScheme": "light"
   },

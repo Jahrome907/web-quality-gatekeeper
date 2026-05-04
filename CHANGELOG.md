@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.5] - 2026-05-04
+
+### Changed
+
+- Upgraded the all-dependencies group to current majors, including `zod` v3 → v4 and `typescript` v5 → v6, alongside the rest of the dev/runtime bumps tracked in dependabot's grouped update.
+- Upgraded the all-actions group to current pinned SHAs across `quality-gate`, `npm-pack-smoke`, `npm-publish`, `pages`, `release`, `action-smoke`, and the composite `action.yml`.
+- Repository default user agent now advertises `wqg/3.1.5`.
+- README badge advertises the `3.1.5` source version to match `package.json`.
+
+### Fixed
+
+- `formatZodError` now accepts the `PropertyKey`-shaped `path` segments produced by `ZodError` under `zod` v4, and stringifies each segment defensively when composing the error message.
+- `@axe-core/playwright` is now imported as a named binding so the dual `default` / `AxeBuilder` export resolves cleanly under TypeScript 6 + NodeNext (previously raised "cannot use namespace as a type").
+- `tsup` dts pipeline now passes `ignoreDeprecations: "6.0"` to TypeScript so the `baseUrl` injected by `rollup-plugin-dts` does not abort the `dts` build under TypeScript 6.
+- `scripts/ci/_shared.mjs` and `scripts/enforce-runtime-audit.mjs` re-throw with `{ cause }` so error provenance is preserved end-to-end through the CI helpers.
+
+### Repository hygiene
+
+- Removed merged release branches (`release/3.1.4`, `release/3.1.4-action-release`, `release/6.1.2`) and superseded dependabot branches now that their PRs are closed or merged.
+
 ## [3.1.4] - 2026-04-29
 
 ### Changed
