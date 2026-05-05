@@ -1,117 +1,99 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 850" fill="none">
-  <defs>
-    <linearGradient id="bg" x1="140" y1="64" x2="1140" y2="700" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f7faf7"/>
-      <stop offset="1" stop-color="#edf4ef"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="240" y1="0" x2="1040" y2="800" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#0f6a44" stop-opacity="0.10"/>
-      <stop offset="1" stop-color="#215ea6" stop-opacity="0.08"/>
-    </linearGradient>
-    <filter id="shadow" x="-8%" y="-8%" width="116%" height="124%">
-      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#183423" flood-opacity="0.10"/>
-    </filter>
-    <marker id="arrow" markerWidth="12" markerHeight="12" refX="6" refY="6" orient="auto-start-reverse">
-      <path d="M2 2L10 6L2 10V2Z" fill="#406653"/>
-    </marker>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+  <title id="title">Web Quality Gatekeeper pipeline</title>
+  <desc id="desc">A target URL and config flow through one Playwright session that runs Playwright runtime checks, axe accessibility, Lighthouse performance, and visual diff. The run emits report.html, summary.json, summary.v2.json, baselines, and a CI exit code.</desc>
 
-  <rect width="1280" height="850" rx="28" fill="url(#bg)"/>
-  <rect width="1280" height="850" rx="28" fill="url(#accent)"/>
+  <rect width="1200" height="520" fill="#ffffff"/>
 
-  <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif" fill="#12261a">
-    <text x="92" y="104" font-size="16" font-weight="700" letter-spacing="0.16em" fill="#406653">WEB QUALITY GATEKEEPER</text>
-    <text x="92" y="154" font-size="46" font-weight="700">Ship one target through four evidence streams.</text>
-    <text x="92" y="192" font-size="22" fill="#405548">
-      Playwright, axe, Lighthouse, and visual diff stay aligned to the same audited URL,
-    </text>
-    <text x="92" y="222" font-size="22" fill="#405548">
-      then emit HTML, JSON, baselines, and CI-safe release signals.
-    </text>
+  <g fill="#0b1220">
+    <text x="40" y="46" font-size="13" font-weight="600" letter-spacing="0.12em" fill="#57606a">WEB QUALITY GATEKEEPER</text>
+    <text x="40" y="80" font-size="22" font-weight="600" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">One audit, one resolved target, four evidence streams.</text>
   </g>
 
-  <g filter="url(#shadow)">
-    <rect x="76" y="274" width="270" height="440" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
-    <rect x="390" y="274" width="500" height="440" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
-    <rect x="934" y="274" width="270" height="440" rx="28" fill="#fbfdfb" stroke="#d8e5dc"/>
+  <!-- INPUT -->
+  <g>
+    <rect x="40" y="130" width="220" height="120" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+    <text x="56" y="156" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">INPUT</text>
+    <text x="56" y="182" font-size="15" font-weight="600" fill="#0b1220" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Target + config</text>
+    <text x="56" y="206" font-size="13" fill="#3b4252">URL, policy, budgets,</text>
+    <text x="56" y="226" font-size="13" fill="#3b4252">auth, baselines.</text>
   </g>
 
-  <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
-    <text x="110" y="320" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">INPUTS</text>
-    <text x="424" y="320" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">AUDIT ENGINE</text>
-    <text x="968" y="320" font-size="15" font-weight="700" letter-spacing="0.14em" fill="#406653">OUTPUTS</text>
-
-    <!-- LEFT COLUMN -->
-    <rect x="100" y="340" width="222" height="114" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="122" y="376" font-size="22" font-weight="700" fill="#12261a">Target + Config</text>
-    <text x="122" y="404" font-size="15" fill="#496052">URL, policy, budgets, auth,</text>
-    <text x="122" y="426" font-size="15" fill="#496052">baselines, output paths.</text>
-
-    <rect x="100" y="474" width="222" height="128" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="122" y="510" font-size="22" font-weight="700" fill="#12261a">Safety Rails</text>
-    <text x="122" y="538" font-size="14" fill="#496052">SSRF-sensitive target checks,</text>
-    <text x="122" y="558" font-size="14" fill="#496052">redirect scrutiny,</text>
-    <text x="122" y="578" font-size="14" fill="#496052">host pinning.</text>
-
-    <rect x="100" y="622" width="222" height="60" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="211" y="648" text-anchor="middle" font-size="15" font-weight="700" fill="#12261a">
-      <tspan x="211" dy="0">One requested audit,</tspan>
-      <tspan x="211" dy="20">one resolved target</tspan>
-    </text>
-
-    <!-- CENTER COLUMN -->
-    <rect x="414" y="340" width="452" height="92" rx="18" fill="#f4f8f5" stroke="#d6e5da"/>
-    <text x="640" y="378" text-anchor="middle" font-size="24" font-weight="700" fill="#12261a">
-      <tspan x="640" dy="0">Playwright session</tspan>
-      <tspan x="640" dy="28">opens the page once</tspan>
-    </text>
-
-    <rect x="414" y="452" width="216" height="120" rx="18" fill="#eef4ff" stroke="#d7e0ef"/>
-    <text x="438" y="484" font-size="16" font-weight="700" fill="#17355c">Playwright + Runtime</text>
-    <text x="438" y="512" font-size="14" fill="#4c6485">Navigation, console,</text>
-    <text x="438" y="532" font-size="14" fill="#4c6485">network, screenshots,</text>
-    <text x="438" y="552" font-size="14" fill="#4c6485">stability waits.</text>
-
-    <rect x="650" y="452" width="216" height="120" rx="18" fill="#fff4ed" stroke="#ecd9c9"/>
-    <text x="674" y="484" font-size="16" font-weight="700" fill="#5b3716">axe + Lighthouse</text>
-    <text x="674" y="512" font-size="14" fill="#7d5b39">Accessibility,</text>
-    <text x="674" y="532" font-size="14" fill="#7d5b39">performance budgets,</text>
-    <text x="674" y="552" font-size="14" fill="#7d5b39">opportunities, vitals.</text>
-
-    <rect x="414" y="592" width="452" height="90" rx="18" fill="#eef6f0" stroke="#d6e5da"/>
-    <text x="640" y="632" text-anchor="middle" font-size="17" font-weight="700" fill="#12261a">
-      <tspan x="640" dy="0">Visual diff compares against pinned baselines</tspan>
-      <tspan x="640" dy="24">and masks ignore regions.</tspan>
-    </text>
-
-    <!-- RIGHT COLUMN -->
-    <rect x="958" y="340" width="222" height="114" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="980" y="376" font-size="19" font-weight="700" fill="#232015">Report + Summaries</text>
-    <text x="980" y="404" font-size="15" fill="#5e5849">HTML report, summary.json,</text>
-    <text x="980" y="426" font-size="15" fill="#5e5849">summary.v2.json.</text>
-
-    <rect x="958" y="474" width="222" height="128" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="980" y="510" font-size="21" font-weight="700" fill="#232015">Evidence Files</text>
-    <text x="980" y="538" font-size="15" fill="#5e5849">Screenshots, diffs, lighthouse,</text>
-    <text x="980" y="558" font-size="15" fill="#5e5849">axe findings, action plans,</text>
-    <text x="980" y="578" font-size="15" fill="#5e5849">trend snapshots.</text>
-
-    <rect x="958" y="622" width="222" height="60" rx="18" fill="#f7f5ef" stroke="#e5dfd0"/>
-    <text x="1069" y="658" text-anchor="middle" font-size="13" font-weight="700" fill="#232015">
-      CLI, CI, PR comments, release gates
-    </text>
+  <g>
+    <rect x="40" y="270" width="220" height="100" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+    <text x="56" y="296" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">GUARDRAILS</text>
+    <text x="56" y="322" font-size="15" font-weight="600" fill="#0b1220" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Resolve and pin host</text>
+    <text x="56" y="346" font-size="13" fill="#3b4252">SSRF checks, redirect</text>
+    <text x="56" y="362" font-size="13" fill="#3b4252">scrutiny, host pinning.</text>
   </g>
 
-  <g stroke="#406653" stroke-width="4" stroke-linecap="round" marker-end="url(#arrow)">
-    <path d="M346 512H390"/>
-    <path d="M890 512H934"/>
+  <!-- ENGINE -->
+  <g>
+    <rect x="350" y="130" width="500" height="240" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
+    <text x="366" y="156" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">AUDIT ENGINE</text>
+    <text x="366" y="182" font-size="15" font-weight="600" fill="#0b1220" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">One Playwright session opens the page once</text>
+
+    <g>
+      <rect x="366" y="206" width="222" height="68" rx="4" fill="#ffffff" stroke="#d0d7de"/>
+      <text x="380" y="230" font-size="13" font-weight="600" fill="#0b1220">Playwright runtime</text>
+      <text x="380" y="250" font-size="12" fill="#3b4252">navigation, console, network,</text>
+      <text x="380" y="266" font-size="12" fill="#3b4252">screenshots, stability waits</text>
+    </g>
+
+    <g>
+      <rect x="612" y="206" width="222" height="68" rx="4" fill="#ffffff" stroke="#d0d7de"/>
+      <text x="626" y="230" font-size="13" font-weight="600" fill="#0b1220">axe + Lighthouse</text>
+      <text x="626" y="250" font-size="12" fill="#3b4252">a11y violations, perf score,</text>
+      <text x="626" y="266" font-size="12" fill="#3b4252">budgets, opportunities, vitals</text>
+    </g>
+
+    <g>
+      <rect x="366" y="290" width="468" height="64" rx="4" fill="#ffffff" stroke="#d0d7de"/>
+      <text x="380" y="314" font-size="13" font-weight="600" fill="#0b1220">Visual diff</text>
+      <text x="380" y="334" font-size="12" fill="#3b4252">compare against pinned baselines, mask ignore regions</text>
+    </g>
   </g>
 
-  <g font-family="'IBM Plex Sans','Avenir Next','Segoe UI',sans-serif">
-    <rect x="76" y="742" width="1128" height="56" rx="16" fill="#102d1e"/>
-    <text x="640" y="766" text-anchor="middle" font-size="18" font-weight="700" fill="#f3f8f4">
-      <tspan x="640" dy="0">Same target. Same evidence trail.</tspan>
-      <tspan x="640" dy="20">One release decision.</tspan>
-    </text>
+  <!-- OUTPUTS -->
+  <g>
+    <rect x="940" y="130" width="220" height="100" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+    <text x="956" y="156" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">REPORT</text>
+    <text x="956" y="182" font-size="14" fill="#0b1220">report.html</text>
+    <text x="956" y="202" font-size="14" fill="#0b1220">summary.json</text>
+    <text x="956" y="222" font-size="14" fill="#0b1220">summary.v2.json</text>
   </g>
+
+  <g>
+    <rect x="940" y="250" width="220" height="120" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+    <text x="956" y="276" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">EVIDENCE</text>
+    <text x="956" y="302" font-size="13" fill="#0b1220">screenshots, diffs,</text>
+    <text x="956" y="320" font-size="13" fill="#0b1220">lighthouse.json,</text>
+    <text x="956" y="338" font-size="13" fill="#0b1220">axe findings,</text>
+    <text x="956" y="356" font-size="13" fill="#0b1220">action-plan.md</text>
+  </g>
+
+  <g>
+    <rect x="940" y="390" width="220" height="60" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+    <text x="956" y="416" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">CI SIGNAL</text>
+    <text x="956" y="436" font-size="13" fill="#0b1220">exit code, PR comment,</text>
+    <text x="956" y="452" font-size="13" fill="#0b1220">release tag movement</text>
+  </g>
+
+  <!-- ARROWS -->
+  <g stroke="#0b1220" stroke-width="1.4" fill="none">
+    <defs>
+      <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+        <path d="M0 0L8 5L0 10z" fill="#0b1220"/>
+      </marker>
+    </defs>
+    <path d="M260 190 H350" marker-end="url(#arr)"/>
+    <path d="M260 320 H350" marker-end="url(#arr)"/>
+    <path d="M850 190 H940" marker-end="url(#arr)"/>
+    <path d="M850 250 H940" marker-end="url(#arr)"/>
+    <path d="M850 320 C 880 320, 900 380, 940 410" marker-end="url(#arr)"/>
+  </g>
+
+  <!-- FOOTNOTE -->
+  <text x="40" y="496" font-size="12" fill="#57606a" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+    Same target. Same evidence trail. One release decision.
+  </text>
 </svg>
