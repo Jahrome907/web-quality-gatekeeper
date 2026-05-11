@@ -1,5 +1,4 @@
 import { mkdtemp, mkdir, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -782,11 +781,11 @@ describe("lighthouse runner", () => {
     const previousLocalAppData = process.env.LOCALAPPDATA;
     const previousTemp = process.env.TEMP;
     const previousTmp = process.env.TMP;
+    const outDir = await mkdtemp(path.join(process.cwd(), ".tmp-lh-runtime-test-"));
     delete process.env.LOCALAPPDATA;
     delete process.env.TEMP;
     delete process.env.TMP;
 
-    const outDir = await mkdtemp(path.join(tmpdir(), "wqg-lh-runtime-"));
     await mkdir(outDir, { recursive: true });
 
     const kill = vi.fn().mockResolvedValue(undefined);

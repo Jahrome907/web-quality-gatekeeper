@@ -7,12 +7,12 @@ This document freezes the consumer-facing contract surface. Future changes may a
 | Surface | Current baseline | Compatibility rule |
 | --- | --- | --- |
 | CLI binary | `wqg` resolves to `dist/cli.js` via `package.json#bin` | Keep the binary name and install path stable. |
-| CLI command | `wqg audit [url]` | Preserve the command name and option names; additive flags only. |
+| CLI command | `wqg audit [url]`, `wqg init --profile <name>` | Preserve existing command names and option names; additive flags only. |
 | CLI stdout modes | `--format json` prints v1 `summary.json` shape; `--format md` prints markdown derived from v2 | Do not change the existing stdout contract. |
 | CLI exit codes | `0`/orchestrator exit code for audit result, `2` for usage errors, `1` for runtime failures | Preserve the exit code semantics. |
 | Summary v1 | `summary.json` plus `schemas/summary.v1.json` | Remains backward-compatible for existing consumers. |
 | Summary v2 | `summary.v2.json` plus `schemas/summary.v2.json` | Additive evolution only in this cycle. |
-| Default output artifacts | `summary.json`, `summary.v2.json`, `report.html`, `action-plan.md`, supporting artifact directories | Keep default artifact names and locations stable unless a shim is documented. |
+| Default output artifacts | `summary.json`, `summary.v2.json`, `report.html`, `action-plan.md`, `pr-risk-ledger.json`, `pr-risk-ledger.md`, supporting artifact directories | Keep default artifact names and locations stable unless a shim is documented. |
 | Package distribution | `dist`, `schemas`, `configs`, `README.md`, `LICENSE` ship in tarball | Preserve these install-time assets. |
 | Action usage | `uses: Jahrome907/web-quality-gatekeeper@v3` | Keep stable major tag consumption valid. |
 | Action inputs | `url`, `config-path`, `baseline-dir`, `policy`, `fail-on-a11y`, `fail-on-perf`, `fail-on-visual`, `allow-internal-targets`, `headers`, `cookies` | Preserve names and current semantics; additive-only inputs. |
@@ -28,6 +28,7 @@ The following order resolves ambiguity when docs, tests, and implementation diff
 | Action inputs, outputs, and path resolution | `action.yml` -> Action smoke workflow -> README / examples |
 | Summary v1 | `src/report/summary.ts` + `schemas/summary.v1.json` -> `npm run contracts:check` -> docs |
 | Summary v2 | `src/index.ts` + `src/report/summary.ts` + `schemas/summary.v2.json` -> `npm run contracts:check` -> docs |
+| PR Risk Ledger | `src/report/prRiskLedger.ts` -> `tests/prRiskLedger.test.ts` -> README / docs |
 | Package contents | `package.json#files` + `npm pack` output -> pack/publish smoke workflows -> docs |
 | Workflow behavior | workflow YAML -> workflow-oriented tests / smoke -> contributing or README guidance |
 
@@ -56,6 +57,7 @@ Current CLI behavior to preserve:
 
 - `--format json` prints the v1 summary shape to stdout for compatibility.
 - `--format md` prints markdown rendered from the richer v2 summary.
+- `wqg init --profile <marketing|docs|ecommerce|saas>` writes consumer-owned config, workflow, baseline, and README files without overwriting existing scaffold files unless `--force` is provided.
 - Usage validation failures return exit code `2`.
 - Unexpected runtime failures return exit code `1`.
 

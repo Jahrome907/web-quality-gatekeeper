@@ -14,7 +14,7 @@ struct Config {
 }
 
 fn usage() -> &'static str {
-    "Usage: wqg-visual-diff-native-spike --width <px> --height <px> --baseline <path> --current <path> [--diff-out <path>] [--threshold <0..1>]\n\
+    "Usage: wqg-visual-diff-native --width <px> --height <px> --baseline <path> --current <path> [--diff-out <path>] [--threshold <0..1>]\n\
      Inputs must be normalized RGBA byte buffers with length width*height*4."
 }
 
@@ -180,7 +180,7 @@ fn run(config: Config) -> Result<(), String> {
     let elapsed_ms = start.elapsed().as_secs_f64() * 1000.0;
 
     println!(
-        "{{\"engine\":\"wqg-native-spike\",\"width\":{},\"height\":{},\"pixelCount\":{},\"diffPixels\":{},\"comparablePixels\":{},\"mismatchRatio\":{:.8},\"threshold\":{:.8},\"elapsedMs\":{:.3}}}",
+        "{{\"engine\":\"wqg-native-rust\",\"width\":{},\"height\":{},\"pixelCount\":{},\"diffPixels\":{},\"comparablePixels\":{},\"mismatchRatio\":{:.8},\"threshold\":{:.8},\"elapsedMs\":{:.3}}}",
         config.width,
         config.height,
         pixel_count,
@@ -201,5 +201,29 @@ fn main() {
             eprintln!("{message}");
             process::exit(2);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_overflowing_dimensions() {
+        let result = expected_rgba_len(usize::MAX, 2);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn computes_expected_rgba_buffer_length() {
+        assert_eq!(expected_rgba_len(1280, 720).unwrap(), 1280 * 720 * 4);
+    }
+
+    #[test]
+    fn detects_channel_delta_above_threshold() {
+        let baseline = [255, 255, 255, 255];
+        let current = [255, 200, 255, 255];
+        assert!(channel_delta_exceeds_threshold(&baseline, &current, 0, 0.1));
+        assert!(!channel_delta_exceeds_threshold(&baseline, &current, 0, 0.25));
     }
 }

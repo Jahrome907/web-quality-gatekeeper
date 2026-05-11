@@ -603,7 +603,7 @@
           <p>
             Public usage is split into two lanes. Use the GitHub Action in your own repository
             for CI gating, or run the CLI from a source checkout when you want local evaluation.
-            npm publication is reserved for a later maintainer backfill release.
+            npm publication is handled separately and is not yet part of the automated release path.
           </p>
         </header>
 
@@ -668,7 +668,7 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
           <li>
             <div>
               <strong>Emit stable outputs</strong>
-              <p>Every run writes <code>report.html</code>, <code>summary.json</code>, and <code>summary.v2.json</code>, plus optional baselines and trend artifacts.</p>
+              <p>Every run writes <code>report.html</code>, <code>summary.json</code>, <code>summary.v2.json</code>, and PR Risk Ledger artifacts, plus optional baselines and trend artifacts.</p>
             </div>
           </li>
           <li>
@@ -694,6 +694,7 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
               <li>Schemas live in <code>schemas/summary.v1.json</code> and <code>schemas/summary.v2.json</code>.</li>
               <li>Every published proof artifact links to its generating config and the SHA it was produced from.</li>
               <li>The HTML report on this page is the same artifact <code>wqg audit</code> emits locally.</li>
+              <li>Roadmap, provenance, and SBOM notes are published under <code>docs/</code>.</li>
             </ul>
           </article>
 
@@ -714,6 +715,9 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
         <a href="https://github.com/Jahrome907/web-quality-gatekeeper">Repository</a>
         <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/SECURITY.md">Security</a>
         <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="roadmap.md">Roadmap</a>
+        <a href="provenance.md">Provenance</a>
+        <a href="sbom.md">SBOM</a>
         <a href="https://github.com/Jahrome907/web-quality-gatekeeper/releases">Releases</a>
       </div>
       <div>MIT licensed. Generated from the published proof bundle in this repository.</div>

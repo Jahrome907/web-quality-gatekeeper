@@ -1,12 +1,13 @@
 /* global console, process */
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import {
   ROOT,
   cleanupRepoRootNoise,
   closeFixtureServer,
   ensureRepoBuild,
+  removePathWithRetry,
   runChecked,
   startFixtureServer
 } from "./_shared.mjs";
@@ -73,9 +74,7 @@ async function runPackSmoke() {
 
     await mkdir(consumerDir, { recursive: true });
     await runChecked("npm", ["init", "-y"], { cwd: consumerDir });
-    await runChecked("npm", ["install", tarballPath, "--ignore-scripts"], {
-      cwd: consumerDir
-    });
+    await installTarballWithRetry(consumerDir, tarballPath);
     // The consumer install intentionally skips package scripts, so provision the Playwright browser explicitly.
     await runChecked("npx", ["playwright", "install", "chromium"], {
       cwd: consumerDir,
@@ -95,6 +94,35 @@ async function runPackSmoke() {
         `Expected packaged wqg binary version (${versionStdout.trim()}) to match package.json (${installedPackage.version})`
       );
     }
+
+    await runChecked(installedWqgBin, ["init", "--profile", "docs"], {
+      cwd: consumerDir
+    });
+    for (const scaffoldedPath of [
+      path.join(consumerDir, ".github", "web-quality", "config.json"),
+      path.join(consumerDir, ".github", "workflows", "web-quality.yml"),
+      path.join(consumerDir, ".github", "web-quality", "baselines", ".gitkeep"),
+      path.join(consumerDir, ".github", "web-quality", "README.md")
+    ]) {
+      if (!existsSync(scaffoldedPath)) {
+        throw new Error(`Expected wqg init to create ${scaffoldedPath}`);
+      }
+    }
+    const scaffoldedConfig = JSON.parse(
+      await readFile(path.join(consumerDir, ".github", "web-quality", "config.json"), "utf8")
+    );
+    if (scaffoldedConfig.extends?.[0] !== "policy:docs") {
+      throw new Error("Expected wqg init --profile docs to scaffold the docs policy config.");
+    }
+    await expectCommandExit(installedWqgBin, ["init", "--profile", "invalid-profile"], 2, {
+      cwd: consumerDir
+    });
+    await expectCommandExit(installedWqgBin, ["init", "--profile", "docs"], 1, {
+      cwd: consumerDir
+    });
+    await runChecked(installedWqgBin, ["init", "--profile", "docs", "--force"], {
+      cwd: consumerDir
+    });
 
     await runChecked(
       "node",
@@ -233,8 +261,68 @@ async function runPackSmoke() {
     if (fixtureServer) {
       await closeFixtureServer(fixtureServer);
     }
-    await rm(smokeRoot, { recursive: true, force: true });
+    try {
+      await removePathWithRetry(smokeRoot, {
+        maxAttempts: 20,
+        baseDelayMs: 250
+      });
+    } catch (error) {
+      console.warn(
+        `Warning: pack smoke completed but could not remove temporary directory ${smokeRoot}: ${(error && error.message) || error}`
+      );
+    }
   }
+}
+
+async function installTarballWithRetry(consumerDir, tarballPath) {
+  const maxAttempts = 2;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await runChecked("npm", [
+        "install",
+        tarballPath,
+        "--ignore-scripts",
+        "--no-audit",
+        "--no-fund",
+        "--package-lock=false"
+      ], {
+        cwd: consumerDir,
+        timeout: 300000
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt === maxAttempts) {
+        break;
+      }
+      console.warn(`npm install failed during pack smoke; retrying clean install (${attempt}/${maxAttempts}).`);
+      await Promise.all([
+        removePathWithRetry(path.join(consumerDir, "node_modules")),
+        removePathWithRetry(path.join(consumerDir, "package-lock.json"))
+      ]);
+    }
+  }
+
+  throw lastError;
+}
+
+async function expectCommandExit(command, args, expectedCode, options = {}) {
+  try {
+    await runChecked(command, args, options);
+  } catch (error) {
+    const actualCode = error?.cause?.code;
+    if (actualCode === expectedCode) {
+      return;
+    }
+    throw new Error(
+      `Expected command to exit ${expectedCode}, got ${actualCode ?? "unknown"}: ${command} ${args.join(" ")}`,
+      { cause: error }
+    );
+  }
+
+  throw new Error(`Expected command to fail with exit ${expectedCode}: ${command} ${args.join(" ")}`);
 }
 
 runPackSmoke();

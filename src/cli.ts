@@ -4,7 +4,8 @@ import { runAudit } from "./index.js";
 import { UsageError } from "./utils/url.js";
 import { formatSummaryAsMarkdown } from "./report/markdown.js";
 import { parseAuditAuth } from "./utils/auth.js";
-import { listBuiltinPolicies } from "./config/policies.js";
+import { listBuiltinPolicies, type BuiltinPolicyName } from "./config/policies.js";
+import { scaffoldConsumerProject } from "./init/scaffold.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
@@ -23,6 +24,37 @@ function isTruthy(value: string | undefined): boolean {
   }
   return ["1", "true", "yes", "on"].includes(value.toLowerCase());
 }
+
+program
+  .command("init")
+  .description("Scaffold Web Quality Gatekeeper config and workflow files")
+  .requiredOption("--profile <name>", "Built-in profile: marketing, docs, ecommerce, or saas")
+  .option("--force", "Overwrite existing generated web-quality files", false)
+  .action(async (options) => {
+    try {
+      const policies = listBuiltinPolicies();
+      const profile = options.profile as string;
+      if (!policies.includes(profile as BuiltinPolicyName)) {
+        throw new UsageError(`Invalid profile: ${profile}. Use ${policies.join(", ")}`);
+      }
+
+      const result = await scaffoldConsumerProject({
+        profile: profile as BuiltinPolicyName,
+        cwd: process.cwd(),
+        force: Boolean(options.force)
+      });
+
+      console.log(`Created Web Quality Gatekeeper scaffold for profile: ${result.profile}`);
+      for (const file of result.createdFiles) {
+        console.log(`- ${file}`);
+      }
+      process.exitCode = 0;
+    } catch (error) {
+      const message = (error as Error).message || "Unexpected error";
+      console.error(message);
+      process.exitCode = error instanceof UsageError ? 2 : 1;
+    }
+  });
 
 program
   .command("audit")

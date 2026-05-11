@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "wqg-visual-diff-native-spike"
+name = "wqg-visual-diff-native"
 version = "0.1.0"

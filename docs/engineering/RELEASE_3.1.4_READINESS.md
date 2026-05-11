@@ -9,7 +9,7 @@ Scope: release preparation for the next public `v3` patch line, GitHub Release c
 - Public package version: `3.1.4`
 - Public stable Action tag: `v3`
 - Release tag: `v3.1.4`
-- npm package: deferred to the manual maintainer backfill workflow
+- npm package: handled by the separately triggered npm publish workflow
 
 This release includes the OSS hardening work in the release branch:
 
@@ -57,6 +57,6 @@ After the PR merges to `main`:
 3. Monitor the release workflow until it creates the GitHub Release.
 4. Confirm the stable major tag `v3` points to `v3.1.4`.
 5. Confirm the GitHub Pages docs and README show source-checkout CLI guidance and `@v3` usage.
-6. Leave npm publication for a later manual `NPM Publish` backfill run after maintainer npm credentials are configured.
+6. Run the separately triggered `NPM Publish` workflow after maintainer npm credentials are configured.
 
 No remote mutation is complete until the GitHub Release and stable major tag state agree.

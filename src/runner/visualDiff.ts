@@ -6,7 +6,7 @@ import { DEFAULT_PIXELMATCH_INCLUDE_AA, DEFAULT_PIXELMATCH_THRESHOLD } from "../
 import { copyFileSafe, ensureDir, pathExists, writeJson } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import type { ScreenshotResult } from "./playwright.js";
-import { computeVisualDiff, type VisualDiffEngineName } from "./visualDiffEngine.js";
+import { computeVisualDiff, type ConfiguredVisualDiffEngineName } from "./visualDiffEngine.js";
 
 // Security: Baseline manifest for integrity verification
 interface BaselineManifest {
@@ -127,7 +127,7 @@ export interface VisualIgnoreRegion {
 }
 
 export interface VisualDiffRuntimeOptions {
-  engine?: VisualDiffEngineName;
+  engine?: ConfiguredVisualDiffEngineName;
   nativeBinaryPath?: string;
   pixelmatch?: Partial<PixelmatchRuntimeOptions>;
   ignoreRegions?: VisualIgnoreRegion[];

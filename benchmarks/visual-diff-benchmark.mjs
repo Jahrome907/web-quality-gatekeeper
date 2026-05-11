@@ -12,10 +12,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_NATIVE_BIN = path.join(
   ROOT,
   "native",
-  "wqg-visual-diff-native-spike",
+  "wqg-visual-diff-native",
   "target",
   "release",
-  process.platform === "win32" ? "wqg-visual-diff-native-spike.exe" : "wqg-visual-diff-native-spike"
+  process.platform === "win32" ? "wqg-visual-diff-native.exe" : "wqg-visual-diff-native"
 );
 
 function parseArgs(argv) {
@@ -55,7 +55,7 @@ function parseArgs(argv) {
 function printUsage() {
   console.log(`Usage: node benchmarks/visual-diff-benchmark.mjs [--iterations <count>] [--native-bin <path>] [--out <path>]
 
-Benchmarks the current pixelmatch path against the optional Rust spike if a native binary is available.`);
+Benchmarks the current pixelmatch path against the optional Rust engine if a native binary is available.`);
 }
 
 function createCase(width, height, mutate) {

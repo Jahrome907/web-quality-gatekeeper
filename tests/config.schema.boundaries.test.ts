@@ -36,15 +36,27 @@ describe("ConfigSchema boundaries", () => {
       ...createValidConfig(),
       visual: {
         threshold: 0.01,
-        engine: "native-rust-spike",
-        nativeBinaryPath: "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike"
+        engine: "native-rust",
+        nativeBinaryPath: "native/wqg-visual-diff-native/target/release/wqg-visual-diff-native"
+      }
+    });
+
+    expect(parsed.visual.engine).toBe("native-rust");
+    expect(parsed.visual.nativeBinaryPath).toBe(
+      "native/wqg-visual-diff-native/target/release/wqg-visual-diff-native"
+    );
+  });
+
+  it("accepts the legacy native visual diff engine id as a compatibility alias", () => {
+    const parsed = ConfigSchema.parse({
+      ...createValidConfig(),
+      visual: {
+        threshold: 0.01,
+        engine: "native-rust-spike"
       }
     });
 
     expect(parsed.visual.engine).toBe("native-rust-spike");
-    expect(parsed.visual.nativeBinaryPath).toBe(
-      "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike"
-    );
   });
 
   it("rejects unsupported visual diff engine values", () => {

@@ -23,8 +23,8 @@ After building the binary, enable it in a config file:
 {
   "visual": {
     "threshold": 0.01,
-    "engine": "native-rust-spike",
-    "nativeBinaryPath": "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike"
+    "engine": "native-rust",
+    "nativeBinaryPath": "native/wqg-visual-diff-native/target/release/wqg-visual-diff-native"
   }
 }
 ```
@@ -32,8 +32,8 @@ After building the binary, enable it in a config file:
 Or use environment variables for one-off runs:
 
 ```bash
-WQG_VISUAL_DIFF_ENGINE=native-rust-spike \
-WQG_VISUAL_DIFF_NATIVE_BIN=native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike \
+WQG_VISUAL_DIFF_ENGINE=native-rust \
+WQG_VISUAL_DIFF_NATIVE_BIN=native/wqg-visual-diff-native/target/release/wqg-visual-diff-native \
 node dist/cli.js audit https://example.com --config configs/default.json
 ```
 
@@ -42,18 +42,18 @@ If the binary is missing, times out, or the run requests unsupported `includeAA=
 ## Inputs
 
 - Each input file must be raw RGBA bytes (row-major), length `width * height * 4`.
-- This spike assumes buffers are pre-normalized to identical dimensions.
+- This engine assumes buffers are pre-normalized to identical dimensions.
 
 ## Build
 
 ```bash
-cargo build --manifest-path native/wqg-visual-diff-native-spike/Cargo.toml --release
+cargo build --manifest-path native/wqg-visual-diff-native/Cargo.toml --release
 ```
 
 ## Run
 
 ```bash
-cargo run --manifest-path native/wqg-visual-diff-native-spike/Cargo.toml -- \
+cargo run --manifest-path native/wqg-visual-diff-native/Cargo.toml -- \
   --width 1280 \
   --height 720 \
   --baseline /tmp/baseline.rgba \
@@ -65,5 +65,5 @@ cargo run --manifest-path native/wqg-visual-diff-native-spike/Cargo.toml -- \
 Example output:
 
 ```json
-{"engine":"wqg-native-spike","width":1280,"height":720,"pixelCount":921600,"diffPixels":3200,"comparablePixels":921600,"mismatchRatio":0.00347222,"threshold":0.05000000,"elapsedMs":7.214}
+{"engine":"wqg-native-rust","width":1280,"height":720,"pixelCount":921600,"diffPixels":3200,"comparablePixels":921600,"mismatchRatio":0.00347222,"threshold":0.05000000,"elapsedMs":7.214}
 ```

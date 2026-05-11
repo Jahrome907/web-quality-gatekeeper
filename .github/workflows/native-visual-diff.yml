@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Native Visual Diff
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "native/wqg-visual-diff-native/**"
+      - ".github/workflows/native-visual-diff.yml"
+      - "package.json"
+  pull_request:
+    paths:
+      - "native/wqg-visual-diff-native/**"
+      - ".github/workflows/native-visual-diff.yml"
+      - "package.json"
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Test native visual diff engine
+        run: cargo test --manifest-path native/wqg-visual-diff-native/Cargo.toml --locked
+
+      - name: Build native visual diff engine
+        run: cargo build --manifest-path native/wqg-visual-diff-native/Cargo.toml --release --locked

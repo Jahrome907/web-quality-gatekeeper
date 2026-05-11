@@ -4,7 +4,7 @@
   "platform": "linux",
   "arch": "x64",
   "node": "v25.2.1",
-  "nativeBinaryPath": "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike",
+  "nativeBinaryPath": "native/wqg-visual-diff-native/target/release/wqg-visual-diff-native",
   "nativeAvailable": true,
   "cases": [
     {
