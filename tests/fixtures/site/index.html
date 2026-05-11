@@ -3,12 +3,327 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fixture Site</title>
+  <title>Acme Release Desk</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #5b667a;
+      --line: #d8dee8;
+      --soft: #f5f7fb;
+      --accent: #0f6bff;
+      --good: #0b7f4f;
+      --warn: #9a5b00;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: var(--ink);
+      background: #fff;
+      line-height: 1.5;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .bar,
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 16px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background: var(--accent);
+    }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 14px;
+    }
+
+    nav a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    nav a:focus,
+    nav a:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    main {
+      padding: 44px 0 56px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+      gap: 32px;
+      align-items: start;
+      margin-bottom: 36px;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.1;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 1.35rem;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    p {
+      margin: 0 0 14px;
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .button {
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 9px 14px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .button.secondary {
+      background: #fff;
+      color: var(--accent);
+    }
+
+    .panel,
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .panel {
+      padding: 18px;
+      box-shadow: 0 14px 28px rgba(23, 32, 51, 0.08);
+    }
+
+    .status-list {
+      list-style: none;
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+    }
+
+    .status-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+
+    .status-list li:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .pass {
+      color: var(--good);
+      font-weight: 700;
+    }
+
+    .watch {
+      color: var(--warn);
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      padding: 16px;
+      background: var(--soft);
+    }
+
+    .metric {
+      display: block;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 18px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      font-size: 14px;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    @media (max-width: 760px) {
+      .bar,
+      .hero {
+        display: block;
+      }
+
+      nav {
+        margin-top: 14px;
+      }
+
+      .hero > .panel {
+        margin-top: 24px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
+  <header>
+    <div class="bar">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Acme Release Desk</span>
+      </a>
+      <nav aria-label="Primary">
+        <a href="/">Dashboard</a>
+        <a href="/pricing.html">Pricing</a>
+        <a href="#evidence">Evidence</a>
+        <a href="#incidents">Incidents</a>
+      </nav>
+    </div>
+  </header>
   <main>
-    <h1>Test Fixture</h1>
-    <p>A minimal page for integration tests.</p>
+    <section class="hero" aria-labelledby="page-title">
+      <div>
+        <h1 id="page-title">Release confidence for a multi-page marketing site.</h1>
+        <p>
+          This deterministic fixture mimics a real product surface with navigation, cards,
+          tables, and calls to action so quality reports exercise meaningful page structure.
+        </p>
+        <div class="actions" aria-label="Primary actions">
+          <a class="button" href="#evidence">Review evidence</a>
+          <a class="button secondary" href="/pricing.html">Compare plans</a>
+        </div>
+      </div>
+      <div class="panel" role="region" aria-labelledby="audit-status-title">
+        <h2 id="audit-status-title">Latest audit status</h2>
+        <ul class="status-list">
+          <li><span>Accessibility</span><span class="pass">Pass</span></li>
+          <li><span>Performance budget</span><span class="pass">Pass</span></li>
+          <li><span>Visual baseline</span><span class="watch">Review</span></li>
+          <li><span>Runtime console</span><span class="pass">Clean</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="evidence" aria-labelledby="evidence-title">
+      <h2 id="evidence-title">Evidence summary</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Audited pages</h3>
+          <span class="metric">2</span>
+          <p>Landing and pricing surfaces are included in the fixture workflow.</p>
+        </article>
+        <article class="card">
+          <h3>Required artifacts</h3>
+          <span class="metric">6</span>
+          <p>Report, summaries, Lighthouse JSON, screenshots, and action plan.</p>
+        </article>
+        <article class="card">
+          <h3>Review owners</h3>
+          <span class="metric">3</span>
+          <p>Frontend, design systems, and release engineering.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="incidents" aria-labelledby="incident-title" style="margin-top: 34px;">
+      <h2 id="incident-title">Open release checks</h2>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Check</th>
+            <th scope="col">Owner</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Navigation smoke path</td>
+            <td>Release engineering</td>
+            <td>Ready</td>
+          </tr>
+          <tr>
+            <td>Pricing page screenshot</td>
+            <td>Frontend</td>
+            <td>Ready</td>
+          </tr>
+          <tr>
+            <td>Accessibility triage</td>
+            <td>Design systems</td>
+            <td>Ready</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
   </main>
 </body>
 </html>

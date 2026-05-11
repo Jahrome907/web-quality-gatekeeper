@@ -79,6 +79,16 @@ describe("ConfigSchema boundaries", () => {
     expect(parsed.screenshots[0]?.fullPage).toBe(true);
   });
 
+  it("accepts @target as a screenshot path for each audited URL", () => {
+    const parsed = ConfigSchema.parse({
+      ...createValidConfig(),
+      screenshots: [{ name: "page", path: "@target" }]
+    });
+
+    expect(parsed.screenshots[0]?.path).toBe("@target");
+    expect(parsed.screenshots[0]?.fullPage).toBe(true);
+  });
+
   it("accepts retry boundary values", () => {
     const parsed = ConfigSchema.parse({
       ...createValidConfig(),

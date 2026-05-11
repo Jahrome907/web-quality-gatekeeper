@@ -1,14 +1,153 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fixture Pricing</title>
-  </head>
-  <body>
-    <main>
-      <h1>Fixture Pricing</h1>
-      <p>Deterministic second page for multi-target integration coverage.</p>
-    </main>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Acme Release Desk Pricing</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: #172033;
+      background: #fff;
+      line-height: 1.5;
+    }
+
+    header,
+    main {
+      width: min(1080px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 0;
+      border-bottom: 1px solid #d8dee8;
+    }
+
+    a {
+      color: #0f6bff;
+    }
+
+    nav {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    main {
+      padding: 42px 0 56px;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      line-height: 1.1;
+    }
+
+    p {
+      color: #5b667a;
+      max-width: 68ch;
+    }
+
+    .plans {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    .plan {
+      border: 1px solid #d8dee8;
+      border-radius: 8px;
+      padding: 18px;
+      background: #f5f7fb;
+    }
+
+    .plan.featured {
+      background: #fff;
+      border-color: #0f6bff;
+      box-shadow: 0 14px 28px rgba(23, 32, 51, 0.08);
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1.2rem;
+    }
+
+    .price {
+      display: block;
+      margin: 12px 0;
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 20px;
+      color: #39445a;
+    }
+
+    @media (max-width: 760px) {
+      header {
+        display: block;
+      }
+
+      nav {
+        margin-top: 12px;
+      }
+
+      .plans {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Acme Release Desk</strong>
+    <nav aria-label="Primary">
+      <a href="/">Dashboard</a>
+      <a href="/pricing.html" aria-current="page">Pricing</a>
+    </nav>
+  </header>
+  <main>
+    <h1>Plans for release teams that need proof before merge.</h1>
+    <p>
+      The pricing fixture gives multi-target audits a second page with different layout,
+      headings, cards, and content density while staying deterministic for CI.
+    </p>
+    <section class="plans" aria-label="Pricing plans">
+      <article class="plan">
+        <h2>Starter</h2>
+        <span class="price">$0</span>
+        <ul>
+          <li>Single-page smoke checks</li>
+          <li>Local HTML report</li>
+          <li>Manual baseline updates</li>
+        </ul>
+      </article>
+      <article class="plan featured">
+        <h2>Team</h2>
+        <span class="price">$49</span>
+        <ul>
+          <li>Multi-page audit runs</li>
+          <li>PR Risk Ledger summaries</li>
+          <li>Visual diff artifacts</li>
+        </ul>
+      </article>
+      <article class="plan">
+        <h2>Enterprise</h2>
+        <span class="price">Custom</span>
+        <ul>
+          <li>Private target controls</li>
+          <li>Trend dashboards</li>
+          <li>Release provenance</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+</body>
 </html>

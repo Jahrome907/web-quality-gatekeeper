@@ -73,9 +73,9 @@ If you prefer the repository source view, the same proof artifacts are also avai
 
 ## How It Works
 
-1. **Validate and pin the target**: the runner normalizes the requested URL, applies SSRF-sensitive guardrails when needed, and pins the audited host so redirect handling stays deterministic.
-2. **Collect evidence on one audited target**: Playwright loads the page, captures runtime signals and screenshots, then axe, Lighthouse, and visual diff run against the same resolved target.
-3. **Emit stable outputs for people and CI**: every run writes `report.html`, `summary.json`, and `summary.v2.json`, with optional baselines and trend artifacts for longer-lived quality programs.
+1. **Validate and pin targets**: the runner normalizes each requested URL, applies SSRF-sensitive guardrails when needed, and pins audited hosts so redirect handling stays deterministic.
+2. **Collect page evidence**: Playwright loads each audited target, captures runtime signals, and writes target-local screenshots. Axe, Lighthouse, and visual diff run against the resolved audit target.
+3. **Emit stable outputs for people and CI**: every run writes `report.html`, `summary.json`, and `summary.v2.json`, with per-page artifacts, optional baselines, and trend artifacts for longer-lived quality programs.
 
 ## Proof & Reproducibility
 
@@ -238,7 +238,11 @@ For a consuming repository, keep configuration in a path you own such as `.githu
     "locale": "en-US",
     "colorScheme": "light"
   },
-  "screenshots": [{ "name": "home", "path": "/", "fullPage": true }],
+  "urls": [
+    { "name": "home", "url": "https://your-site.example/" },
+    { "name": "pricing", "url": "https://your-site.example/pricing" }
+  ],
+  "screenshots": [{ "name": "page", "path": "@target", "fullPage": true }],
   "screenshotGallery": {
     "enabled": false,
     "maxScreenshotsPerPath": 12
@@ -378,13 +382,13 @@ Node **20 or later** is required (`engines.node` is set to `>=20`). Earlier vers
 <details>
 <summary><strong>How long does a full audit take in CI?</strong></summary>
 
-Roughly **30–90 seconds** depending on page complexity, Lighthouse throttling, and runner specs. The GitHub-hosted `ubuntu-latest` runners typically finish in under a minute for a single-page audit.
+Roughly **30 to 90 seconds** depending on page count, page complexity, Lighthouse throttling, and runner specs. The GitHub-hosted `ubuntu-latest` runners typically finish in under a minute for a basic audit.
 </details>
 
 <details>
 <summary><strong>Can I audit multiple pages?</strong></summary>
 
-Yes. Add entries to the `screenshots` array in your config. Each entry gets its own screenshot, axe scan, and visual diff.
+Yes. Add `urls` entries for each audited page. Use `screenshots[].path: "@target"` when each page should capture the audited URL instead of a fixed path such as `/`.
 </details>
 
 <details>

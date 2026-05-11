@@ -132,7 +132,7 @@ describe("HTML report template", () => {
     expect(html).toContain("Web Quality Gatekeeper");
     expect(html).toContain("<h2>Executive Summary</h2>");
     expect(html).toContain("<h2>Category Scores</h2>");
-    expect(html).toContain("<h2>Core Web Vitals</h2>");
+    expect(html).toContain("<h2>Lighthouse Performance Timings</h2>");
     expect(html).toContain("<h2>Captured Playwright Screenshots</h2>");
     expect(html).toContain("<h2>Accessibility</h2>");
     expect(html).toContain("<h2>Accessibility Violations</h2>");

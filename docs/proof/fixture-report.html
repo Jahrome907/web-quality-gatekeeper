@@ -51,7 +51,7 @@
 
     body {
       margin: 0;
-      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      font-family: Aptos, Arial, sans-serif;
       background:
         radial-gradient(circle at 10% 10%, var(--bg-strong), transparent 40%),
         radial-gradient(circle at 90% 0%, rgba(13, 110, 253, 0.12), transparent 32%),
@@ -125,7 +125,6 @@
     .header h1 {
       margin: 0;
       font-size: 30px;
-      letter-spacing: -0.02em;
     }
 
     .meta {
@@ -211,7 +210,6 @@
       font-weight: 700;
       border-radius: 999px;
       padding: 4px 10px;
-      letter-spacing: 0.03em;
       border: 1px solid var(--border);
       background: color-mix(in srgb, var(--card) 92%, var(--bg-strong) 8%);
     }
@@ -299,8 +297,6 @@
       border-radius: 999px;
       font-size: 12px;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
 
     .pill.pass {
@@ -393,6 +389,14 @@
       line-height: 1.5;
     }
 
+    .section-note {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 76ch;
+    }
+
     /* Gauges */
     .gauge-card {
       display: grid;
@@ -422,8 +426,6 @@
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
 
     /* Radar chart */
@@ -506,7 +508,6 @@
     }
 
     .radar-label-text {
-      letter-spacing: 0.01em;
     }
 
     .radar-score {
@@ -525,7 +526,7 @@
       border: 1px solid var(--border);
       border-radius: 4px;
       padding: 2px 6px;
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       font-size: 12px;
       background: var(--bg);
       min-width: 22px;
@@ -617,9 +618,15 @@
     .vital-card header {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: flex-start;
       gap: 12px;
       margin-bottom: 8px;
+    }
+
+    .vital-card h3 {
+      color: var(--text);
+      line-height: 1.25;
+      max-width: 15rem;
     }
 
     .vital-value {
@@ -685,8 +692,13 @@
     .vital-state {
       font-size: 12px;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
+    }
+
+    .vital-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
     }
 
     .vital-state.pass {
@@ -796,7 +808,7 @@
     }
 
     .capture-path {
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       margin-top: 4px;
     }
 
@@ -808,7 +820,7 @@
 
     .opportunity-id {
       color: var(--muted);
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       font-size: 12px;
     }
 
@@ -837,7 +849,7 @@
     }
 
     .rule-id {
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       font-size: 12px;
       background: color-mix(in srgb, var(--bg-strong) 75%, transparent);
       border-radius: 6px;
@@ -848,9 +860,7 @@
       border-radius: 999px;
       padding: 3px 8px;
       font-size: 12px;
-      text-transform: uppercase;
       font-weight: 700;
-      letter-spacing: 0.03em;
     }
 
     .impact-badge.critical,
@@ -909,7 +919,7 @@
     }
 
     .node-target {
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       font-size: 12px;
       color: var(--muted);
       margin-bottom: 2px;
@@ -1252,6 +1262,7 @@
       <ul class="jump-nav-list">
         <li><a class="jump-nav-link" href="#overview">Overview</a></li>
         <li><a class="jump-nav-link" href="#action-plan">Action Plan</a></li>
+
         <li><a class="jump-nav-link" href="#category-scores">Scores</a></li>
         <li><a class="jump-nav-link" href="#core-web-vitals">Vitals</a></li>
         <li><a class="jump-nav-link" href="#playwright-captures">Screenshots</a></li>
@@ -1267,7 +1278,7 @@
       <div>
         <h1>Web Quality Gatekeeper</h1>
         <div class="meta">https://fixture.example/</div>
-        <div class="meta">Started <time data-iso="2026-03-25T19:00:00.000Z" datetime="2026-03-25T19:00:00.000Z">2026-03-25T19:00:00.000Z</time> · Duration 12,281 ms</div>
+        <div class="meta">Started <time data-iso="2026-05-11T22:00:00.000Z" datetime="2026-05-11T22:00:00.000Z">2026-05-11T22:00:00.000Z</time> · Duration 11,498 ms</div>
       </div>
       <div class="header-actions">
         <div class="view-toggle-group" role="group" aria-label="Report view mode">
@@ -1291,19 +1302,19 @@
 
     <section id="overview" class="section card summary-card" data-view-section="simple">
       <h2>Executive Summary</h2>
-      <p>
-        Overall status is <strong>PASS</strong>.
+      <p>Overall status is <strong>Pass</strong>.
         This report combines automated accessibility, Lighthouse performance diagnostics,
-        and deterministic visual diff checks for a single review surface.
-      </p>
+        and deterministic visual diff checks for a single review surface.</p>
       <div class="status-chip-row">
-        <span class="status-chip pass">Overall PASS</span><span class="status-chip pass">A11y PASS</span><span class="status-chip pass">Perf PASS</span><span class="status-chip skipped">Visual SKIPPED</span>
+        <span class="status-chip pass">Overall Pass</span><span class="status-chip pass">Accessibility Pass</span><span class="status-chip pass">Performance Pass</span><span class="status-chip skipped">Visual Skipped</span>
       </div>
       <div class="summary-points">
-        <div class="summary-point">Accessibility step: <span class="pill pass">pass</span></div>
-        <div class="summary-point">Performance step: <span class="pill pass">pass</span></div>
-        <div class="summary-point">Visual step: <span class="pill skipped">skipped</span></div>
-        <div class="summary-point">Captured screenshots: 1</div>
+
+        <div class="summary-point">Accessibility step: <span class="pill pass">Pass</span></div>
+        <div class="summary-point">Performance step: <span class="pill pass">Pass</span></div>
+        <div class="summary-point">Visual step: <span class="pill skipped">Skipped</span></div>
+        <div class="summary-point">Captured screenshots: 2</div>
+
       </div>
     </section>
 
@@ -1311,24 +1322,27 @@
       <h2>Action Plan</h2>
       <p class="muted">Prioritized remediation guidance generated from accessibility, performance, visual, and runtime failures.</p>
       <p class="muted">No remediation recommendations were generated for this run.</p>
+
     </section>
+
+
 
     <div class="grid">
       <div class="card">
         <h3>Overall</h3>
-        <strong><span class="pill pass">pass</span></strong>
+        <strong><span class="pill pass">Pass</span></strong>
       </div>
       <div class="card">
         <h3>Accessibility</h3>
-        <strong><span class="pill pass">pass</span></strong>
+        <strong><span class="pill pass">Pass</span></strong>
       </div>
       <div class="card">
         <h3>Performance</h3>
-        <strong><span class="pill pass">pass</span></strong>
+        <strong><span class="pill pass">Pass</span></strong>
       </div>
       <div class="card">
         <h3>Visual</h3>
-        <strong><span class="pill skipped">skipped</span></strong>
+        <strong><span class="pill skipped">Skipped</span></strong>
       </div>
     </div>
 
@@ -1338,46 +1352,47 @@
         <summary>More info</summary>
         <p>Category scores come from Lighthouse (0-100). Simple view surfaces quick quality posture, detailed view adds diagnostics and opportunities.</p>
       </details>
+
       <div class="scores-layout">
         <div class="scores-radar card">
-          
+
     <div class="radar-wrapper">
       <svg viewBox="0 0 340 340" class="radar-chart" role="img"
-           aria-label="Category scores radar chart — Performance: 99, Accessibility: 100, SEO: 90, Best Practices: 96">
+           aria-label="Category scores radar chart, Performance: 99, Accessibility: 100, SEO: 90, Best Practices: 96">
         <polygon points="170,152.8 189.2,172 170,191.2 150.8,172" class="radar-grid" /><polygon points="170,133.6 208.4,172 170,210.4 131.6,172" class="radar-grid" /><polygon points="170,114.4 227.6,172 170,229.6 112.4,172" class="radar-grid" /><polygon points="170,95.2 246.8,172 170,248.8 93.2,172" class="radar-grid" /><polygon points="170,76 266,172 170,268 74,172" class="radar-grid" />
         <line x1="170" y1="172" x2="170" y2="76" class="radar-axis" /><line x1="170" y1="172" x2="266" y2="172" class="radar-axis" /><line x1="170" y1="172" x2="170" y2="268" class="radar-axis" /><line x1="170" y1="172" x2="74" y2="172" class="radar-axis" />
         <polygon points="170,77 266,172 170,258.4 77.8,172" class="radar-area" />
         <polygon points="170,77 266,172 170,258.4 77.8,172" class="radar-outline" />
         <circle cx="170" cy="77" r="4.5" class="radar-dot good" /><circle cx="266" cy="172" r="4.5" class="radar-dot good" /><circle cx="170" cy="258.4" r="4.5" class="radar-dot good" /><circle cx="77.8" cy="172" r="4.5" class="radar-dot good" />
-        
+
       <text x="170" y="48" text-anchor="middle" class="radar-label">
         <tspan x="170" class="radar-label-text">Perf</tspan>
         <tspan x="170" dy="14" class="radar-score">99</tspan>
       </text>
-    
+
       <text x="304" y="176" text-anchor="start" class="radar-label">
         <tspan x="304" class="radar-label-text">A11y</tspan>
-        <tspan x="304" dy="0" class="radar-score"> 100</tspan>
+        <tspan x="304" dy="16" class="radar-score">100</tspan>
       </text>
-    
+
       <text x="170" y="298" text-anchor="middle" class="radar-label">
         <tspan x="170" class="radar-label-text">SEO</tspan>
         <tspan x="170" dy="14" class="radar-score">90</tspan>
       </text>
-    
+
       <text x="36" y="176" text-anchor="end" class="radar-label">
         <tspan x="36" class="radar-label-text">Best</tspan>
-        <tspan x="36" dy="0" class="radar-score"> 96</tspan>
+        <tspan x="36" dy="16" class="radar-score">96</tspan>
       </text>
-    
+
         <text x="178" y="166.8" class="radar-marker">20</text><text x="178" y="147.6" class="radar-marker">40</text><text x="178" y="128.4" class="radar-marker">60</text><text x="178" y="109.2" class="radar-marker">80</text><text x="178" y="90" class="radar-marker">100</text>
       </svg>
     </div>
-  
+
         </div>
         <div class="scores-gauges">
           <div class="grid">
-            
+
     <button type="button" class="gauge-trigger" data-gauge-key="performance" aria-expanded="false" aria-controls="gauge-detail-performance">
       <article class="gauge-card card">
         <h3>Performance</h3>
@@ -1401,7 +1416,7 @@
         <p class="gauge-hint">Click for breakdown</p>
       </article>
     </button>
-  
+
     <button type="button" class="gauge-trigger" data-gauge-key="accessibility" aria-expanded="false" aria-controls="gauge-detail-accessibility">
       <article class="gauge-card card">
         <h3>Accessibility</h3>
@@ -1425,7 +1440,7 @@
         <p class="gauge-hint">Click for breakdown</p>
       </article>
     </button>
-  
+
     <button type="button" class="gauge-trigger" data-gauge-key="best-practices" aria-expanded="false" aria-controls="gauge-detail-best-practices">
       <article class="gauge-card card">
         <h3>Best Practices</h3>
@@ -1449,7 +1464,7 @@
         <p class="gauge-hint">Click for breakdown</p>
       </article>
     </button>
-  
+
     <button type="button" class="gauge-trigger" data-gauge-key="seo" aria-expanded="false" aria-controls="gauge-detail-seo">
       <article class="gauge-card card">
         <h3>SEO</h3>
@@ -1473,18 +1488,18 @@
         <p class="gauge-hint">Click for breakdown</p>
       </article>
     </button>
-  
+
           </div>
         </div>
       </div>
       <div class="gauge-details">
-        
+
     <article id="gauge-detail-performance" class="gauge-detail card" hidden aria-live="polite">
       <h3>Performance Score Breakdown</h3>
       <ul class="breakdown-list">
         <li>Performance score: <strong>99/100</strong></li>
-        <li>LCP: <strong>752 ms</strong>, CLS: <strong>0.0000</strong>, TBT: <strong>0 ms</strong></li>
-        <li>FCP: <strong>624 ms</strong>, TTFB: <strong>1 ms</strong></li>
+        <li>LCP: <strong>751 ms</strong>, CLS: <strong>0.0000</strong>, TBT: <strong>0 ms</strong></li>
+        <li>FCP: <strong>638 ms</strong>, TTFB: <strong>1 ms</strong></li>
         <li>Budget checks: <strong>Performance pass, LCP pass, CLS pass, TBT pass</strong></li>
       </ul>
     </article>
@@ -1510,47 +1525,55 @@
       <h3>SEO Score Breakdown</h3>
       <ul class="breakdown-list">
         <li>SEO score: <strong>90/100</strong></li>
-        <li>Total requests: <strong>2</strong></li>
-        <li>Transfer size: <strong>618 B</strong></li>
+        <li>Total requests: <strong>3</strong></li>
+        <li>Transfer size: <strong>0 B</strong></li>
         <li>Top opportunity: <strong>n/a</strong></li>
       </ul>
     </article>
-  
+
       </div>
     </section>
 
     <section id="core-web-vitals" class="section" data-view-section="simple">
-      <h2>Core Web Vitals</h2>
+      <h2>Lighthouse Performance Timings</h2>
       <details class="info-panel">
         <summary>More info</summary>
-        <p>Thresholds use Web Vitals guidance. If a metric is unavailable from Lighthouse for a run, it renders as n/a without failing report generation.</p>
+        <p>Thresholds use Lighthouse and Web Vitals guidance. Unavailable metrics render as explicit missing data rather than pretending the run captured them.</p>
       </details>
+
+    <p class="section-note">
+      Lighthouse returned 5 of 5 timing metrics for this run.
+      Largest Contentful Paint and Cumulative Layout Shift are lab Web Vital signals; First Contentful Paint,
+      Total Blocking Time, and Time to First Byte are supporting diagnostics for triage.
+    </p>
+
       <div class="grid">
-        
+
     <article class="vital-card card">
       <header>
-        <h3>FCP</h3>
-        <span class="vital-value">624 ms</span>
+        <h3>First Contentful Paint</h3>
+        <span class="vital-value">638 ms</span>
       </header>
-      <div class="vital-bar" role="img" aria-label="FCP is Pass. Pass threshold: 1800, needs improvement threshold: 3000.">
+      <div class="vital-bar" role="img" aria-label="First Contentful Paint is Pass. Pass threshold: 1800, needs improvement threshold: 3000.">
         <span class="vital-segment pass"></span>
         <span class="vital-segment warn"></span>
         <span class="vital-segment fail"></span>
-        <span class="vital-marker pass" style="left:14.9%"></span>
+        <span class="vital-marker pass" style="left:15.2%"></span>
       </div>
       <div class="vital-legend">
         <span>Pass <= 1800 ms</span>
         <span>Needs <= 3000 ms</span>
       </div>
       <div class="vital-state pass">Pass</div>
+
     </article>
-  
+
     <article class="vital-card card">
       <header>
-        <h3>LCP</h3>
-        <span class="vital-value">752 ms</span>
+        <h3>Largest Contentful Paint</h3>
+        <span class="vital-value">751 ms</span>
       </header>
-      <div class="vital-bar" role="img" aria-label="LCP is Pass. Pass threshold: 2500, needs improvement threshold: 4000.">
+      <div class="vital-bar" role="img" aria-label="Largest Contentful Paint is Pass. Pass threshold: 2500, needs improvement threshold: 4000.">
         <span class="vital-segment pass"></span>
         <span class="vital-segment warn"></span>
         <span class="vital-segment fail"></span>
@@ -1561,14 +1584,15 @@
         <span>Needs <= 4000 ms</span>
       </div>
       <div class="vital-state pass">Pass</div>
+
     </article>
-  
+
     <article class="vital-card card">
       <header>
-        <h3>CLS</h3>
+        <h3>Cumulative Layout Shift</h3>
         <span class="vital-value">0.000</span>
       </header>
-      <div class="vital-bar" role="img" aria-label="CLS is Pass. Pass threshold: 0.1, needs improvement threshold: 0.25.">
+      <div class="vital-bar" role="img" aria-label="Cumulative Layout Shift is Pass. Pass threshold: 0.1, needs improvement threshold: 0.25.">
         <span class="vital-segment pass"></span>
         <span class="vital-segment warn"></span>
         <span class="vital-segment fail"></span>
@@ -1579,14 +1603,15 @@
         <span>Needs <= 0.250</span>
       </div>
       <div class="vital-state pass">Pass</div>
+
     </article>
-  
+
     <article class="vital-card card">
       <header>
-        <h3>TBT</h3>
+        <h3>Total Blocking Time</h3>
         <span class="vital-value">0 ms</span>
       </header>
-      <div class="vital-bar" role="img" aria-label="TBT is Pass. Pass threshold: 200, needs improvement threshold: 600.">
+      <div class="vital-bar" role="img" aria-label="Total Blocking Time is Pass. Pass threshold: 200, needs improvement threshold: 600.">
         <span class="vital-segment pass"></span>
         <span class="vital-segment warn"></span>
         <span class="vital-segment fail"></span>
@@ -1597,14 +1622,15 @@
         <span>Needs <= 600 ms</span>
       </div>
       <div class="vital-state pass">Pass</div>
+
     </article>
-  
+
     <article class="vital-card card">
       <header>
-        <h3>TTFB</h3>
+        <h3>Time to First Byte</h3>
         <span class="vital-value">1 ms</span>
       </header>
-      <div class="vital-bar" role="img" aria-label="TTFB is Pass. Pass threshold: 800, needs improvement threshold: 1800.">
+      <div class="vital-bar" role="img" aria-label="Time to First Byte is Pass. Pass threshold: 800, needs improvement threshold: 1800.">
         <span class="vital-segment pass"></span>
         <span class="vital-segment warn"></span>
         <span class="vital-segment fail"></span>
@@ -1615,8 +1641,9 @@
         <span>Needs <= 1800 ms</span>
       </div>
       <div class="vital-state pass">Pass</div>
+
     </article>
-  
+
       </div>
     </section>
 
@@ -1627,10 +1654,10 @@
         <p>This gallery includes deterministic Playwright captures. Enable high-volume mode in config to include many viewport captures per path.</p>
       </details>
       <div class="capture-gallery">
-        
+
       <article class="capture-card card">
         <div class="capture-visual">
-          
+
     <button
       type="button"
       class="zoom-trigger"
@@ -1640,7 +1667,7 @@
     >
       <img src="screenshots/home.png" alt="home Playwright screenshot" loading="lazy" />
     </button>
-  
+
         </div>
         <div class="capture-meta">
           <h3>home</h3>
@@ -1648,22 +1675,43 @@
           <p class="capture-path">screenshots/home.png</p>
         </div>
       </article>
-    
+
+      <article class="capture-card card">
+        <div class="capture-visual">
+
+    <button
+      type="button"
+      class="zoom-trigger"
+      data-preview-src="screenshots/pricing.png"
+      data-preview-alt="pricing Playwright screenshot"
+      aria-label="Open pricing Playwright screenshot in larger view"
+    >
+      <img src="screenshots/pricing.png" alt="pricing Playwright screenshot" loading="lazy" />
+    </button>
+
+        </div>
+        <div class="capture-meta">
+          <h3>pricing</h3>
+          <p class="capture-url">https://fixture.example/pricing.html</p>
+          <p class="capture-path">screenshots/pricing.png</p>
+        </div>
+      </article>
+
       </div>
-      
+
     </section>
 
     <div id="accessibility-summary" class="section card" data-view-section="detailed">
       <h2>Accessibility</h2>
       <table>
         <tbody>
-          
+
       <tr><th scope="row">Total violations</th><td>0</td></tr>
       <tr><th scope="row">Critical</th><td>0</td></tr>
       <tr><th scope="row">Serious</th><td>0</td></tr>
       <tr><th scope="row">Moderate</th><td>0</td></tr>
       <tr><th scope="row">Minor</th><td>0</td></tr>
-    
+
         </tbody>
       </table>
     </div>
@@ -1672,8 +1720,8 @@
       <h2>Accessibility Violations</h2>
       <p class="muted">
               Captured 0 of 0 violations.
-              
-              
+
+
             </p>
       <p class="muted">No accessibility violations captured.</p>
     </div>
@@ -1701,7 +1749,7 @@
       <div class="visual-list">
         <p class="muted">Visual diff step skipped or no results captured.</p>
       </div>
-      
+
     </section>
 
     <section id="runtime-errors" class="section card" data-view-section="detailed">
@@ -1736,9 +1784,9 @@
     <section id="resource-breakdown" class="section card" data-view-section="detailed">
       <h2>Resource Breakdown</h2>
       <p class="muted">
-              Total transfer size: 618 B
-              · Total requests: 2
-              
+              Total transfer size: 0 B
+              · Total requests: 3
+
             </p>
       <div class="resource-legend">
               <div class="resource-legend-item">
@@ -1746,29 +1794,29 @@
                 <span>JS</span>
                 <span class="muted">(0 B)</span>
               </div>
-            
+
               <div class="resource-legend-item">
                 <span class="resource-legend-swatch css"></span>
                 <span>CSS</span>
                 <span class="muted">(0 B)</span>
               </div>
-            
+
               <div class="resource-legend-item">
                 <span class="resource-legend-swatch image"></span>
                 <span>Image</span>
                 <span class="muted">(0 B)</span>
               </div>
-            
+
               <div class="resource-legend-item">
                 <span class="resource-legend-swatch font"></span>
                 <span>Font</span>
                 <span class="muted">(0 B)</span>
               </div>
-            
+
               <div class="resource-legend-item">
                 <span class="resource-legend-swatch other"></span>
                 <span>Other</span>
-                <span class="muted">(618 B)</span>
+                <span class="muted">(0 B)</span>
               </div>
             </div><div class="resource-stack" role="img" aria-label="Resource transfer size breakdown"><span class="resource-segment js" style="width:0.0%"
             tabindex="0"
@@ -1790,11 +1838,11 @@
             aria-label="Font: 0 B · 0 requests · 0.0%"
           >
             <span class="resource-segment-tooltip">Font: 0 B · 0 requests · 0.0%</span>
-          </span><span class="resource-segment other" style="width:100.0%"
+          </span><span class="resource-segment other" style="width:0.0%"
             tabindex="0"
-            aria-label="Other: 618 B · 2 requests · 100.0%"
+            aria-label="Other: 0 B · 3 requests · 0.0%"
           >
-            <span class="resource-segment-tooltip">Other: 618 B · 2 requests · 100.0%</span>
+            <span class="resource-segment-tooltip">Other: 0 B · 3 requests · 0.0%</span>
           </span></div>
       <table>
         <thead>
@@ -1806,42 +1854,42 @@
           </tr>
         </thead>
         <tbody>
-          
+
             <tr>
               <th>JS</th>
               <td>0 B</td>
               <td>0</td>
               <td>0.0%</td>
             </tr>
-          
+
             <tr>
               <th>CSS</th>
               <td>0 B</td>
               <td>0</td>
               <td>0.0%</td>
             </tr>
-          
+
             <tr>
               <th>Image</th>
               <td>0 B</td>
               <td>0</td>
               <td>0.0%</td>
             </tr>
-          
+
             <tr>
               <th>Font</th>
               <td>0 B</td>
               <td>0</td>
               <td>0.0%</td>
             </tr>
-          
+
             <tr>
               <th>Other</th>
-              <td>618 B</td>
-              <td>2</td>
-              <td>100.0%</td>
+              <td>0 B</td>
+              <td>3</td>
+              <td>0.0%</td>
             </tr>
-          
+
         </tbody>
       </table>
     </section>
@@ -2051,7 +2099,7 @@
           }).join(" | ");
           const statusEl = document.querySelector(".status-chip");
           const urlEl = document.querySelector(".meta");
-          const text = "WQG Report\n" +
+          const text = "Web Quality Gatekeeper Report\n" +
             (urlEl ? urlEl.textContent.trim() : "") + "\n" +
             (statusEl ? statusEl.textContent.trim() : "") + "\n" +
             scores;
