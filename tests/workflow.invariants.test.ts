@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = path.resolve(import.meta.dirname, "..");
 const WORKFLOW_FILES = [
   ".github/workflows/action-smoke.yml",
+  ".github/workflows/native-visual-diff.yml",
   ".github/workflows/npm-pack-smoke.yml",
   ".github/workflows/npm-publish.yml",
   ".github/workflows/pages.yml",

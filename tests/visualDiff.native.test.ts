@@ -42,8 +42,8 @@ async function createWorkspace() {
   return { tempDir, baselineDir, diffDir, currentDir };
 }
 
-async function createNativeSpikeStub(tempDir: string): Promise<string> {
-  const stubPath = path.join(tempDir, "native-spike-stub.mjs");
+async function createNativeEngineStub(tempDir: string): Promise<string> {
+  const stubPath = path.join(tempDir, "native-engine-stub.mjs");
   const source = `#!/usr/bin/env node
 import { readFile, writeFile } from "node:fs/promises";
 
@@ -93,8 +93,8 @@ process.stdout.write(JSON.stringify({ diffPixels }));
   return stubPath;
 }
 
-async function createHangingNativeSpikeStub(tempDir: string): Promise<string> {
-  const stubPath = path.join(tempDir, "native-spike-hang-stub.mjs");
+async function createHangingNativeEngineStub(tempDir: string): Promise<string> {
+  const stubPath = path.join(tempDir, "native-engine-hang-stub.mjs");
   const source = `#!/usr/bin/env node
 setTimeout(() => {}, 60000);
 `;
@@ -104,8 +104,8 @@ setTimeout(() => {}, 60000);
   return stubPath;
 }
 
-describe("runVisualDiff native spike", () => {
-  it("falls back to pixelmatch when the native spike binary is missing", async () => {
+describe("runVisualDiff native engine", () => {
+  it("falls back to pixelmatch when the native engine binary is missing", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();
 
@@ -128,7 +128,7 @@ describe("runVisualDiff native spike", () => {
         false,
         0,
         logger,
-        { engine: "native-rust-spike", nativeBinaryPath: path.join(tempDir, "missing-bin") }
+        { engine: "native-rust", nativeBinaryPath: path.join(tempDir, "missing-bin") }
       );
 
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);
@@ -140,10 +140,10 @@ describe("runVisualDiff native spike", () => {
     }
   });
 
-  it("uses the native spike when an executable is supplied", async () => {
+  it("uses the native engine when an executable is supplied", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();
-    const nativeBinaryPath = await createNativeSpikeStub(tempDir);
+    const nativeBinaryPath = await createNativeEngineStub(tempDir);
 
     const baselinePath = path.join(baselineDir, "home.png");
     const currentPath = path.join(currentDir, "home.png");
@@ -164,7 +164,7 @@ describe("runVisualDiff native spike", () => {
         false,
         0,
         logger,
-        { engine: "native-rust-spike", nativeBinaryPath }
+        { engine: "native-rust", nativeBinaryPath }
       );
 
       expect(summary.failed).toBe(true);
@@ -176,10 +176,10 @@ describe("runVisualDiff native spike", () => {
     }
   });
 
-  it("falls back to pixelmatch when the native spike times out", async () => {
+  it("falls back to pixelmatch when the native engine times out", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();
-    const nativeBinaryPath = await createHangingNativeSpikeStub(tempDir);
+    const nativeBinaryPath = await createHangingNativeEngineStub(tempDir);
     const originalTimeout = process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS;
 
     const baselinePath = path.join(baselineDir, "home.png");
@@ -202,7 +202,7 @@ describe("runVisualDiff native spike", () => {
         false,
         0,
         logger,
-        { engine: "native-rust-spike", nativeBinaryPath }
+        { engine: "native-rust", nativeBinaryPath }
       );
 
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);

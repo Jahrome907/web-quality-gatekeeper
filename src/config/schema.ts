@@ -146,7 +146,7 @@ export const ConfigSchema = z.object({
   }),
   visual: z.object({
     threshold: z.number().min(0).max(1),
-    engine: z.enum(["pixelmatch", "native-rust-spike"]).default(DEFAULT_VISUAL_DIFF_ENGINE),
+    engine: z.enum(["pixelmatch", "native-rust", "native-rust-spike"]).default(DEFAULT_VISUAL_DIFF_ENGINE),
     nativeBinaryPath: z.string().min(1).max(500).optional(),
     pixelmatch: z
       .object({

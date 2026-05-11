@@ -14,8 +14,8 @@ This document defines the workflow hardening rules for repo-owned automation in 
 - Git tags matching stable release SemVer (`vX.Y.Z` or `vX.Y.Z+build`) may update the matching stable major tag (`vX`).
 - Prerelease tags such as `vX.Y.Z-rc.1` may publish prereleases, but they must not move stable major tags.
 - Major-tag movement is an explicit release-side effect and should remain gated by a stable-tag eligibility check.
-- The manual npm publish backfill path must verify that the release tag matches
-  `package.json` before publishing.
+- The separately triggered npm publish path must verify that the release tag
+  matches `package.json` before publishing.
 
 ## PR Comment Policy
 

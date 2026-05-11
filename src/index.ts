@@ -9,6 +9,11 @@ import * as summaryReport from "./report/summary.js";
 import { buildHtmlReport } from "./report/html.js";
 import { buildInsights } from "./report/insights.js";
 import { buildActionPlanMarkdown } from "./report/actionPlan.js";
+import {
+  PR_RISK_LEDGER_ARTIFACT_NAMES,
+  buildPrRiskLedger,
+  formatPrRiskLedgerAsMarkdown
+} from "./report/prRiskLedger.js";
 import { buildTrendDashboardHtml } from "./report/trendDashboard.js";
 import type { AggregateHtmlReport } from "./report/viewModel.js";
 import {
@@ -50,6 +55,14 @@ type OverallStatus = "pass" | "fail";
 
 export type { Summary, SummaryV2 } from "./report/summary.js";
 export { SCHEMA_VERSION } from "./report/summary.js";
+export {
+  PR_RISK_LEDGER_ARTIFACT_NAMES,
+  buildPrRiskLedger,
+  formatPrRiskLedgerAsMarkdown
+} from "./report/prRiskLedger.js";
+export type { PrRiskLedger, PrRiskLedgerEntry } from "./report/prRiskLedger.js";
+export { scaffoldConsumerProject } from "./init/scaffold.js";
+export type { InitProfileName, InitScaffoldOptions, InitScaffoldResult } from "./init/scaffold.js";
 export type { Config } from "./config/schema.js";
 export type { AggregateHtmlReport, HtmlReportSource, ReportViewModel } from "./report/viewModel.js";
 export type {
@@ -458,6 +471,12 @@ export async function runAudit(
   }
 
   await writeJson(path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2), summaryV2);
+  const prRiskLedger = buildPrRiskLedger(summaryV2);
+  await writeJson(path.join(outDir, PR_RISK_LEDGER_ARTIFACT_NAMES.json), prRiskLedger);
+  await writeText(
+    path.join(outDir, PR_RISK_LEDGER_ARTIFACT_NAMES.markdown),
+    formatPrRiskLedgerAsMarkdown(prRiskLedger)
+  );
   const reportSource: AggregateHtmlReport = {
     kind: "aggregate",
     summary: summaryV2,

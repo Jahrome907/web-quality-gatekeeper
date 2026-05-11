@@ -8,15 +8,16 @@ import { pathExists } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 
 const execFileAsync = promisify(execFile);
-const DEFAULT_NATIVE_SPIKE_TIMEOUT_MS = 5000;
+const DEFAULT_NATIVE_TIMEOUT_MS = 5000;
 
-export type VisualDiffEngineName = "pixelmatch" | "native-rust-spike";
+export type VisualDiffEngineName = "pixelmatch" | "native-rust";
+export type ConfiguredVisualDiffEngineName = VisualDiffEngineName | "native-rust-spike";
 
 export interface VisualDiffEngineOptions {
   includeAA: boolean;
   threshold: number;
   logger: Logger;
-  engine?: VisualDiffEngineName;
+  engine?: ConfiguredVisualDiffEngineName;
   nativeBinaryPath?: string;
 }
 
@@ -25,11 +26,11 @@ export interface VisualDiffComputation {
   engine: VisualDiffEngineName;
 }
 
-interface NativeSpikeResult {
+interface NativeVisualDiffResult {
   diffPixels?: unknown;
 }
 
-function resolveNativeSpikeInvocation(binaryPath: string): {
+function resolveNativeInvocation(binaryPath: string): {
   command: string;
   args: string[];
 } {
@@ -49,20 +50,22 @@ function resolveNativeSpikeInvocation(binaryPath: string): {
 
 function resolveEngine(options: VisualDiffEngineOptions): VisualDiffEngineName {
   const configuredEngine = options.engine ?? process.env.WQG_VISUAL_DIFF_ENGINE;
-  return configuredEngine === "native-rust-spike" ? "native-rust-spike" : "pixelmatch";
+  return configuredEngine === "native-rust" || configuredEngine === "native-rust-spike"
+    ? "native-rust"
+    : "pixelmatch";
 }
 
-function resolveNativeSpikeTimeoutMs(): number {
+function resolveNativeTimeoutMs(): number {
   const raw = process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS;
   if (!raw) {
-    return DEFAULT_NATIVE_SPIKE_TIMEOUT_MS;
+    return DEFAULT_NATIVE_TIMEOUT_MS;
   }
 
   const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_NATIVE_SPIKE_TIMEOUT_MS;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_NATIVE_TIMEOUT_MS;
 }
 
-function formatNativeSpikeFailure(error: unknown, timeoutMs: number): string {
+function formatNativeFailure(error: unknown, timeoutMs: number): string {
   if (
     typeof error === "object" &&
     error !== null &&
@@ -96,7 +99,7 @@ async function runPixelmatch(
   };
 }
 
-async function runNativeRustSpike(
+async function runNativeRust(
   baseline: Uint8Array,
   current: Uint8Array,
   diff: Uint8Array,
@@ -123,8 +126,8 @@ async function runNativeRustSpike(
   const baselinePath = path.join(tempDir, "baseline.rgba");
   const currentPath = path.join(tempDir, "current.rgba");
   const diffPath = path.join(tempDir, "diff.rgba");
-  const timeoutMs = resolveNativeSpikeTimeoutMs();
-  const invocation = resolveNativeSpikeInvocation(binaryPath);
+  const timeoutMs = resolveNativeTimeoutMs();
+  const invocation = resolveNativeInvocation(binaryPath);
 
   try {
     await Promise.all([writeFile(baselinePath, baseline), writeFile(currentPath, current)]);
@@ -149,7 +152,7 @@ async function runNativeRustSpike(
         timeout: timeoutMs
       }
     );
-    const parsed = JSON.parse(stdout.trim()) as NativeSpikeResult;
+    const parsed = JSON.parse(stdout.trim()) as NativeVisualDiffResult;
     const diffPixels =
       typeof parsed.diffPixels === "number" ? Math.trunc(parsed.diffPixels) : Number.NaN;
     if (!Number.isFinite(diffPixels) || diffPixels < 0) {
@@ -165,11 +168,11 @@ async function runNativeRustSpike(
     diff.set(nativeDiff);
     return {
       diffPixels,
-      engine: "native-rust-spike",
+      engine: "native-rust",
     };
   } catch (error) {
     options.logger.warn(
-      `Native visual diff engine failed; falling back to pixelmatch. ${formatNativeSpikeFailure(error, timeoutMs)}`
+      `Native visual diff engine failed; falling back to pixelmatch. ${formatNativeFailure(error, timeoutMs)}`
     );
     return null;
   } finally {
@@ -186,8 +189,8 @@ export async function computeVisualDiff(
   options: VisualDiffEngineOptions
 ): Promise<VisualDiffComputation> {
   const engine = resolveEngine(options);
-  if (engine === "native-rust-spike") {
-    const nativeResult = await runNativeRustSpike(baseline, current, diff, width, height, options);
+  if (engine === "native-rust") {
+    const nativeResult = await runNativeRust(baseline, current, diff, width, height, options);
     if (nativeResult) {
       return nativeResult;
     }

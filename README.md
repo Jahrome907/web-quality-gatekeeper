@@ -11,7 +11,7 @@ A quality gate CLI and GitHub Action that runs Playwright smoke checks, axe acce
 
 Release source of truth: use GitHub tags and Releases for published versions. The `package.json` version on `main` may move ahead during release preparation.
 
-Distribution status: tagged releases create GitHub Releases and update the stable GitHub Action major tag from the same validated source. npm publication is deferred to the manual maintainer backfill workflow; until an npm release exists, use the GitHub Action or a source checkout.
+Distribution status: tagged releases create GitHub Releases and update the stable GitHub Action major tag from the same validated source. npm publication is handled separately and is not yet part of the automated release path; until an npm release exists, use the GitHub Action or a source checkout.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
@@ -90,7 +90,8 @@ If you prefer the repository source view, the same proof artifacts are also avai
 - Use the [Testing Matrix](docs/testing-matrix.md) to map a behavior change to the narrowest validation layer that should fail.
 - Review [SECURITY.md](SECURITY.md) before changing target resolution, authenticated audits, or CI publication behavior.
 - See [CONTRIBUTING.md](CONTRIBUTING.md) for the maintainer and contributor command set that mirrors repo automation.
-- The optional native path is documented in [native/wqg-visual-diff-native-spike/README.md](native/wqg-visual-diff-native-spike/README.md), with benchmarks in [benchmarks/visual-diff-benchmark.mjs](benchmarks/visual-diff-benchmark.mjs).
+- Review [Roadmap](docs/roadmap.md), [Provenance](docs/provenance.md), and [SBOM](docs/sbom.md) notes for public trust and release-evidence direction.
+- The optional native path is documented in [native/wqg-visual-diff-native/README.md](native/wqg-visual-diff-native/README.md), with benchmarks in [benchmarks/visual-diff-benchmark.mjs](benchmarks/visual-diff-benchmark.mjs).
 
 ## Features
 
@@ -99,6 +100,7 @@ If you prefer the repository source view, the same proof artifacts are also avai
 - **Lighthouse Performance** — Budget enforcement for score, LCP, CLS, and TBT
 - **Visual Regression** — Baseline management with pixel-level diff detection
 - **Optional Native Visual Engine** — Opt-in Rust-backed diff execution with automatic fallback to `pixelmatch`
+- **PR Risk Ledger** — Merge-review JSON and Markdown artifacts that summarize page, runtime, trend, and remediation risk
 - **Actionable Remediation** — Prioritized fix guidance per failure with evidence and verification steps
 - **Trend Dashboard** — Rolling history insights from prior snapshots (`trends/dashboard.html`)
 - **Policy Templates** — Built-in multi-page/site templates (`marketing`, `docs`, `ecommerce`, `saas`)
@@ -127,7 +129,7 @@ jobs:
 
 ### Local CLI from source checkout
 
-Use this path when you want to inspect outputs locally before wiring CI or when contributing to this repository. The npm package publication path is deferred until a maintainer backfill release is cut.
+Use this path when you want to inspect outputs locally before wiring CI or when contributing to this repository. The npm package publication path is separate from the automated GitHub Release path.
 
 ```bash
 git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
@@ -145,6 +147,14 @@ Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` / 
 ```bash
 wqg audit <url> [options]
 ```
+
+Initialize a consumer repository:
+
+```bash
+wqg init --profile marketing
+```
+
+The init command writes `.github/web-quality/config.json`, `.github/workflows/web-quality.yml`, `.github/web-quality/baselines/.gitkeep`, and `.github/web-quality/README.md`. It refuses to overwrite existing scaffold files unless `--force` is provided.
 
 Common options:
 
@@ -179,6 +189,8 @@ On successful runs, `wqg audit` writes artifact files to `--out` (default: `arti
 - `summary.json`
 - `summary.v2.json`
 - `report.html`
+- `pr-risk-ledger.json`
+- `pr-risk-ledger.md`
 
 `--format` only changes the primary stdout payload:
 
@@ -251,13 +263,13 @@ To opt into the native visual diff engine, point the config at a compiled binary
 {
   "visual": {
     "threshold": 0.01,
-    "engine": "native-rust-spike",
-    "nativeBinaryPath": "native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike"
+    "engine": "native-rust",
+    "nativeBinaryPath": "native/wqg-visual-diff-native/target/release/wqg-visual-diff-native"
   }
 }
 ```
 
-The same seam can also be toggled ad hoc with `WQG_VISUAL_DIFF_ENGINE=native-rust-spike` and `WQG_VISUAL_DIFF_NATIVE_BIN=/path/to/binary`.
+The same seam can also be toggled ad hoc with `WQG_VISUAL_DIFF_ENGINE=native-rust` and `WQG_VISUAL_DIFF_NATIVE_BIN=/path/to/binary`.
 
 ## CI (GitHub Action)
 
@@ -378,7 +390,7 @@ Yes — add entries to the `screenshots` array in your config. Each entry gets i
 <details>
 <summary><strong>Can I use the Rust visual diff path in normal audits?</strong></summary>
 
-Yes. Build the crate in `native/wqg-visual-diff-native-spike/`, then set `visual.engine` to `native-rust-spike` and `visual.nativeBinaryPath` in config, or provide the equivalent `WQG_VISUAL_DIFF_*` environment variables. Unsupported settings, missing binaries, or runtime failures fall back to `pixelmatch` automatically.
+Yes. Build the crate in `native/wqg-visual-diff-native/`, then set `visual.engine` to `native-rust` and `visual.nativeBinaryPath` in config, or provide the equivalent `WQG_VISUAL_DIFF_*` environment variables. Unsupported settings, missing binaries, or runtime failures fall back to `pixelmatch` automatically.
 </details>
 
 ## Author

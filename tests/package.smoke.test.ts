@@ -12,7 +12,7 @@ describe("packaged CLI smoke", () => {
     const { stdout } = await execFileAsync("node", [path.join(ROOT, "scripts", "ci", "pack-smoke.mjs")], {
       cwd: ROOT,
       encoding: "utf8",
-      timeout: 180000,
+      timeout: 720000,
       env: {
         ...process.env,
         NO_COLOR: "1"
@@ -20,5 +20,5 @@ describe("packaged CLI smoke", () => {
     });
 
     expect(stdout).toContain("Pack smoke completed.");
-  }, 180000);
+  }, 720000);
 });

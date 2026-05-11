@@ -17,7 +17,7 @@ main subsystems in `web-quality-gatekeeper`.
    - `visualDiff*.ts` manages baseline comparisons and the optional native
      adapter seam.
 4. `src/report/*` converts runner output into HTML, Markdown, `summary.json`,
-   and `summary.v2.json`.
+   `summary.v2.json`, and PR Risk Ledger artifacts.
 5. `action.yml`, `.github/workflows/*`, and `scripts/ci/*` verify how the
    package and composite Action behave in consumer environments.
 
@@ -61,7 +61,7 @@ Change here when:
 ### Reporting and Contracts
 
 - `src/report/*`: HTML, Markdown, remediation guidance, summaries, trend
-  dashboard, and report templating.
+  dashboard, PR Risk Ledger output, and report templating.
 - `schemas/*`: shipped JSON Schema files for summary contracts.
 - `docs/contracts/*`: protected-interface docs and schema ownership notes.
 - `docs/migrations/summary-v2.md`: consumer-facing compatibility guidance.
@@ -71,6 +71,7 @@ Change here when:
 - you change emitted report content or summary fields
 - you add additive schema fields or contract docs
 - you need to update public proof artifacts or migration notes
+- you need to change merge-review risk ledger output
 
 ### Consumer and Release Surfaces
 

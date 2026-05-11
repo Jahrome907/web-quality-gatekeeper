@@ -6,6 +6,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 
 const execFileAsync = promisify(execFile);
 
@@ -16,6 +17,7 @@ export const STALE_REPO_ROOT_CLEANUP_AGE_MS = 60 * 60 * 1000;
 const BUILD_LOCK_DIR = path.join(ROOT, ".tmp-build-lock");
 const BUILD_LOCK_POLL_MS = 200;
 const BUILD_LOCK_TIMEOUT_MS = 120000;
+const REMOVE_RETRY_CODES = new Set(["EBUSY", "ENOTEMPTY", "EPERM", "EACCES"]);
 
 const LEAKED_PATH_PATTERNS = [
   /^C:\\Users\\.*\\AppData\\Local\\lighthouse\.\d+$/,
@@ -42,6 +44,36 @@ function shouldUseShell(command) {
   }
 
   return command === "npm" || command === "npm.cmd" || command === "npx" || command === "npx.cmd";
+}
+
+function isRetryableRemoveError(error) {
+  return error && typeof error === "object" && REMOVE_RETRY_CODES.has(error.code);
+}
+
+export async function removePathWithRetry(targetPath, options = {}) {
+  const {
+    recursive = true,
+    force = true,
+    maxAttempts = 6,
+    baseDelayMs = 75,
+    rmImpl = rm
+  } = options;
+  let lastError;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      await rmImpl(targetPath, { recursive, force });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableRemoveError(error) || attempt === maxAttempts - 1) {
+        break;
+      }
+      await delay(baseDelayMs * (attempt + 1));
+    }
+  }
+
+  throw lastError;
 }
 
 export async function cleanupRepoRootNoise(options = {}) {
@@ -71,7 +103,7 @@ export async function cleanupRepoRootNoise(options = {}) {
           return;
         }
 
-        await rm(entryPath, { recursive: true, force: true });
+        await removePathWithRetry(entryPath);
       })
   );
 }
@@ -140,7 +172,7 @@ export async function ensureRepoBuild() {
     }
     await runChecked("npm", ["run", "build"]);
   } finally {
-    await rm(BUILD_LOCK_DIR, { recursive: true, force: true });
+    await removePathWithRetry(BUILD_LOCK_DIR);
   }
 }
 

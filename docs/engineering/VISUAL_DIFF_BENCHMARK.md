@@ -10,7 +10,7 @@ The benchmark harness lives at:
 
 The optional native engine lives at:
 
-- `native/wqg-visual-diff-native-spike/`
+- `native/wqg-visual-diff-native/`
 
 ## What the benchmark measures
 
@@ -43,10 +43,10 @@ node benchmarks/visual-diff-benchmark.mjs --iterations 5 --out /tmp/wqg-visual-b
 With the Rust engine after building it:
 
 ```bash
-cargo build --manifest-path native/wqg-visual-diff-native-spike/Cargo.toml --release
+cargo build --manifest-path native/wqg-visual-diff-native/Cargo.toml --release
 node benchmarks/visual-diff-benchmark.mjs \
   --iterations 5 \
-  --native-bin native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike \
+  --native-bin native/wqg-visual-diff-native/target/release/wqg-visual-diff-native \
   --out /tmp/wqg-visual-bench.json
 ```
 
@@ -57,8 +57,8 @@ against a visual-enabled config and keep the same baseline directory across both
 ```bash
 python3 -m http.server 4173 --bind 127.0.0.1 --directory tests/fixtures/site
 
-WQG_VISUAL_DIFF_ENGINE=native-rust-spike \
-WQG_VISUAL_DIFF_NATIVE_BIN="$PWD/native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike" \
+WQG_VISUAL_DIFF_ENGINE=native-rust \
+WQG_VISUAL_DIFF_NATIVE_BIN="$PWD/native/wqg-visual-diff-native/target/release/wqg-visual-diff-native" \
 node dist/cli.js audit http://127.0.0.1:4173 \
   --config tests/fixtures/visual-only-config.json \
   --out /tmp/wqg-native-visual \
@@ -68,8 +68,8 @@ node dist/cli.js audit http://127.0.0.1:4173 \
   --no-fail-on-perf \
   --set-baseline
 
-WQG_VISUAL_DIFF_ENGINE=native-rust-spike \
-WQG_VISUAL_DIFF_NATIVE_BIN="$PWD/native/wqg-visual-diff-native-spike/target/release/wqg-visual-diff-native-spike" \
+WQG_VISUAL_DIFF_ENGINE=native-rust \
+WQG_VISUAL_DIFF_NATIVE_BIN="$PWD/native/wqg-visual-diff-native/target/release/wqg-visual-diff-native" \
 node dist/cli.js audit http://127.0.0.1:4173 \
   --config tests/fixtures/visual-only-config.json \
   --out /tmp/wqg-native-visual \

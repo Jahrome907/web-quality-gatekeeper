@@ -9,6 +9,16 @@ async function loadCiShared(): Promise<{
     scratchPrefixes?: string[];
     staleAfterMs?: number;
   }) => Promise<void>;
+  removePathWithRetry: (
+    targetPath: string,
+    options?: {
+      recursive?: boolean;
+      force?: boolean;
+      maxAttempts?: number;
+      baseDelayMs?: number;
+      rmImpl?: (targetPath: string, options: { recursive: boolean; force: boolean }) => Promise<void>;
+    }
+  ) => Promise<void>;
   closeFixtureServer: (server: Server) => Promise<void>;
   runChecked: (
     command: string,
@@ -145,6 +155,27 @@ describe("ci shared helpers", () => {
       }
       await rm(unrelated, { recursive: true, force: true });
     }
+  });
+
+  it("retries transient Windows cleanup locks before failing repo smoke cleanup", async () => {
+    const { removePathWithRetry } = await loadCiShared();
+    let attempts = 0;
+    const rmImpl = async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        const error = new Error("locked") as NodeJS.ErrnoException;
+        error.code = "EBUSY";
+        throw error;
+      }
+    };
+
+    await expect(
+      removePathWithRetry("C:\\repo\\.tmp-pack-smoke-test", {
+        baseDelayMs: 0,
+        rmImpl
+      })
+    ).resolves.toBeUndefined();
+    expect(attempts).toBe(2);
   });
 
   it("keeps fixture server requests confined to the fixture root", async () => {

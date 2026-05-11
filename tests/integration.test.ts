@@ -177,9 +177,13 @@ describe("CLI integration", () => {
     // --- Assert artifact files exist ---
     const summaryPath = path.join(outDir, "summary.json");
     const reportPath = path.join(outDir, "report.html");
+    const riskLedgerPath = path.join(outDir, "pr-risk-ledger.json");
+    const riskLedgerMarkdownPath = path.join(outDir, "pr-risk-ledger.md");
 
     expect(existsSync(summaryPath), "summary.json should exist").toBe(true);
     expect(existsSync(reportPath), "report.html should exist").toBe(true);
+    expect(existsSync(riskLedgerPath), "pr-risk-ledger.json should exist").toBe(true);
+    expect(existsSync(riskLedgerMarkdownPath), "pr-risk-ledger.md should exist").toBe(true);
 
     // --- Assert summary JSON is valid and schema-correct ---
     const raw = await readFile(summaryPath, "utf8");
@@ -218,6 +222,11 @@ describe("CLI integration", () => {
     expect(summary.artifacts).toHaveProperty("summary", "summary.json");
     expect(summary.artifacts).toHaveProperty("report", "report.html");
     expect(summary.artifacts).toHaveProperty("screenshotsDir", "screenshots");
+
+    const riskLedger = JSON.parse(await readFile(riskLedgerPath, "utf8"));
+    expect(riskLedger).toHaveProperty("summaryPath", "summary.v2.json");
+    expect(riskLedger).toHaveProperty("reportPath", "report.html");
+    expect(riskLedger).toHaveProperty("entries");
 
     // Screenshots array
     expect(Array.isArray(summary.screenshots)).toBe(true);
