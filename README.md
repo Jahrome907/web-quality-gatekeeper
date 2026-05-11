@@ -95,17 +95,17 @@ If you prefer the repository source view, the same proof artifacts are also avai
 
 ## Features
 
-- **Playwright Smoke Runner** — Deterministic screenshots with configurable viewports
-- **axe-core Accessibility** — WCAG compliance scanning with severity counts
-- **Lighthouse Performance** — Budget enforcement for score, LCP, CLS, and TBT
-- **Visual Regression** — Baseline management with pixel-level diff detection
-- **Optional Native Visual Engine** — Opt-in Rust-backed diff execution with automatic fallback to `pixelmatch`
-- **PR Risk Ledger** — Merge-review JSON and Markdown artifacts that summarize page, runtime, trend, and remediation risk
-- **Actionable Remediation** — Prioritized fix guidance per failure with evidence and verification steps
-- **Trend Dashboard** — Rolling history insights from prior snapshots (`trends/dashboard.html`)
-- **Policy Templates** — Built-in multi-page/site templates (`marketing`, `docs`, `ecommerce`, `saas`)
-- **HTML & JSON Reports** — Human-readable reports plus machine-readable summaries
-- **GitHub Action + Workflow Template** — Composite Action for consumer repos, plus this repo's hardened CI workflow
+- **Playwright Smoke Runner:** Deterministic screenshots with configurable viewports
+- **axe-core Accessibility:** WCAG compliance scanning with severity counts
+- **Lighthouse Performance:** Budget enforcement for score, LCP, CLS, and TBT
+- **Visual Regression:** Baseline management with pixel-level diff detection
+- **Optional Native Visual Engine:** Opt-in Rust-backed diff execution with automatic fallback to `pixelmatch`
+- **PR Risk Ledger:** Merge-review JSON and Markdown artifacts that summarize page, runtime, trend, and remediation risk
+- **Actionable Remediation:** Prioritized fix guidance per failure with evidence and verification steps
+- **Trend Dashboard:** Rolling history insights from prior snapshots (`trends/dashboard.html`)
+- **Policy Templates:** Built-in multi-page/site templates (`marketing`, `docs`, `ecommerce`, `saas`)
+- **HTML & JSON Reports:** Human-readable reports plus machine-readable summaries
+- **GitHub Action + Workflow Template:** Composite Action for consumer repos, plus this repo's hardened CI workflow
 
 ## Consumer Usage
 
@@ -370,8 +370,8 @@ Node **20 or later** is required (`engines.node` is set to `>=20`). Earlier vers
 <details>
 <summary><strong>What should I commit from the baselines workflow?</strong></summary>
 
-- **Commit:** `baselines/*.png` — these are reference screenshots for visual regression.
-- **Do not commit:** `artifacts/` — generated every run. Add it to `.gitignore`.
+- **Commit:** `baselines/*.png`. These are reference screenshots for visual regression.
+- **Do not commit:** `artifacts/`. Generated every run. Add it to `.gitignore`.
 
 </details>
 
@@ -384,7 +384,7 @@ Roughly **30–90 seconds** depending on page complexity, Lighthouse throttling,
 <details>
 <summary><strong>Can I audit multiple pages?</strong></summary>
 
-Yes — add entries to the `screenshots` array in your config. Each entry gets its own screenshot, axe scan, and visual diff.
+Yes. Add entries to the `screenshots` array in your config. Each entry gets its own screenshot, axe scan, and visual diff.
 </details>
 
 <details>
@@ -395,8 +395,8 @@ Yes. Build the crate in `native/wqg-visual-diff-native/`, then set `visual.engin
 
 ## Author
 
-**Jahrome** — [GitHub](https://github.com/Jahrome907)
+**Jahrome:** [GitHub](https://github.com/Jahrome907)
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE) for details.

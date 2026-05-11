@@ -1,36 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc" font-family="Aptos, Arial, sans-serif">
   <title id="title">Web Quality Gatekeeper pipeline</title>
   <desc id="desc">A target URL and config flow through one Playwright session that runs Playwright runtime checks, axe accessibility, Lighthouse performance, and visual diff. The run emits report.html, summary.json, summary.v2.json, baselines, and a CI exit code.</desc>
 
   <rect width="1200" height="520" fill="#ffffff"/>
 
   <g fill="#0b1220">
-    <text x="40" y="46" font-size="13" font-weight="600" letter-spacing="0.12em" fill="#57606a">WEB QUALITY GATEKEEPER</text>
-    <text x="40" y="80" font-size="22" font-weight="600" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">One audit, one resolved target, four evidence streams.</text>
+    <text x="40" y="46" font-size="13" font-weight="600" fill="#57606a">Web Quality Gatekeeper</text>
+    <text x="40" y="80" font-size="22" font-weight="600">One audit, one resolved target, four evidence streams.</text>
   </g>
 
-  <!-- INPUT -->
+  <!-- Inputs -->
   <g>
     <rect x="40" y="130" width="220" height="120" rx="6" fill="#ffffff" stroke="#d0d7de"/>
-    <text x="56" y="156" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">INPUT</text>
-    <text x="56" y="182" font-size="15" font-weight="600" fill="#0b1220" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Target + config</text>
+    <text x="56" y="156" font-size="11" font-weight="600" fill="#57606a">Input</text>
+    <text x="56" y="182" font-size="15" font-weight="600" fill="#0b1220">Target + config</text>
     <text x="56" y="206" font-size="13" fill="#3b4252">URL, policy, budgets,</text>
     <text x="56" y="226" font-size="13" fill="#3b4252">auth, baselines.</text>
   </g>
 
   <g>
     <rect x="40" y="270" width="220" height="100" rx="6" fill="#ffffff" stroke="#d0d7de"/>
-    <text x="56" y="296" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">GUARDRAILS</text>
-    <text x="56" y="322" font-size="15" font-weight="600" fill="#0b1220" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">Resolve and pin host</text>
+    <text x="56" y="296" font-size="11" font-weight="600" fill="#57606a">Guardrails</text>
+    <text x="56" y="322" font-size="15" font-weight="600" fill="#0b1220">Resolve and pin host</text>
     <text x="56" y="346" font-size="13" fill="#3b4252">SSRF checks, redirect</text>
     <text x="56" y="362" font-size="13" fill="#3b4252">scrutiny, host pinning.</text>
   </g>
 
-  <!-- ENGINE -->
+  <!-- Engine -->
   <g>
     <rect x="350" y="130" width="500" height="240" rx="6" fill="#f6f8fa" stroke="#d0d7de"/>
-    <text x="366" y="156" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">AUDIT ENGINE</text>
-    <text x="366" y="182" font-size="15" font-weight="600" fill="#0b1220" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">One Playwright session opens the page once</text>
+    <text x="366" y="156" font-size="11" font-weight="600" fill="#57606a">Audit engine</text>
+    <text x="366" y="182" font-size="15" font-weight="600" fill="#0b1220">One Playwright session opens the page once</text>
 
     <g>
       <rect x="366" y="206" width="222" height="68" rx="4" fill="#ffffff" stroke="#d0d7de"/>
@@ -53,10 +53,10 @@
     </g>
   </g>
 
-  <!-- OUTPUTS -->
+  <!-- Outputs -->
   <g>
     <rect x="940" y="130" width="220" height="100" rx="6" fill="#ffffff" stroke="#d0d7de"/>
-    <text x="956" y="156" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">REPORT</text>
+    <text x="956" y="156" font-size="11" font-weight="600" fill="#57606a">Report</text>
     <text x="956" y="182" font-size="14" fill="#0b1220">report.html</text>
     <text x="956" y="202" font-size="14" fill="#0b1220">summary.json</text>
     <text x="956" y="222" font-size="14" fill="#0b1220">summary.v2.json</text>
@@ -64,7 +64,7 @@
 
   <g>
     <rect x="940" y="250" width="220" height="120" rx="6" fill="#ffffff" stroke="#d0d7de"/>
-    <text x="956" y="276" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">EVIDENCE</text>
+    <text x="956" y="276" font-size="11" font-weight="600" fill="#57606a">Evidence</text>
     <text x="956" y="302" font-size="13" fill="#0b1220">screenshots, diffs,</text>
     <text x="956" y="320" font-size="13" fill="#0b1220">lighthouse.json,</text>
     <text x="956" y="338" font-size="13" fill="#0b1220">axe findings,</text>
@@ -72,13 +72,13 @@
   </g>
 
   <g>
-    <rect x="940" y="390" width="220" height="60" rx="6" fill="#ffffff" stroke="#d0d7de"/>
-    <text x="956" y="416" font-size="11" font-weight="600" letter-spacing="0.10em" fill="#57606a">CI SIGNAL</text>
-    <text x="956" y="436" font-size="13" fill="#0b1220">exit code, PR comment,</text>
-    <text x="956" y="452" font-size="13" fill="#0b1220">release tag movement</text>
+    <rect x="940" y="390" width="220" height="80" rx="6" fill="#ffffff" stroke="#d0d7de"/>
+    <text x="956" y="416" font-size="11" font-weight="600" fill="#57606a">CI signal</text>
+    <text x="956" y="438" font-size="13" fill="#0b1220">exit code, PR comment,</text>
+    <text x="956" y="456" font-size="13" fill="#0b1220">release tag movement</text>
   </g>
 
-  <!-- ARROWS -->
+  <!-- Connectors -->
   <g stroke="#0b1220" stroke-width="1.4" fill="none">
     <defs>
       <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
@@ -88,12 +88,12 @@
     <path d="M260 190 H350" marker-end="url(#arr)"/>
     <path d="M260 320 H350" marker-end="url(#arr)"/>
     <path d="M850 190 H940" marker-end="url(#arr)"/>
-    <path d="M850 250 H940" marker-end="url(#arr)"/>
-    <path d="M850 320 C 880 320, 900 380, 940 410" marker-end="url(#arr)"/>
+    <path d="M834 240 C 875 240, 895 310, 940 310" marker-end="url(#arr)"/>
+    <path d="M850 320 C 880 320, 900 395, 940 430" marker-end="url(#arr)"/>
   </g>
 
-  <!-- FOOTNOTE -->
-  <text x="40" y="496" font-size="12" fill="#57606a" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <!-- Footnote -->
+  <text x="40" y="496" font-size="12" fill="#57606a">
     Same target. Same evidence trail. One release decision.
   </text>
 </svg>
