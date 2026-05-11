@@ -436,7 +436,12 @@ describe("CLI integration", () => {
 
       const summaryV2 = JSON.parse(await readFile(summaryV2Path, "utf8")) as {
         mode: string;
-        pages: Array<{ name: string; url: string; artifacts: { summaryV2: string } }>;
+        pages: Array<{
+          name: string;
+          url: string;
+          artifacts: { summaryV2: string };
+          details: { screenshots: Array<{ url: string; path: string }> };
+        }>;
         rollup: { pageCount: number };
       };
 
@@ -450,6 +455,14 @@ describe("CLI integration", () => {
       expect(summaryV2.pages.every((page) => page.artifacts.summaryV2.endsWith("summary.v2.json"))).toBe(
         true
       );
+      expect(summaryV2.pages.map((page) => page.details.screenshots[0]?.url)).toEqual([
+        `${baseUrl}/`,
+        `${baseUrl}/pricing.html`
+      ]);
+      expect(summaryV2.pages.map((page) => page.details.screenshots[0]?.path)).toEqual([
+        "pages/01-landing/screenshots/home.png",
+        "pages/02-pricing/screenshots/home.png"
+      ]);
 
       const html = await readFile(reportPath, "utf8");
       expect(html).toContain("Aggregate report for 2 pages");

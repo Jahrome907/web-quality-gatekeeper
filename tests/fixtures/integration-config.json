@@ -9,14 +9,14 @@
       "width": 1280,
       "height": 720
     },
-    "userAgent": "wqg-test/0.0.0",
+    "userAgent": "wqg-fixture/3.1.5",
     "locale": "en-US",
     "colorScheme": "light"
   },
   "screenshots": [
     {
       "name": "home",
-      "path": "/",
+      "path": "@target",
       "fullPage": true
     }
   ],

@@ -1,7 +1,7 @@
 /* global console, process */
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rename, symlink, writeFile } from "node:fs/promises";
 import {
   ROOT,
   cleanupRepoRootNoise,
@@ -278,6 +278,12 @@ async function installTarballWithRetry(consumerDir, tarballPath) {
   const maxAttempts = 2;
   let lastError;
 
+  if (shouldUseOfflinePackSmokeFallback()) {
+    console.warn("Using offline tarball extraction for local Windows pack smoke; CI still runs npm install.");
+    await installTarballByExtraction(consumerDir, tarballPath);
+    return;
+  }
+
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       await runChecked("npm", [
@@ -285,8 +291,7 @@ async function installTarballWithRetry(consumerDir, tarballPath) {
         tarballPath,
         "--ignore-scripts",
         "--no-audit",
-        "--no-fund",
-        "--package-lock=false"
+        "--no-fund"
       ], {
         cwd: consumerDir,
         timeout: 300000
@@ -305,7 +310,95 @@ async function installTarballWithRetry(consumerDir, tarballPath) {
     }
   }
 
+  if (shouldUseOfflinePackSmokeFallback() && isNpmInternalExitHandlerError(lastError)) {
+    console.warn("npm install failed with an npm CLI internal error; using offline tarball extraction fallback.");
+    await installTarballByExtraction(consumerDir, tarballPath);
+    return;
+  }
+
   throw lastError;
+}
+
+function dependencyPath(root, name) {
+  return path.join(root, "node_modules", ...name.split("/"));
+}
+
+function windowsBinShim(targetScript) {
+  return `@ECHO off\r\nnode "%~dp0\\${targetScript}" %*\r\n`;
+}
+
+function posixBinShim(targetScript) {
+  return `#!/usr/bin/env sh\nexec node "$(dirname "$0")/${targetScript}" "$@"\n`;
+}
+
+function isNpmInternalExitHandlerError(error) {
+  const text = `${error?.message ?? ""}\n${error?.cause?.stderr ?? ""}`;
+  return text.includes("Exit handler never called");
+}
+
+function shouldUseOfflinePackSmokeFallback() {
+  return (
+    process.platform === "win32" &&
+    process.env.CI !== "true" &&
+    process.env.WQG_PACK_SMOKE_FORCE_NPM_INSTALL !== "true"
+  );
+}
+
+async function createPackageBin(binDir, packageName, packageRoot, binDefinition) {
+  const entries =
+    typeof binDefinition === "string"
+      ? [[packageName.split("/").pop(), binDefinition]]
+      : Object.entries(binDefinition ?? {});
+
+  for (const [binName, relativeBinPath] of entries) {
+    if (typeof binName !== "string" || typeof relativeBinPath !== "string") {
+      continue;
+    }
+    const packageRelative = path.relative(binDir, path.join(packageRoot, relativeBinPath));
+    const normalizedRelative = packageRelative.replaceAll(path.sep, "\\");
+    const posixRelative = packageRelative.replaceAll(path.sep, "/");
+    await writeFile(path.join(binDir, `${binName}.cmd`), windowsBinShim(normalizedRelative), "utf8");
+    const posixShim = path.join(binDir, binName);
+    await writeFile(posixShim, posixBinShim(posixRelative), "utf8");
+    await chmod(posixShim, 0o755);
+  }
+}
+
+async function installTarballByExtraction(consumerDir, tarballPath) {
+  const nodeModulesDir = path.join(consumerDir, "node_modules");
+  const binDir = path.join(nodeModulesDir, ".bin");
+  const packageRoot = path.join(nodeModulesDir, "web-quality-gatekeeper");
+  const stagingDir = path.join(consumerDir, ".tarball-extract");
+
+  await removePathWithRetry(stagingDir);
+  await mkdir(nodeModulesDir, { recursive: true });
+  await mkdir(binDir, { recursive: true });
+  await mkdir(stagingDir, { recursive: true });
+  await runChecked("tar", ["-xf", tarballPath, "-C", stagingDir]);
+  await removePathWithRetry(packageRoot);
+  await rename(path.join(stagingDir, "package"), packageRoot);
+  await removePathWithRetry(stagingDir);
+
+  const installedPackage = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
+  const dependencies = Object.keys(installedPackage.dependencies ?? {});
+  for (const dependency of dependencies) {
+    const source = dependencyPath(ROOT, dependency);
+    const destination = dependencyPath(consumerDir, dependency);
+    if (!existsSync(source)) {
+      throw new Error(`Cannot create offline pack-smoke install; missing dependency ${dependency} at ${source}`);
+    }
+    await mkdir(path.dirname(destination), { recursive: true });
+    if (!existsSync(destination)) {
+      await symlink(source, destination, process.platform === "win32" ? "junction" : "dir");
+    }
+
+    const dependencyPackage = JSON.parse(await readFile(path.join(source, "package.json"), "utf8"));
+    if (dependencyPackage.bin) {
+      await createPackageBin(binDir, dependency, destination, dependencyPackage.bin);
+    }
+  }
+
+  await createPackageBin(binDir, "wqg", packageRoot, installedPackage.bin);
 }
 
 async function expectCommandExit(command, args, expectedCode, options = {}) {

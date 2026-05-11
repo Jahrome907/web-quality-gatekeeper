@@ -45,7 +45,7 @@ describe("validateScreenshotPath", () => {
   });
 
   it("rejects path without leading /", () => {
-    expect(() => validateScreenshotPath("about")).toThrow("must start with /");
+    expect(() => validateScreenshotPath("about")).toThrow("must be @target or start with /");
   });
 });
 
@@ -63,5 +63,10 @@ describe("resolveUrl", () => {
   it("resolves nested path", () => {
     const result = resolveUrl("https://example.com", "/docs/api");
     expect(result).toBe("https://example.com/docs/api");
+  });
+
+  it("resolves @target to the audited URL", () => {
+    const result = resolveUrl("https://example.com/pricing?plan=team", "@target");
+    expect(result).toBe("https://example.com/pricing?plan=team");
   });
 });

@@ -51,8 +51,8 @@ const RuleOrTagListSchema = z
 export const ScreenshotSchema = z.object({
   name: z.string().min(1).max(100),
   path: z.string().min(1).max(500).refine(
-    (p) => p.startsWith("/") && !p.includes("://"),
-    { message: "Screenshot path must be a relative path starting with /" }
+    (p) => p === "@target" || (p.startsWith("/") && !p.includes("://")),
+    { message: 'Screenshot path must be "@target" or a relative path starting with /' }
   ),
   fullPage: z.boolean().default(true),
   waitForSelector: z.string().min(1).max(500).optional(),

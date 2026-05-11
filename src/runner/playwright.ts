@@ -87,16 +87,22 @@ export function sanitizeName(name: string): string {
 }
 
 export function validateScreenshotPath(shotPath: string): void {
+  if (shotPath === "@target") {
+    return;
+  }
   if (shotPath.includes("://")) {
     throw new Error(`Screenshot path must be a relative path, not a URL: ${shotPath}`);
   }
   if (!shotPath.startsWith("/")) {
-    throw new Error(`Screenshot path must start with /: ${shotPath}`);
+    throw new Error(`Screenshot path must be @target or start with /: ${shotPath}`);
   }
 }
 
 export function resolveUrl(baseUrl: string, shotPath: string): string {
   validateScreenshotPath(shotPath);
+  if (shotPath === "@target") {
+    return baseUrl;
+  }
   return new URL(shotPath, baseUrl).toString();
 }
 

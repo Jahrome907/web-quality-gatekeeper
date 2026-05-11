@@ -165,7 +165,7 @@ describe("buildHtmlReport", () => {
     expect(html).toContain("Web Quality Gatekeeper");
     expect(html).toContain("Executive Summary");
     expect(html).toContain("Category Scores");
-    expect(html).toContain("Core Web Vitals");
+    expect(html).toContain("Lighthouse Performance Timings");
     expect(html).toContain("Captured Playwright Screenshots");
     expect(html).toContain("Lighthouse Opportunities");
     expect(html).toContain("Console and JavaScript Errors");

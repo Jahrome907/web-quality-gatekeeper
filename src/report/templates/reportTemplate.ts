@@ -52,11 +52,11 @@ const GAUGE_RADIUS = 44;
 const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
 
 const VITAL_DEFINITIONS: VitalDefinition[] = [
-  { id: "fcp", label: "FCP", unit: "ms", good: 1800, needsImprovement: 3000 },
-  { id: "lcp", label: "LCP", unit: "ms", good: 2500, needsImprovement: 4000 },
-  { id: "cls", label: "CLS", unit: "ratio", good: 0.1, needsImprovement: 0.25 },
-  { id: "tbt", label: "TBT", unit: "ms", good: 200, needsImprovement: 600 },
-  { id: "ttfb", label: "TTFB", unit: "ms", good: 800, needsImprovement: 1800 }
+  { id: "fcp", label: "First Contentful Paint", unit: "ms", good: 1800, needsImprovement: 3000 },
+  { id: "lcp", label: "Largest Contentful Paint", unit: "ms", good: 2500, needsImprovement: 4000 },
+  { id: "cls", label: "Cumulative Layout Shift", unit: "ratio", good: 0.1, needsImprovement: 0.25 },
+  { id: "tbt", label: "Total Blocking Time", unit: "ms", good: 200, needsImprovement: 600 },
+  { id: "ttfb", label: "Time to First Byte", unit: "ms", good: 800, needsImprovement: 1800 }
 ];
 
 export function escapeHtml(value: string): string {
@@ -170,7 +170,12 @@ function scoreTone(score: number | null | undefined): ScoreTone {
 
 function statusPill(status: string): string {
   const normalized = status.toLowerCase();
-  return `<span class="pill ${normalized}">${escapeHtml(status)}</span>`;
+  return `<span class="pill ${normalized}">${escapeHtml(formatStatusLabel(status))}</span>`;
+}
+
+function formatStatusLabel(status: string): string {
+  const normalized = status.replaceAll("-", " ").toLowerCase();
+  return normalized.length > 0 ? `${normalized[0]!.toUpperCase()}${normalized.slice(1)}` : status;
 }
 
 function toneBadge(label: string, tone: ScoreTone): string {
@@ -309,7 +314,7 @@ function renderRadarChart(categoryScores: {
   return `
     <div class="radar-wrapper">
       <svg viewBox="0 0 ${chartSize} ${chartSize}" class="radar-chart" role="img"
-           aria-label="Category scores radar chart — ${escapeHtml(ariaLabel)}">
+           aria-label="Category scores radar chart, ${escapeHtml(ariaLabel)}">
         ${gridPaths}
         ${axisLines}
         ${dataPolygon}
@@ -412,6 +417,8 @@ function renderVitalCard(label: string, value: number | null, def: VitalDefiniti
   const markerLeft = thresholdPosition(value, def);
   const stateLabel =
     state === "pass" ? "Pass" : state === "needs-improvement" ? "Needs improvement" : state === "fail" ? "Fail" : "Unknown";
+  const unavailableNote =
+    value === null ? `<p class="vital-note">Not reported by this Lighthouse run.</p>` : "";
 
   return `
     <article class="vital-card card">
@@ -436,6 +443,7 @@ function renderVitalCard(label: string, value: number | null, def: VitalDefiniti
         <span>Needs <= ${escapeHtml(formatVitalValue(def.needsImprovement, def))}</span>
       </div>
       <div class="vital-state ${state}">${escapeHtml(stateLabel)}</div>
+      ${unavailableNote}
     </article>
   `;
 }
@@ -768,10 +776,10 @@ export function renderReportTemplate(view: ReportViewModel): string {
   ].join("");
   const radarChartMarkup = renderRadarChart(categoryScores);
   const statusChipsMarkup = [
-    `<span class="status-chip ${view.overallStatus}">Overall ${escapeHtml(view.overallStatus.toUpperCase())}</span>`,
-    `<span class="status-chip ${view.steps.a11y}">A11y ${escapeHtml(view.steps.a11y.toUpperCase())}</span>`,
-    `<span class="status-chip ${view.steps.perf}">Perf ${escapeHtml(view.steps.perf.toUpperCase())}</span>`,
-    `<span class="status-chip ${view.steps.visual}">Visual ${escapeHtml(view.steps.visual.toUpperCase())}</span>`
+    `<span class="status-chip ${view.overallStatus}">Overall ${escapeHtml(formatStatusLabel(view.overallStatus))}</span>`,
+    `<span class="status-chip ${view.steps.a11y}">Accessibility ${escapeHtml(formatStatusLabel(view.steps.a11y))}</span>`,
+    `<span class="status-chip ${view.steps.perf}">Performance ${escapeHtml(formatStatusLabel(view.steps.perf))}</span>`,
+    `<span class="status-chip ${view.steps.visual}">Visual ${escapeHtml(formatStatusLabel(view.steps.visual))}</span>`
   ].join("");
 
   const perfRecord = perf ? (perf as unknown as Record<string, unknown>) : null;
@@ -808,6 +816,14 @@ export function renderReportTemplate(view: ReportViewModel): string {
   const vitalsMarkup = VITAL_DEFINITIONS.map((def) =>
     renderVitalCard(def.label, vitalValues[def.id as keyof typeof vitalValues], def)
   ).join("");
+  const availableVitalCount = Object.values(vitalValues).filter((value) => value !== null).length;
+  const vitalsSummaryMarkup = `
+    <p class="section-note">
+      Lighthouse returned ${availableVitalCount} of ${VITAL_DEFINITIONS.length} timing metrics for this run.
+      Largest Contentful Paint and Cumulative Layout Shift are lab Web Vital signals; First Contentful Paint,
+      Total Blocking Time, and Time to First Byte are supporting diagnostics for triage.
+    </p>
+  `;
   const gaugeDetailsMarkup = `
     <article id="gauge-detail-performance" class="gauge-detail card" hidden aria-live="polite">
       <h3>Performance Score Breakdown</h3>
@@ -896,14 +912,14 @@ export function renderReportTemplate(view: ReportViewModel): string {
                 <td>${escapeHtml(
                   opportunity.estimatedSavingsMs !== null
                     ? `${Math.round(opportunity.estimatedSavingsMs)} ms`
-                    : "—"
+                    : "n/a"
                 )}</td>
                 <td>${escapeHtml(
                   opportunity.estimatedSavingsBytes !== null
                     ? formatBytes(opportunity.estimatedSavingsBytes)
-                    : "—"
+                    : "n/a"
                 )}</td>
-                <td>${escapeHtml(opportunity.displayValue || "—")}</td>
+                <td>${escapeHtml(opportunity.displayValue || "n/a")}</td>
               </tr>
             `
           )
@@ -1157,12 +1173,12 @@ export function renderReportTemplate(view: ReportViewModel): string {
   const isAggregateView = Boolean(view.aggregate && view.aggregate.pageCount > 1);
   const headerTargetMarkup = escapeHtml(view.displayTarget);
   const overviewCopy = isAggregateView
-    ? `Overall status is <strong>${escapeHtml(view.overallStatus.toUpperCase())}</strong>.
+    ? `Overall status is <strong>${escapeHtml(formatStatusLabel(view.overallStatus))}</strong>.
         This aggregate report combines automated accessibility, Lighthouse performance diagnostics,
         and deterministic visual diff checks across ${view.aggregate!.pageCount} audited pages.
         Detailed score, vitals, screenshot, accessibility, performance, visual, and runtime sections below
         focus on the primary page ${escapeHtml(view.aggregate!.primaryPageName ?? "default")} (${escapeHtml(view.aggregate!.primaryPageUrl)}).`
-    : `Overall status is <strong>${escapeHtml(view.overallStatus.toUpperCase())}</strong>.
+    : `Overall status is <strong>${escapeHtml(formatStatusLabel(view.overallStatus))}</strong>.
         This report combines automated accessibility, Lighthouse performance diagnostics,
         and deterministic visual diff checks for a single review surface.`;
   const summaryPointsMarkup = isAggregateView
@@ -1304,7 +1320,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
 
     body {
       margin: 0;
-      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      font-family: Aptos, Arial, sans-serif;
       background:
         radial-gradient(circle at 10% 10%, var(--bg-strong), transparent 40%),
         radial-gradient(circle at 90% 0%, rgba(13, 110, 253, 0.12), transparent 32%),
@@ -1378,7 +1394,6 @@ export function renderReportTemplate(view: ReportViewModel): string {
     .header h1 {
       margin: 0;
       font-size: 30px;
-      letter-spacing: -0.02em;
     }
 
     .meta {
@@ -1464,7 +1479,6 @@ export function renderReportTemplate(view: ReportViewModel): string {
       font-weight: 700;
       border-radius: 999px;
       padding: 4px 10px;
-      letter-spacing: 0.03em;
       border: 1px solid var(--border);
       background: color-mix(in srgb, var(--card) 92%, var(--bg-strong) 8%);
     }
@@ -1552,8 +1566,6 @@ export function renderReportTemplate(view: ReportViewModel): string {
       border-radius: 999px;
       font-size: 12px;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
 
     .pill.pass {
@@ -1646,6 +1658,14 @@ export function renderReportTemplate(view: ReportViewModel): string {
       line-height: 1.5;
     }
 
+    .section-note {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 76ch;
+    }
+
     /* Gauges */
     .gauge-card {
       display: grid;
@@ -1675,8 +1695,6 @@ export function renderReportTemplate(view: ReportViewModel): string {
       color: var(--muted);
       font-size: 12px;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
 
     /* Radar chart */
@@ -1759,7 +1777,6 @@ export function renderReportTemplate(view: ReportViewModel): string {
     }
 
     .radar-label-text {
-      letter-spacing: 0.01em;
     }
 
     .radar-score {
@@ -1778,7 +1795,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
       border: 1px solid var(--border);
       border-radius: 4px;
       padding: 2px 6px;
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       font-size: 12px;
       background: var(--bg);
       min-width: 22px;
@@ -1870,9 +1887,15 @@ export function renderReportTemplate(view: ReportViewModel): string {
     .vital-card header {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: flex-start;
       gap: 12px;
       margin-bottom: 8px;
+    }
+
+    .vital-card h3 {
+      color: var(--text);
+      line-height: 1.25;
+      max-width: 15rem;
     }
 
     .vital-value {
@@ -1938,8 +1961,13 @@ export function renderReportTemplate(view: ReportViewModel): string {
     .vital-state {
       font-size: 12px;
       font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
+    }
+
+    .vital-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
     }
 
     .vital-state.pass {
@@ -2049,7 +2077,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
     }
 
     .capture-path {
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       margin-top: 4px;
     }
 
@@ -2061,7 +2089,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
 
     .opportunity-id {
       color: var(--muted);
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       font-size: 12px;
     }
 
@@ -2090,7 +2118,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
     }
 
     .rule-id {
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       font-size: 12px;
       background: color-mix(in srgb, var(--bg-strong) 75%, transparent);
       border-radius: 6px;
@@ -2101,9 +2129,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
       border-radius: 999px;
       padding: 3px 8px;
       font-size: 12px;
-      text-transform: uppercase;
       font-weight: 700;
-      letter-spacing: 0.03em;
     }
 
     .impact-badge.critical,
@@ -2162,7 +2188,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
     }
 
     .node-target {
-      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-family: Consolas, monospace;
       font-size: 12px;
       color: var(--muted);
       margin-bottom: 2px;
@@ -2605,11 +2631,12 @@ export function renderReportTemplate(view: ReportViewModel): string {
     </section>
 
     <section id="core-web-vitals" class="section" data-view-section="simple">
-      <h2>Core Web Vitals</h2>
+      <h2>Lighthouse Performance Timings</h2>
       <details class="info-panel">
         <summary>More info</summary>
-        <p>Thresholds use Web Vitals guidance. If a metric is unavailable from Lighthouse for a run, it renders as n/a without failing report generation.</p>
+        <p>Thresholds use Lighthouse and Web Vitals guidance. Unavailable metrics render as explicit missing data rather than pretending the run captured them.</p>
       </details>
+      ${vitalsSummaryMarkup}
       <div class="grid">
         ${vitalsMarkup}
       </div>
@@ -2961,7 +2988,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
           }).join(" | ");
           const statusEl = document.querySelector(".status-chip");
           const urlEl = document.querySelector(".meta");
-          const text = "WQG Report\\n" +
+          const text = "Web Quality Gatekeeper Report\\n" +
             (urlEl ? urlEl.textContent.trim() : "") + "\\n" +
             (statusEl ? statusEl.textContent.trim() : "") + "\\n" +
             scores;
