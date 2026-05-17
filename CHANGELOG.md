@@ -15,11 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pr-risk-ledger.json` and `pr-risk-ledger.md` are emitted alongside the existing report artifacts to summarize merge-review risk from page status, runtime signals, remediation insights, and trend insights.
 - Public roadmap, provenance, and SBOM notes document the project direction and current release-evidence boundaries.
 - Native visual diff engine CI now runs Cargo build and test checks for the Rust engine.
+- `urls` array in config now supports multi-page audits; each entry defines a named target URL that is audited independently.
+- `@target` is accepted as a `screenshots[].path` value, causing the screenshot to capture the audited URL rather than a fixed relative path.
+- `summary.v2.json` page entries now include a `details.screenshots` array with `url` and `path` fields for each captured screenshot.
 
 ### Changed
 
 - The optional Rust visual diff path is now presented as `native-rust` under `native/wqg-visual-diff-native`, with the prior `native-rust-spike` config id accepted as a compatibility alias.
 - Windows local smoke cleanup retries transient file-lock failures and does not fail an otherwise successful package smoke solely because a scratch directory could not be removed immediately.
+- Pack smoke on local Windows now uses an offline tarball extraction path instead of `npm install` when `CI` is not set, avoiding npm CLI environment issues that do not affect CI runs.
 
 ## [3.1.5] - 2026-05-04
 
