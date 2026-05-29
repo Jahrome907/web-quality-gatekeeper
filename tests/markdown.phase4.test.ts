@@ -194,8 +194,12 @@ describe("phase4 markdown rendering", () => {
       },
       pages: [
         {
-          ...createPage(0, "Checkout | ![badge](https://bad.example)\n# injected", "fail"),
-          url: "https://example.com/checkout?next=a|b",
+          ...createPage(
+            0,
+            "Checkout | ![badge](https://bad.example)\n# injected <img src=x onerror=alert(1)>",
+            "fail"
+          ),
+          url: "https://example.com/checkout?next=a|b&tag=<script>",
           details: {
             ...createPage(0, "checkout", "fail").details,
             insights: {
@@ -228,7 +232,7 @@ describe("phase4 markdown rendering", () => {
         pages: [
           {
             name: "Checkout | ![trend](https://bad.example)",
-            url: "https://example.com/checkout?next=a|b",
+            url: "https://example.com/checkout?next=a|b&tag=<script>",
             statusChanged: true,
             a11yViolations: { current: 1, previous: 0, delta: 1 },
             performanceScore: { current: 0.8, previous: 0.9, delta: -0.1 },
@@ -257,7 +261,13 @@ describe("phase4 markdown rendering", () => {
       }
     } as never);
 
-    expect(markdown).toContain("Checkout \\| \\!\\[badge\\]\\(https://bad.example\\) \\# injected");
+    expect(markdown).toContain(
+      "Checkout \\| \\!\\[badge\\]\\(https://bad.example\\) \\# injected &lt;img src=x onerror=alert\\(1\\)&gt;"
+    );
+    expect(markdown).toContain("next=a\\|b&amp;tag=&lt;script&gt;");
+    expect(markdown).not.toContain("## 1. Checkout | ![badge]");
+    expect(markdown).not.toContain("| 1 | Checkout |");
+    expect(markdown).not.toContain("<script>");
     expect(markdown).toContain("a11y\\|runtime");
     expect(markdown).toContain("Fix label \\| \\!\\[x\\]\\(https://bad.example\\)");
     expect(markdown).toContain("Keeps table shape");
