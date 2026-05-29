@@ -137,7 +137,7 @@ Current repo workflow behaviors worth freezing before later hardening:
 
 ## Packaging Baseline
 
-Commands run on 2026-04-29 to capture the current shipping baseline:
+Commands run on 2026-04-29 to capture the 3.1.4 shipping baseline:
 
 ```bash
 npm pack --json
@@ -159,7 +159,7 @@ Observed results:
 - Entry count: `17`
 - Clean install result: `wqg --version` printed `3.1.4`
 
-Current tarball contents:
+3.1.4 tarball contents:
 
 - `LICENSE`
 - `README.md`
@@ -178,11 +178,10 @@ Current tarball contents:
 - `schemas/summary.v1.json`
 - `schemas/summary.v2.json`
 
-Current smoke depth, intentionally recorded as baseline rather than endorsement:
+Current smoke depth:
 
-- Pack and publish smoke prove tarball creation, clean install, and `wqg --version`.
-- They do not yet prove functional `wqg audit` behavior from the tarball.
-- They do not yet assert the presence of every consumer-relevant schema/config asset individually.
+- Pack and publish smoke prove tarball creation, clean install, `wqg --version`, and a packaged `wqg audit` fixture run.
+- Pack smoke validates the emitted summaries and shipped schema/config assets used by the fixture.
 
 ## Known Baseline Ambiguities Resolved Here
 

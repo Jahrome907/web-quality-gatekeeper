@@ -9,7 +9,7 @@ server, runs a real audit, and writes a machine-readable provenance manifest.
 
 ```bash
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run build
 ```
 
@@ -41,7 +41,7 @@ node scripts/case-study/run-fixture-case-study.mjs --out-dir .tmp-case-study
 ## Reproducibility Checklist
 
 - `npm ci` completed without local dependency drift.
-- `npx playwright install` completed for the current machine.
+- `npx playwright install chromium` completed for the current machine.
 - `npm run build` completed before running the fixture script.
 - `fixture-provenance.json` exists and records the command, config path, and output paths.
 - `summary.v2.json` and `report.html` exist under the output directory.

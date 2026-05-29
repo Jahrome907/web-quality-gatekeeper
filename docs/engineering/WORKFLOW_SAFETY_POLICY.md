@@ -35,7 +35,7 @@ This document defines the workflow hardening rules for repo-owned automation in 
 
 These invariants should remain aligned across repo-owned workflows unless a workflow documents why it differs:
 
-- Node version: `20`
+- Node version: `24`
 - Dependency install command: `npm ci --ignore-scripts`
 - Playwright browser install when browser-based checks are required:
   `npx playwright install --with-deps chromium` on Linux and

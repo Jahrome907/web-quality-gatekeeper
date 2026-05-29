@@ -7,13 +7,15 @@ Thanks for contributing to Web Quality Gatekeeper. Please review the
 
 ```bash
 npm ci
+npx playwright install chromium
 npm run validate:full
 ```
 
-Install Playwright browsers with the command that matches your OS:
+On Linux hosts that need browser system dependencies, use:
 
-- Linux: `npx playwright install --with-deps chromium`
-- macOS / Windows: `npx playwright install chromium`
+```bash
+npx playwright install --with-deps chromium
+```
 
 ## Common roles
 
@@ -22,7 +24,7 @@ Install Playwright browsers with the command that matches your OS:
 Use the stable entrypoints below so local verification matches repo automation:
 
 ```bash
-npm run validate:full   # lint + typecheck + tests + build + npm audit --omit=dev
+npm run validate:full   # lint + typecheck + build + tests + security:audit
 npm run contracts:check # summary schema/runtime/doc drift gate
 npm run security:audit  # runtime dependency audit exceptions gate
 npm run smoke:pack      # clean tarball install + real packaged audit

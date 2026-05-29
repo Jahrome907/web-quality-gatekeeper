@@ -5,7 +5,7 @@
 [![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
 [![Source Version 3.1.5](https://img.shields.io/badge/source-3.1.5-17355c?logo=git&logoColor=white)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
-[![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js 22.19+](https://img.shields.io/badge/Node.js-22.19%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 A quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs. It produces an HTML report plus machine-readable JSON summaries for local review and GitHub-based workflows.
 
@@ -30,7 +30,7 @@ Use one of these public entry points:
 git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
 cd web-quality-gatekeeper
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run build
 node dist/cli.js audit https://your-site.example --policy marketing
 ```
@@ -135,7 +135,7 @@ Use this path when you want to inspect outputs locally before wiring CI or when 
 git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
 cd web-quality-gatekeeper
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run build
 node dist/cli.js audit https://your-site.example --policy marketing
 ```
@@ -145,8 +145,10 @@ Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` / 
 ## CLI Usage
 
 ```bash
-wqg audit <url> [options]
+wqg audit [url] [options]
 ```
+
+The positional URL is optional when your config supplies `urls`.
 
 Initialize a consumer repository:
 
@@ -180,7 +182,7 @@ Flags:
 - `--cookie "name=value"` adds a cookie (repeatable)
 - `--verbose` for debug logging
 
-Built-in policies are host-agnostic defaults (paths, budgets, toggles); the target host still comes from `wqg audit <url>` unless your config explicitly sets `urls`.
+Built-in policies are host-agnostic defaults (paths, budgets, toggles); the target host still comes from the positional audit URL unless your config explicitly sets `urls`.
 
 ### Output Formats
 
@@ -216,7 +218,7 @@ wqg audit https://example.com --format md --out artifacts > report.stdout.md
 1. Run once to create baselines:
 
 ```bash
-npx wqg audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
+node dist/cli.js audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
 ```
 
 1. Commit `.github/web-quality/baselines/` to track visual regression.
@@ -327,7 +329,7 @@ These commands are for maintainers and contributors working in this repository i
 
 ```bash
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run check
 npm run contracts:check
 npm run security:audit
@@ -362,13 +364,13 @@ Maintainer references:
 <details>
 <summary><strong>What Node.js version do I need?</strong></summary>
 
-Node **20 or later** is required (`engines.node` is set to `>=20`). Earlier versions are not tested and may fail.
+Node **22.19 or later** is required (`engines.node` is set to `>=22.19`). Repo-owned workflows run on Node 24.
 </details>
 
 <details>
 <summary><strong>Why is the first run so slow?</strong></summary>
 
-`npx playwright install` downloads Chromium (and optionally Firefox/WebKit) browsers. This is a one-time cost (~250 MB). In CI, cache `~/.cache/ms-playwright` to skip repeated downloads.
+`npx playwright install chromium` downloads the Chromium browser used by the runners. On Linux CI, use `npx playwright install --with-deps chromium` when system packages are not already present.
 </details>
 
 <details>

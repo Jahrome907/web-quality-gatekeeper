@@ -2,6 +2,8 @@
 
 Date: 2026-04-29
 Branch: `release/3.1.4`
+
+This is a historical readiness record for v3.1.4, not the current redeploy checklist.
 Scope: release preparation for the next public `v3` patch line, GitHub Release creation, and stable Action tag movement.
 
 ## Release Contents
