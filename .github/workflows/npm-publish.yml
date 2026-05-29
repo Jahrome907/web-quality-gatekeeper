@@ -131,4 +131,11 @@ jobs:
           path: npm-package
 
       - name: Publish to npm with trusted publishing
-        run: npm publish npm-package/*.tgz --provenance --access public
+        run: |
+          shopt -s nullglob
+          tarballs=(./npm-package/*.tgz)
+          if [ "${#tarballs[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one packed npm tarball, found ${#tarballs[@]}."
+            exit 1
+          fi
+          npm publish "${tarballs[0]}" --provenance --access public
