@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.6] - 2026-05-29
+
 ### Added
 
 - `wqg init --profile <marketing|docs|ecommerce|saas>` scaffolds consumer workflow, config, baseline, and README files without overwriting existing files unless `--force` is provided.
@@ -20,6 +22,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The optional Rust visual diff path is now presented as `native-rust` under `native/wqg-visual-diff-native`, with the prior `native-rust-spike` config id accepted as a compatibility alias.
 - Windows local smoke cleanup retries transient file-lock failures and does not fail an otherwise successful package smoke solely because a scratch directory could not be removed immediately.
+- Node 22.19 is now the minimum supported runtime, with repo-owned workflows and the composite Action running on Node 24.
+- Release, npm publish, quality-gate, pack-smoke, action-smoke, and Pages workflows use narrower permissions and non-persistent checkout credentials; npm publish now uses trusted publishing instead of a long-lived `NPM_TOKEN`.
+- Local composite-Action smoke is strict by default; `WQG_ACTION_SMOKE_ALLOW_SKIP=true` is reserved for explicit optional local probes.
+
+### Fixed
+
+- Auth headers and cookies remain scoped to the originally requested audit target after cross-origin redirects.
+- CI-sensitive target blocking now treats GitHub Actions as sensitive mode even when `CI=false` is present in the environment.
+- Screenshot filenames remain distinct after sanitization, avoiding overwritten screenshots, baselines, and visual diffs.
+- Markdown report output escapes target-derived text and path code spans so crafted page names, URLs, insights, or artifact paths cannot corrupt report structure.
+- DNS-resolved private initial targets, malformed native visual-diff output, and HTML report generation now have direct regression coverage.
 
 ## [3.1.5] - 2026-05-04
 
@@ -258,7 +271,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
-[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.5...HEAD
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.6...HEAD
+[3.1.6]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.5...v3.1.6
 [3.1.5]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.4...v3.1.5
 [3.1.4]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.3...v3.1.4
 [3.1.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.1...v3.1.2

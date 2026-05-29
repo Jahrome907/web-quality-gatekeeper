@@ -18,7 +18,7 @@ The fixture walkthrough in `docs/case-study-run.md` documents the reproducible l
 
 ```bash
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run build
 npm run case-study:fixture
 ```

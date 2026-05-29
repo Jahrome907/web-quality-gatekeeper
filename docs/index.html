@@ -549,7 +549,7 @@
             <a href="proof/fixture-action-plan.md">action-plan.md</a>.
           </p>
           <p>
-            <strong>Proof bundle version:</strong> 3.1.5.
+            <strong>Proof bundle version:</strong> 3.1.6.
             <strong>Release source:</strong> GitHub tags and Releases, not a working-branch package field.
           </p>
         </div>
@@ -665,11 +665,11 @@
 
           <article class="panel">
             <h3>Run the CLI from source</h3>
-            <p>Use this path when you want local evaluation before wiring CI.</p>
+            <p>Use this path when you want local evaluation before wiring CI. Requires Node 22.19 or later; repo workflows use Node 24.</p>
             <pre tabindex="0" aria-label="Source CLI adoption example"><code>git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
 cd web-quality-gatekeeper
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run build
 node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
             <p style="margin-top: 12px; font-size: 0.92rem;">

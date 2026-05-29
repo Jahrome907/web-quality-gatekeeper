@@ -16,6 +16,9 @@ This document defines the workflow hardening rules for repo-owned automation in 
 - Major-tag movement is an explicit release-side effect and should remain gated by a stable-tag eligibility check.
 - The separately triggered npm publish path must verify that the release tag
   matches `package.json` before publishing.
+- npm publishing uses trusted publishing; the package must have this repository
+  and `.github/workflows/npm-publish.yml` configured as a trusted publisher on
+  npmjs.com before the manual publish workflow can succeed.
 
 ## PR Comment Policy
 
@@ -35,11 +38,12 @@ This document defines the workflow hardening rules for repo-owned automation in 
 
 These invariants should remain aligned across repo-owned workflows unless a workflow documents why it differs:
 
-- Node version: `20`
+- Node version: `24`
 - Dependency install command: `npm ci --ignore-scripts`
-- Playwright browser install when browser-based checks are required:
-  `npx playwright install --with-deps chromium` on Linux and
-  `npx playwright install chromium` on macOS/Windows
+- Browser-based checks prefer the hosted runner Chrome executable resolved by
+  `scripts/ci/resolve-chrome-path.mjs`; Playwright browser install remains a
+  fallback with `npx playwright install --with-deps --only-shell chromium` on
+  Linux and `npx playwright install --only-shell chromium` on macOS/Windows
 - Validation gate for release-sensitive flows includes `npm run check`, `npm run security:audit`, and `npm run build`
 
 ## Maintenance Expectations

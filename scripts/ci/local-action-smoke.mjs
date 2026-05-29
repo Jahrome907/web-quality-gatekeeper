@@ -1,5 +1,6 @@
 /* global console, process */
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, rm, cp, mkdir } from "node:fs/promises";
 import { assertActionSmoke } from "./assert-action-smoke.mjs";
@@ -12,11 +13,51 @@ import {
   startFixtureServer
 } from "./_shared.mjs";
 
+function resolveBashCommand() {
+  if (process.env.WQG_ACTION_SMOKE_BASH) {
+    const candidate = process.env.WQG_ACTION_SMOKE_BASH;
+    if (
+      (!path.isAbsolute(candidate) || existsSync(candidate)) &&
+      spawnSync(candidate, ["--version"], { stdio: "ignore" }).status === 0
+    ) {
+      return candidate;
+    }
+    return null;
+  }
+
+  const candidates =
+    process.platform === "win32"
+      ? [
+          "C:\\Program Files\\Git\\bin\\bash.exe",
+          "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+          "bash"
+        ]
+      : ["bash"];
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    if (path.isAbsolute(candidate) && !existsSync(candidate)) {
+      continue;
+    }
+    if (spawnSync(candidate, ["--version"], { stdio: "ignore" }).status === 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function runBashScript(script, options = {}) {
   const { cwd = ROOT, env = {} } = options;
+  const bashCommand = resolveBashCommand();
+  if (!bashCommand) {
+    return Promise.reject(new Error("A working bash runtime is required for local action smoke."));
+  }
 
   return new Promise((resolve, reject) => {
-    const child = spawn("bash", ["-lc", "bash -s"], {
+    const child = spawn(bashCommand, ["-lc", "bash -s"], {
       cwd,
       env: {
         ...process.env,
@@ -57,23 +98,27 @@ function toBashLiteral(value) {
 }
 
 function hasActionBash() {
-  return (
-    spawnSync("bash", ["--version"], { stdio: "ignore" }).status === 0 &&
-    spawnSync("bash", ["-lc", "command -v node >/dev/null 2>&1"], { stdio: "ignore" }).status === 0
+  const bashCommand = resolveBashCommand();
+  return Boolean(
+    bashCommand &&
+      spawnSync(bashCommand, ["-lc", "command -v node >/dev/null 2>&1"], {
+        stdio: "ignore"
+      }).status === 0
   );
 }
 
-function hasActionPlaywrightBrowser() {
-  if (!hasActionBash()) {
+function hasActionBrowser() {
+  const bashCommand = resolveBashCommand();
+  if (!bashCommand || !hasActionBash()) {
     return false;
   }
 
   return (
     spawnSync(
-      "bash",
+      bashCommand,
       [
         "-lc",
-        "node -e \"const fs=require('node:fs');const { chromium } = require('playwright');process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)\""
+        "node -e \"const fs=require('node:fs');if(process.env.CHROME_PATH&&fs.existsSync(process.env.CHROME_PATH))process.exit(0);const { chromium } = require('playwright');process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)\""
       ],
       {
         cwd: ROOT,
@@ -84,14 +129,14 @@ function hasActionPlaywrightBrowser() {
 }
 
 async function runLocalActionSmoke() {
-  if (!hasActionPlaywrightBrowser()) {
+  if (!hasActionBrowser()) {
     const message =
-      "Local action smoke skipped: bash node runtime does not have a Playwright browser installed.";
-    if (process.env.WQG_ACTION_SMOKE_REQUIRED === "true") {
-      throw new Error(`${message} Install the browser or rerun in a provisioned environment.`);
+      "Local action smoke requires a bash node runtime with CHROME_PATH or a Playwright browser installed.";
+    if (process.env.WQG_ACTION_SMOKE_ALLOW_SKIP === "true") {
+      console.log(`${message} Skipping because WQG_ACTION_SMOKE_ALLOW_SKIP=true.`);
+      return;
     }
-    console.log(message);
-    return;
+    throw new Error(`${message} Install the browser or rerun in a provisioned environment.`);
   }
 
   await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-action-local-"] });

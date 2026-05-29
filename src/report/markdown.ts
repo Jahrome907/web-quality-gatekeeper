@@ -122,6 +122,36 @@ function formatDelta(delta: number | null): string {
   return `${prefix}${formatNumber(delta, 3)}`;
 }
 
+function escapeMarkdownText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\r?\n/g, " ")
+    .replace(/([[\]()`*_{}#!+])/g, "\\$1");
+}
+
+function escapeTableCell(value: string): string {
+  return escapeMarkdownText(value).replace(/\|/g, "\\|");
+}
+
+function escapeHeadingText(value: string): string {
+  return escapeMarkdownText(value).replace(/\|/g, "\\|");
+}
+
+function codeSpan(value: string): string {
+  const normalized = value.replace(/\r?\n/g, " ");
+  const longestRun = Math.max(0, ...(normalized.match(/`+/g) ?? []).map((run) => run.length));
+  const delimiter = "`".repeat(longestRun + 1);
+  const needsPadding =
+    normalized.startsWith("`") ||
+    normalized.endsWith("`") ||
+    normalized.startsWith(" ") ||
+    normalized.endsWith(" ");
+  return needsPadding ? `${delimiter} ${normalized} ${delimiter}` : `${delimiter}${normalized}${delimiter}`;
+}
+
 function normalizeTrendStatus(status: TrendDeltaSummary["status"]): Exclude<
   TrendDeltaSummary["status"],
   "no_previous_snapshot" | "previous_snapshot_invalid"
@@ -169,17 +199,17 @@ function renderTrendSection(lines: string[], trend: TrendDeltaSummary): void {
   if (normalizedStatus !== "ready" || !trend.metrics) {
     lines.push(`- **Status**: ${formatTrendStatus(normalizedStatus)}`);
     if (trend.historyDir) {
-      lines.push(`- **History directory**: \`${trend.historyDir}\``);
+      lines.push(`- **History directory**: ${codeSpan(trend.historyDir)}`);
     }
     if (trend.message) {
-      lines.push(`- **Details**: ${trend.message}`);
+      lines.push(`- **Details**: ${escapeMarkdownText(trend.message)}`);
     }
     lines.push("");
     return;
   }
 
-  lines.push(`- **History directory**: \`${trend.historyDir ?? "n/a"}\``);
-  lines.push(`- **Previous snapshot**: \`${trend.previousSnapshotPath ?? "n/a"}\``);
+  lines.push(`- **History directory**: ${codeSpan(trend.historyDir ?? "n/a")}`);
+  lines.push(`- **Previous snapshot**: ${codeSpan(trend.previousSnapshotPath ?? "n/a")}`);
   lines.push(`- **Overall status changed**: ${trend.metrics.overallStatusChanged ? "yes" : "no"}`);
   lines.push("");
 
@@ -219,9 +249,11 @@ function renderTrendSection(lines: string[], trend: TrendDeltaSummary): void {
     lines.push("|---|---|---|---:|---:|---:|");
     for (const page of trend.pages) {
       lines.push(
-        `| ${page.name} | ${page.url} | ${page.statusChanged ? "yes" : "no"} | ${formatDelta(
-          page.a11yViolations.delta
-        )} | ${formatDelta(page.performanceScore.delta)} | ${formatDelta(page.maxMismatchRatio.delta)} |`
+        `| ${escapeTableCell(page.name)} | ${escapeTableCell(page.url)} | ${
+          page.statusChanged ? "yes" : "no"
+        } | ${formatDelta(page.a11yViolations.delta)} | ${formatDelta(
+          page.performanceScore.delta
+        )} | ${formatDelta(page.maxMismatchRatio.delta)} |`
       );
     }
     lines.push("");
@@ -240,7 +272,9 @@ function renderInsightsSection(lines: string[], details: SummaryV2): void {
   lines.push("|---:|---|---|---|---|");
   recommendations.slice(0, 10).forEach((item, index) => {
     lines.push(
-      `| ${index + 1} | ${item.source} | ${item.severity} | ${item.title} | ${item.expectedImpact} |`
+      `| ${index + 1} | ${escapeTableCell(item.source)} | ${escapeTableCell(
+        item.severity
+      )} | ${escapeTableCell(item.title)} | ${escapeTableCell(item.expectedImpact)} |`
     );
   });
   lines.push("");
@@ -258,7 +292,11 @@ function renderTrendInsightsSection(
   lines.push(`${headingLevel} Trend Insights`);
   lines.push("");
   insights.forEach((insight, index) => {
-    lines.push(`- ${index + 1}. [${insight.severity}] ${insight.title}: ${insight.recommendation}`);
+    lines.push(
+      `- ${index + 1}. [${escapeMarkdownText(insight.severity)}] ${escapeMarkdownText(
+        insight.title
+      )}: ${escapeMarkdownText(insight.recommendation)}`
+    );
   });
   lines.push("");
 }
@@ -273,7 +311,7 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
   lines.push(`- **Mode**: ${summary.mode}`);
   lines.push(`- **Started**: ${summary.startedAt}`);
   lines.push(`- **Duration**: ${summary.durationMs} ms`);
-  lines.push(`- **Primary URL**: ${summary.primaryUrl}`);
+  lines.push(`- **Primary URL**: ${escapeMarkdownText(summary.primaryUrl)}`);
   lines.push(`- **Schema**: \`${summary.$schema}\``);
   lines.push(`- **Schema version**: \`${summary.schemaVersion}\``);
   lines.push("");
@@ -298,7 +336,9 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
     lines.push("|---:|---|---|---|---|");
     summary.insights.recommendations.slice(0, 10).forEach((item, index) => {
       lines.push(
-        `| ${index + 1} | ${item.source} | ${item.severity} | ${item.title} | ${item.expectedImpact} |`
+        `| ${index + 1} | ${escapeTableCell(item.source)} | ${escapeTableCell(
+          item.severity
+        )} | ${escapeTableCell(item.title)} | ${escapeTableCell(item.expectedImpact)} |`
       );
     });
     lines.push("");
@@ -313,9 +353,10 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
   lines.push("|---:|---|---|---|---:|---:|---:|---:|");
   for (const page of summary.pages) {
     lines.push(
-      `| ${page.index + 1} | ${page.name} | ${page.url} | ${badge("Page", page.overallStatus)} | ${
-        page.metrics.a11yViolations
-      } | ${page.metrics.performanceScore ?? "n/a"} | ${
+      `| ${page.index + 1} | ${escapeTableCell(page.name)} | ${escapeTableCell(page.url)} | ${badge(
+        "Page",
+        page.overallStatus
+      )} | ${page.metrics.a11yViolations} | ${page.metrics.performanceScore ?? "n/a"} | ${
         page.metrics.maxMismatchRatio === null ? "n/a" : formatNumber(page.metrics.maxMismatchRatio, 4)
       } | ${page.durationMs} |`
     );
@@ -324,15 +365,15 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
 
   for (const page of summary.pages) {
     const details = page.details;
-    lines.push(`## ${page.index + 1}. ${page.name}`);
+    lines.push(`## ${page.index + 1}. ${escapeHeadingText(page.name)}`);
     lines.push("");
-    lines.push(`- **URL**: ${page.url}`);
+    lines.push(`- **URL**: ${escapeMarkdownText(page.url)}`);
     lines.push(`- **Status**: ${badge("Page", page.overallStatus)}`);
     lines.push(`- **Started**: ${page.startedAt}`);
     lines.push(`- **Duration**: ${page.durationMs} ms`);
-    lines.push(`- **Summary (v1)**: \`${page.artifacts.summary}\``);
-    lines.push(`- **Summary (v2)**: \`${page.artifacts.summaryV2}\``);
-    lines.push(`- **Report**: \`${page.artifacts.report}\``);
+    lines.push(`- **Summary (v1)**: ${codeSpan(page.artifacts.summary)}`);
+    lines.push(`- **Summary (v2)**: ${codeSpan(page.artifacts.summaryV2)}`);
+    lines.push(`- **Report**: ${codeSpan(page.artifacts.report)}`);
     lines.push("");
 
     lines.push("### Step Status");
@@ -397,11 +438,11 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
       lines.push("|---|---|---:|---|---|---|");
       for (const result of details.visual.results) {
         lines.push(
-          `| ${result.name} | ${result.status} | ${
+          `| ${escapeTableCell(result.name)} | ${escapeTableCell(result.status)} | ${
             result.mismatchRatio === null ? "n/a" : formatNumber(result.mismatchRatio, 4)
-          } | \`${result.currentPath}\` | \`${result.baselinePath}\` | \`${
+          } | ${codeSpan(result.currentPath)} | ${codeSpan(result.baselinePath)} | ${codeSpan(
             result.diffPath ?? "n/a"
-          }\` |`
+          )} |`
         );
       }
       lines.push("");
@@ -431,7 +472,7 @@ function renderLegacySummary(summary: Summary): string {
   lines.push("");
   lines.push(`${badge("Overall", status)}`);
   lines.push("");
-  lines.push(`- **URL**: ${summary.url}`);
+  lines.push(`- **URL**: ${escapeMarkdownText(summary.url)}`);
   lines.push(`- **Duration**: ${summary.durationMs} ms`);
   lines.push(`- **Started**: ${summary.startedAt}`);
   lines.push(`- **Schema version**: \`${summary.schemaVersion}\``);

@@ -42,12 +42,33 @@ describe("workflow invariants", () => {
     }
   });
 
+  it("disables persisted credentials on repo workflow checkouts", () => {
+    const workflowPaths = WORKFLOW_FILES.filter((relativePath) =>
+      relativePath.startsWith(".github/workflows/")
+    );
+    const checkoutPattern = /uses:\s+actions\/checkout@[0-9a-f]{40}(?:\s+#.*)?/g;
+
+    for (const relativePath of workflowPaths) {
+      const source = readRepoFile(relativePath);
+      for (const match of source.matchAll(checkoutPattern)) {
+        const nextStepIndex = source.indexOf("\n      - name:", (match.index ?? 0) + match[0].length);
+        const checkoutBlock = source.slice(
+          match.index ?? 0,
+          nextStepIndex === -1 ? source.length : nextStepIndex
+        );
+        expect(checkoutBlock, `${relativePath} checkout should not persist credentials`).toContain(
+          "persist-credentials: false"
+        );
+      }
+    }
+  });
+
   it("guards stable major tag movement behind a stable semver check", () => {
     const source = readRepoFile(".github/workflows/release.yml");
 
     expect(source).toContain("Resolve major tag update eligibility");
     expect(source).toContain("^v([0-9]+)\\.[0-9]+\\.[0-9]+(\\+[0-9A-Za-z.-]+)?$");
-    expect(source).toContain("if: steps.major-tag.outputs.should_update == 'true'");
+    expect(source).toContain("if: needs.validate.outputs.should_update_major == 'true'");
   });
 
   it("keeps PR summary comments fork-safe and permission-tolerant", () => {
@@ -55,8 +76,12 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("Determine PR comment capability");
     expect(source).toContain("steps.pr_comment.outputs.can_comment == 'true'");
+    expect(source).toContain("pr-comment:");
+    expect(source).toContain("needs.quality-gate.outputs.can_comment == 'true'");
+    expect(source).toContain("issues: write");
     expect(source).toContain("continue-on-error: true");
     expect(source).toContain("Skipping PR comment due to token permission limits");
+    expect(source).not.toContain("pull-requests: write");
   });
 
   it("keeps repo quality-gate audits hermetic by preferring local docs preview targets", () => {
@@ -99,12 +124,33 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("- name: Checkout");
     expect(source).toContain("persist-credentials: false");
+    expect(source).toContain(
+      [
+        "    - name: Setup Node",
+        "      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0",
+        "      with:",
+        "        node-version: 24"
+      ].join("\n")
+    );
+    expect(source).toContain(
+      [
+        "    - name: Install dependencies",
+        "      working-directory: ${{ github.action_path }}",
+        "      shell: bash",
+        "      run: npm ci --ignore-scripts"
+      ].join("\n")
+    );
+    expect(source).not.toContain("cache: npm");
+    expect(source).not.toContain("cache-dependency-path:");
+    expect(source).toContain("- name: Resolve Chrome path");
+    expect(source).toContain("run: node scripts/ci/resolve-chrome-path.mjs");
     expect(source).toContain("Install Playwright browsers (Linux)");
-    expect(source).toContain("if: runner.os == 'Linux'");
-    expect(source).toContain("npx playwright install --with-deps chromium");
+    expect(source).toContain("if: env.CHROME_PATH == '' && runner.os == 'Linux'");
+    expect(source).toContain('PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "120000"');
+    expect(source).toContain("npx playwright install --with-deps --only-shell chromium");
     expect(source).toContain("Install Playwright browsers (macOS/Windows)");
-    expect(source).toContain("if: runner.os != 'Linux'");
-    expect(source).toContain("npx playwright install chromium");
+    expect(source).toContain("if: env.CHROME_PATH == '' && runner.os != 'Linux'");
+    expect(source).toContain("npx playwright install --only-shell chromium");
   });
 
   it("keeps npm pack smoke coverage on a cross-platform matrix", () => {
@@ -112,35 +158,48 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("matrix:");
     expect(source).toContain("os: [ubuntu-latest, macos-latest, windows-latest]");
+    expect(source).toContain("Resolve Chrome path");
+    expect(source).toContain("node scripts/ci/resolve-chrome-path.mjs");
     expect(source).toContain("Install Playwright browsers");
-    expect(source).toContain("npx playwright install --with-deps chromium");
-    expect(source).toContain("if: runner.os == 'Linux'");
-    expect(source).toContain("if: runner.os != 'Linux'");
-    expect(source).toContain("npx playwright install chromium");
+    expect(source).toContain("timeout-minutes: 10");
+    expect(source).toContain('PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "120000"');
+    expect(source).toContain("npx playwright install --with-deps --only-shell chromium");
+    expect(source).toContain("if: env.CHROME_PATH == '' && runner.os == 'Linux'");
+    expect(source).toContain("if: env.CHROME_PATH == '' && runner.os != 'Linux'");
+    expect(source).toContain("npx playwright install --only-shell chromium");
     expect(source).toContain("Run package smoke");
     expect(source).toContain("npm run smoke:pack");
   });
 
   it("keeps npm publish workflow as a manual backfill path only", () => {
     const source = readRepoFile(".github/workflows/npm-publish.yml");
+    const topPermissions = source.slice(source.indexOf("permissions:"), source.indexOf("jobs:"));
 
     expect(source).toContain("workflow_dispatch:");
     expect(source).toContain("release_tag:");
-    expect(source).toContain("ref: ${{ inputs.release_tag }}");
+    expect(source).toContain("validate-input:");
+    expect(source).toContain("validate-package:");
+    expect(source).toContain("ref: refs/tags/${{ inputs.release_tag }}");
+    expect(source).toContain("persist-credentials: false");
     expect(source).toContain("Smoke test packed tarball");
     expect(source).toContain("npm run smoke:pack");
     expect(source).toContain("Enforce requested tag and package version parity");
     expect(source).toContain("release_tag must be a semantic version tag");
     expect(source).toContain("does not match package.json version tag");
-    expect(source).toContain("Require maintainer publish token for emergency backfill");
-    expect(source).toContain("Configure npm auth token");
-    expect(source).toContain("Publish to npm with token fallback");
-    expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
+    expect(source).toContain("Upload publish artifact");
+    expect(source).toContain("actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53");
+    expect(source).toContain("Configure npm registry");
+    expect(source).toContain("Publish to npm with trusted publishing");
+    expect(source).toContain("npm publish npm-package/*.tgz --provenance --access public");
+    expect(source).toContain("package-manager-cache: false");
     expect(source).toContain("node-version: 24");
     expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
+    expect(source).toContain("id-token: write");
+    expect(topPermissions).not.toContain("id-token: write");
     expect(source).not.toContain("types: [published]");
     expect(source).not.toContain("github.event.release.tag_name");
-    expect(source).not.toContain("Publish to npm with trusted publishing");
+    expect(source).not.toContain("NODE_AUTH_TOKEN");
+    expect(source).not.toContain("NPM_TOKEN");
   });
 
   it("keeps release workflow focused on GitHub Release and stable Action tag publication", () => {
@@ -151,6 +210,10 @@ describe("workflow invariants", () => {
     expect(source).toContain("Enforce tag and package version parity");
     expect(source).toContain("Verify release runtime");
     expect(source).toContain("node-version: 24");
+    expect(source).toContain("package-manager-cache: false");
+    expect(source).toContain("persist-credentials: false");
+    expect(source).toContain("contents: read");
+    expect(source).toContain("contents: write");
     expect(source).toContain("npm run release:dry-run");
     expect(source).not.toContain("npm publish --provenance --access public");
     expect(source).not.toContain("HAS_NPM_TOKEN");

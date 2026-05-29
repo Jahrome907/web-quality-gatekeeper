@@ -6,8 +6,10 @@ when that behavior regresses.
 ## Command Map
 
 - `npm test`: unit, integration, contract, and local smoke coverage
+- `npm run test:coverage`: coverage report used by the repo CI gate
 - `npm run python:smoke`: optional Python case-study analytics smoke coverage
 - `npm run contracts:check`: summary schema/runtime/doc drift gate
+- `npm run security:audit`: runtime dependency audit exceptions gate
 - `.github/workflows/action-smoke.yml`: composite Action smoke in workflow context
 - `.github/workflows/npm-pack-smoke.yml`: tarball consumer smoke in workflow context
 - `.github/workflows/quality-gate.yml`: repo CI, coverage, and runtime audit gate

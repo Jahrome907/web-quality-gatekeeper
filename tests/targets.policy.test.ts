@@ -54,6 +54,23 @@ describe("target resolution security policy", () => {
     ).rejects.toBeInstanceOf(UsageError);
   });
 
+  it.each([
+    ["private IPv4", "10.0.0.5"],
+    ["metadata IPv4", "169.254.169.254"],
+    ["private IPv6", "fc00::1234"],
+    ["IPv4-mapped private IPv6", "::ffff:192.168.1.10"]
+  ])("blocks public-looking hostnames that resolve to %s", async (_label, address) => {
+    mockLookup.mockResolvedValueOnce([{ address, family: address.includes(":") ? 6 : 4 }]);
+    const logger = { warn: vi.fn() };
+
+    await expect(
+      resolveTargets(undefined, createConfig("https://metadata.example"), "artifacts", "baselines", logger, {
+        allowInternalTargets: false,
+        blockInternalTargets: true
+      })
+    ).rejects.toThrow("Blocked internal target: metadata.example");
+  });
+
   it("allows internal targets when explicit override is enabled", async () => {
     const logger = { warn: vi.fn() };
 
@@ -92,6 +109,30 @@ describe("target resolution security policy", () => {
     expect(targets).toHaveLength(1);
     expect(targets[0]?.url).toBe("http://127.0.0.1:4173/");
     expect(logger.warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns but does not block DNS-private hostnames in non-sensitive mode", async () => {
+    mockLookup.mockResolvedValueOnce([{ address: "10.0.0.5", family: 4 }]);
+    const logger = { warn: vi.fn() };
+
+    const targets = await resolveTargets(
+      undefined,
+      createConfig("https://metadata.example"),
+      "artifacts",
+      "baselines",
+      logger,
+      {
+        allowInternalTargets: false,
+        blockInternalTargets: false
+      }
+    );
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0]?.url).toBe("https://metadata.example/");
+    expect(targets[0]?.hostResolverRules).toBeNull();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("Auditing internal network target (metadata.example (resolved: 10.0.0.5))")
+    );
   });
 
   it("blocks unresolved hostnames in sensitive mode unless override is enabled", async () => {

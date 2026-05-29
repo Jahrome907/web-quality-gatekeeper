@@ -1,5 +1,5 @@
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockLookup } = vi.hoisted(() => ({
   mockLookup: vi.fn()
@@ -7,6 +7,7 @@ const { mockLookup } = vi.hoisted(() => ({
 const mockLaunch = vi.fn();
 const mockRetry = vi.fn();
 const mockEnsureDir = vi.fn();
+const ORIGINAL_CHROME_PATH = process.env.CHROME_PATH;
 
 vi.mock("playwright", () => ({
   chromium: {
@@ -52,6 +53,7 @@ function createPageDouble() {
 describe("playwright runner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.CHROME_PATH;
     mockRetry.mockImplementation(async (fn: () => unknown) => fn());
     mockLookup.mockImplementation(async (hostname: string) => {
       if (hostname === "app.example.com") {
@@ -62,6 +64,14 @@ describe("playwright runner", () => {
       }
       return [{ address: "203.0.113.10", family: 4 }];
     });
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_CHROME_PATH === undefined) {
+      delete process.env.CHROME_PATH;
+    } else {
+      process.env.CHROME_PATH = ORIGINAL_CHROME_PATH;
+    }
   });
 
   it("opens page with auth headers and cookies", async () => {
@@ -139,7 +149,7 @@ describe("playwright runner", () => {
       {
         name: "session_id",
         value: "abc123",
-        url: "https://example.com"
+        url: "https://example.com/"
       }
     ]);
     const continueRequest = vi.fn().mockResolvedValue(undefined);
@@ -170,6 +180,21 @@ describe("playwright runner", () => {
       headers: {
         Accept: "text/html",
         Authorization: "Bearer token-123"
+      }
+    });
+    const crossOriginContinue = vi.fn().mockResolvedValue(undefined);
+    await handler({
+      request: () => ({
+        isNavigationRequest: () => false,
+        url: () => "https://cdn.example.net/app.js",
+        headers: () => ({ authorization: "Bearer token-123", Accept: "*/*" })
+      }),
+      abort: vi.fn().mockResolvedValue(undefined),
+      continue: crossOriginContinue
+    });
+    expect(crossOriginContinue).toHaveBeenCalledWith({
+      headers: {
+        Accept: "*/*"
       }
     });
     expect(page.on).toHaveBeenCalledWith("console", expect.any(Function));
@@ -236,6 +261,48 @@ describe("playwright runner", () => {
         logger as never
       )
     ).rejects.toThrow("browser launch failed");
+  });
+
+  it("uses CHROME_PATH when a system Chrome is provided", async () => {
+    process.env.CHROME_PATH = process.platform === "win32" ? "C:\\Windows\\notepad.exe" : "/bin/sh";
+    const page = createPageDouble();
+    const newContext = vi.fn().mockResolvedValue({
+      addCookies: vi.fn().mockResolvedValue(undefined),
+      newPage: vi.fn().mockResolvedValue(page)
+    });
+    mockLaunch.mockResolvedValue({
+      newContext
+    });
+
+    const logger = { debug: vi.fn() };
+    const { openPage } = await import("../src/runner/playwright.js");
+
+    await openPage(
+      "https://example.com",
+      {
+        timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+        playwright: {
+          viewport: { width: 1280, height: 720 },
+          userAgent: "wqg/3.0.0",
+          locale: "en-US",
+          colorScheme: "light"
+        },
+        screenshots: [{ name: "home", path: "/", fullPage: true }],
+        lighthouse: {
+          budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+          formFactor: "desktop"
+        },
+        visual: { threshold: 0.01 },
+        toggles: { a11y: true, perf: true, visual: true }
+      } as never,
+      logger as never
+    );
+
+    expect(mockLaunch).toHaveBeenCalledWith({
+      headless: true,
+      executablePath: process.env.CHROME_PATH
+    });
+    expect(logger.debug).toHaveBeenCalledWith(`Using Chrome at: ${process.env.CHROME_PATH}`);
   });
 
   it("cleans up browser resources when initial navigation fails", async () => {
@@ -548,6 +615,17 @@ describe("playwright runner", () => {
     const closeBrowserOne = vi.fn().mockResolvedValue(undefined);
     const addCookiesOne = vi.fn().mockResolvedValue(undefined);
     const addCookiesTwo = vi.fn().mockResolvedValue(undefined);
+    let routeHandlerTwo:
+      | ((route: {
+          request: () => {
+            isNavigationRequest: () => boolean;
+            url: () => string;
+            headers: () => Record<string, string>;
+          };
+          abort: (reason?: string) => Promise<void>;
+          continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
+        }) => Promise<void>)
+      | null = null;
 
     const newContextOne = vi.fn().mockResolvedValue({
       addCookies: addCookiesOne,
@@ -561,7 +639,9 @@ describe("playwright runner", () => {
     const newContextTwo = vi.fn().mockResolvedValue({
       addCookies: addCookiesTwo,
       newPage: vi.fn().mockResolvedValue(secondPage),
-      route: vi.fn().mockResolvedValue(undefined)
+      route: vi.fn().mockImplementation(async (_matcher, handler) => {
+        routeHandlerTwo = handler;
+      })
     });
 
     mockLaunch
@@ -624,16 +704,45 @@ describe("playwright runner", () => {
       {
         name: "session_id",
         value: "abc123",
-        url: "https://example.com"
+        url: "https://example.com/"
       }
     ]);
     expect(addCookiesTwo).toHaveBeenCalledWith([
       {
         name: "session_id",
         value: "abc123",
-        url: "https://www.example.com/"
+        url: "https://example.com/"
       }
     ]);
+    const redirectedContinue = vi.fn().mockResolvedValue(undefined);
+    const redirectedHandler = routeHandlerTwo as unknown as (
+      route: {
+        request: () => {
+          isNavigationRequest: () => boolean;
+          url: () => string;
+          headers: () => Record<string, string>;
+        };
+        abort: (reason?: string) => Promise<void>;
+        continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
+      }
+    ) => Promise<void>;
+    if (!redirectedHandler) {
+      throw new Error("redirected route handler not registered");
+    }
+    await redirectedHandler({
+      request: () => ({
+        isNavigationRequest: () => true,
+        url: () => "https://www.example.com/",
+        headers: () => ({ authorization: "Bearer token-123", Accept: "text/html" })
+      }),
+      abort: vi.fn().mockResolvedValue(undefined),
+      continue: redirectedContinue
+    });
+    expect(redirectedContinue).toHaveBeenCalledWith({
+      headers: {
+        Accept: "text/html"
+      }
+    });
     expect(result.page).toBe(secondPage as never);
     expect(result.resolvedUrl).toBe("https://www.example.com/");
     expect(result.resolvedHostResolverRules).toBe("MAP www.example.com 203.0.113.11");
@@ -780,7 +889,8 @@ describe("playwright runner", () => {
     expect(page.goto).toHaveBeenCalledWith("https://example.com/", { waitUntil: "load" });
     expect(page.screenshot).toHaveBeenCalledWith({
       path: path.join(outDir, "home-page.png"),
-      fullPage: true
+      fullPage: true,
+      animations: "disabled"
     });
     expect(page.waitForSelector).toHaveBeenCalledWith("#app", { timeout: 10000 });
     expect(page.waitForTimeout).toHaveBeenCalledWith(100);
@@ -795,6 +905,40 @@ describe("playwright runner", () => {
         isRetryable: expect.any(Function)
       })
     );
+  });
+
+  it("keeps colliding sanitized screenshot names in distinct files", async () => {
+    const page = createPageDouble();
+    const logger = { debug: vi.fn() };
+    const { captureScreenshots } = await import("../src/runner/playwright.js");
+    const outDir = path.resolve(process.cwd(), "artifacts/screenshots");
+
+    const results = await captureScreenshots(
+      page as never,
+      "https://example.com",
+      {
+        retries: { count: 1, delayMs: 5 },
+        screenshots: [
+          { name: "Home Page", path: "/", fullPage: true },
+          { name: "Home@Page", path: "/pricing", fullPage: true },
+          { name: "!!!", path: "/contact", fullPage: true }
+        ]
+      } as never,
+      outDir,
+      logger as never
+    );
+
+    expect(results.map((result) => path.basename(result.path))).toEqual([
+      "home-page.png",
+      "home-page-02.png",
+      "---.png"
+    ]);
+    expect(new Set(results.map((result) => result.path)).size).toBe(results.length);
+    expect(page.screenshot).toHaveBeenCalledWith({
+      path: path.join(outDir, "home-page-02.png"),
+      fullPage: true,
+      animations: "disabled"
+    });
   });
 
   it("captures additional viewport screenshots when screenshot gallery mode is enabled", async () => {
@@ -832,15 +976,18 @@ describe("playwright runner", () => {
 
     expect(page.screenshot).toHaveBeenCalledWith({
       path: path.join(outDir, "landing.png"),
-      fullPage: true
+      fullPage: true,
+      animations: "disabled"
     });
     expect(page.screenshot).toHaveBeenCalledWith({
       path: path.join(outDir, "landing--vp-01.png"),
-      fullPage: false
+      fullPage: false,
+      animations: "disabled"
     });
     expect(page.screenshot).toHaveBeenCalledWith({
       path: path.join(outDir, "landing--vp-04.png"),
-      fullPage: false
+      fullPage: false,
+      animations: "disabled"
     });
   });
 

@@ -2,6 +2,8 @@
 
 Date: 2026-04-29
 Branch: `release/3.1.4`
+
+This is a historical readiness record for v3.1.4, not the current redeploy checklist.
 Scope: release preparation for the next public `v3` patch line, GitHub Release creation, and stable Action tag movement.
 
 ## Release Contents
@@ -46,7 +48,7 @@ Run before tagging:
 - `npm run release:dry-run`
 - `git diff --check`
 
-Local `smoke:action` may skip when the Bash-side Node runtime lacks a Playwright browser. Release CI keeps that smoke strict through `WQG_ACTION_SMOKE_REQUIRED=true`.
+Local `smoke:action` is strict by default and fails when the Bash-side Node runtime lacks a Playwright browser. Optional probing must use `WQG_ACTION_SMOKE_ALLOW_SKIP=true` explicitly.
 
 ## Remote Release Steps
 

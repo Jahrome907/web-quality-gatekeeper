@@ -31,7 +31,10 @@ Internal/private target policy:
   final URL audited by Lighthouse.
 - Internal/private targets remain warning-only in local non-auth runs for development workflows.
 - Override blocking only when intentional with `--allow-internal-targets` or `WQG_ALLOW_INTERNAL_TARGETS=true`.
-- Public hosts are resolved and pinned before Playwright and Lighthouse runs so redirects and subrequests cannot quietly cross from an approved public target into private network space during sensitive audits.
+- Requested public hosts are resolved and pinned before Playwright and Lighthouse
+  runs where the browser supports resolver rules. Sensitive-mode redirect
+  destinations and outbound HTTP(S) request targets are verified before
+  continuation and blocked when they resolve to private network space.
 
 ### Configuration File Security
 
@@ -51,6 +54,7 @@ When running in CI environments:
 - Credentials are not persisted after checkout
 - Remote audits are blocking by default; relaxed/non-blocking remote mode requires explicit opt-in via `WQG_RELAXED_REMOTE=true`
 - If you need authenticated audits, pass credentials via secrets (`WQG_AUTH_HEADER`, `WQG_AUTH_HEADERS`, `WQG_AUTH_COOKIE`, `WQG_AUTH_COOKIES`)
+- Do not place secrets in target URLs, query strings, or fragments. Reports and summaries preserve audited URLs; use header or cookie inputs for credentials.
 - Sensitive/authenticated runs suppress artifact uploads and PR comments by default (`WQG_SENSITIVE_AUDIT=true` or detected auth inputs)
 - Only set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` when you intentionally accept publication risk for artifacts/comments
 - Chrome sandbox is disabled only in CI containers where it's required
@@ -78,4 +82,4 @@ Generated reports (HTML, JSON) may contain:
 - Dependencies are automatically updated via Dependabot
 - Runtime workflows enforce `npm run security:audit`, which blocks unexcepted high/critical runtime vulnerabilities
 - Temporary exceptions must be explicit, owned, and time-bounded in `configs/security/audit-exceptions.json`
-- The project requires Node.js 20+ for security updates
+- The project requires Node.js 22.19+ for the current Lighthouse runtime and security updates

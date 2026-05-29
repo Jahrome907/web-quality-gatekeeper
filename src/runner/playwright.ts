@@ -1,4 +1,5 @@
 import path from "node:path";
+import { existsSync } from "node:fs";
 import {
   chromium,
   type Browser,
@@ -27,6 +28,14 @@ const MAX_JS_ERRORS = 100;
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_SEGMENT_CAPTURE_POINTS = 200;
 const MAX_BROWSER_RELAUNCHES = 4;
+
+function resolveChromePath(): string | undefined {
+  if (!process.env.CHROME_PATH) {
+    return undefined;
+  }
+
+  return existsSync(process.env.CHROME_PATH) ? process.env.CHROME_PATH : undefined;
+}
 
 export interface ScreenshotResult {
   name: string;
@@ -330,6 +339,7 @@ function throwIfBlockedRequest(page: Page): void {
 
 async function launchNavigatedPage(
   navigationUrl: string,
+  authScopeUrl: string,
   launchHostResolverRules: string | null,
   config: Config,
   logger: Logger,
@@ -341,8 +351,13 @@ async function launchNavigatedPage(
   const launchArgs = launchHostResolverRules
     ? [`--host-resolver-rules=${launchHostResolverRules}`]
     : undefined;
+  const chromePath = resolveChromePath();
+  if (chromePath) {
+    logger.debug(`Using Chrome at: ${chromePath}`);
+  }
   const browser = await chromium.launch({
     headless: true,
+    ...(chromePath ? { executablePath: chromePath } : {}),
     ...(launchArgs ? { args: launchArgs } : {})
   });
   const extraHeaders = auth?.headers && Object.keys(auth.headers).length > 0 ? auth.headers : null;
@@ -367,7 +382,7 @@ async function launchNavigatedPage(
         auth.cookies.map((cookie) => ({
           name: cookie.name,
           value: cookie.value,
-          url: navigationUrl
+          url: authScopeUrl
         }))
       );
     }
@@ -377,7 +392,7 @@ async function launchNavigatedPage(
         const request = route.request() as Request;
         const scopedHeaders = applyScopedAuthHeaders({
           requestUrl: request.url(),
-          targetUrl: navigationUrl,
+          targetUrl: authScopeUrl,
           requestHeaders: request.headers(),
           authHeaders: extraHeaders
         });
@@ -452,8 +467,10 @@ export async function openPage(
   }
 
   let currentLaunchHostResolverRules = options.hostResolverRules ?? null;
+  const authScopeUrl = new URL(url).toString();
   let navigation = await launchNavigatedPage(
     url,
+    authScopeUrl,
     currentLaunchHostResolverRules,
     config,
     logger,
@@ -481,6 +498,7 @@ export async function openPage(
     currentLaunchHostResolverRules = resolvedHostResolverRules;
     navigation = await launchNavigatedPage(
       resolvedUrl,
+      authScopeUrl,
       currentLaunchHostResolverRules,
       config,
       logger,
@@ -509,6 +527,7 @@ async function captureScreenshot(
   page: Page,
   baseUrl: string,
   shot: ScreenshotDefinition,
+  screenshotBaseName: string,
   outDir: string,
   logger: Logger,
   retryCount: number,
@@ -534,9 +553,9 @@ async function captureScreenshot(
   await page.waitForTimeout(250);
   throwIfBlockedRequest(page);
 
-  const filename = `${sanitizeName(shot.name)}.png`;
+  const filename = `${screenshotBaseName}.png`;
   const filePath = path.join(outDir, filename);
-  await page.screenshot({ path: filePath, fullPage: shot.fullPage });
+  await page.screenshot({ path: filePath, fullPage: shot.fullPage, animations: "disabled" });
 
   return {
     name: shot.name,
@@ -579,6 +598,13 @@ function buildSegmentOffsets(totalHeight: number, viewportHeight: number, maxScr
   return Array.from(offsets).sort((left, right) => left - right);
 }
 
+function createUniqueScreenshotBaseName(name: string, seen: Map<string, number>): string {
+  const sanitized = sanitizeName(name) || "screenshot";
+  const previousCount = seen.get(sanitized) ?? 0;
+  seen.set(sanitized, previousCount + 1);
+  return previousCount === 0 ? sanitized : `${sanitized}-${String(previousCount + 1).padStart(2, "0")}`;
+}
+
 async function captureViewportSegments(
   page: Page,
   shot: ScreenshotDefinition,
@@ -602,7 +628,7 @@ async function captureViewportSegments(
 
     const filename = `${screenshotBaseName}--vp-${String(index + 1).padStart(2, "0")}.png`;
     const filePath = path.join(outDir, filename);
-    await page.screenshot({ path: filePath, fullPage: false });
+    await page.screenshot({ path: filePath, fullPage: false, animations: "disabled" });
     results.push({
       name: `${shot.name} viewport ${index + 1}`,
       path: filePath,
@@ -633,12 +659,14 @@ export async function captureScreenshots(
   const maxScreenshotsPerPath = config.screenshotGallery?.maxScreenshotsPerPath ?? 12;
 
   const results: ScreenshotResult[] = [];
+  const seenBaseNames = new Map<string, number>();
   for (const shot of config.screenshots) {
-    const screenshotBaseName = sanitizeName(shot.name);
+    const screenshotBaseName = createUniqueScreenshotBaseName(shot.name, seenBaseNames);
     const result = await captureScreenshot(
       page,
       baseUrl,
       shot,
+      screenshotBaseName,
       outDir,
       logger,
       retryCount,

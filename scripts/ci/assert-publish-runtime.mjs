@@ -2,7 +2,7 @@
 import { execFileSync } from "node:child_process";
 
 const MINIMUMS = {
-  node: [22, 14, 0],
+  node: [22, 19, 0],
   npm: [11, 5, 1]
 };
 

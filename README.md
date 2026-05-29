@@ -3,9 +3,9 @@
 [![Quality Gate](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
 [![Pack Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml)
 [![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
-[![Source Version 3.1.5](https://img.shields.io/badge/source-3.1.5-17355c?logo=git&logoColor=white)](./package.json)
+[![Source Version 3.1.6](https://img.shields.io/badge/source-3.1.6-17355c?logo=git&logoColor=white)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
-[![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js 22.19+](https://img.shields.io/badge/Node.js-22.19%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
 A quality gate CLI and GitHub Action that runs Playwright smoke checks, axe accessibility scans, Lighthouse performance audits, and visual regression diffs. It produces an HTML report plus machine-readable JSON summaries for local review and GitHub-based workflows.
 
@@ -30,7 +30,7 @@ Use one of these public entry points:
 git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
 cd web-quality-gatekeeper
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run build
 node dist/cli.js audit https://your-site.example --policy marketing
 ```
@@ -135,7 +135,7 @@ Use this path when you want to inspect outputs locally before wiring CI or when 
 git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
 cd web-quality-gatekeeper
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run build
 node dist/cli.js audit https://your-site.example --policy marketing
 ```
@@ -145,8 +145,10 @@ Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` / 
 ## CLI Usage
 
 ```bash
-wqg audit <url> [options]
+wqg audit [url] [options]
 ```
+
+The positional URL is optional when your config supplies `urls`.
 
 Initialize a consumer repository:
 
@@ -180,7 +182,7 @@ Flags:
 - `--cookie "name=value"` adds a cookie (repeatable)
 - `--verbose` for debug logging
 
-Built-in policies are host-agnostic defaults (paths, budgets, toggles); the target host still comes from `wqg audit <url>` unless your config explicitly sets `urls`.
+Built-in policies are host-agnostic defaults (paths, budgets, toggles); the target host still comes from the positional audit URL unless your config explicitly sets `urls`.
 
 ### Output Formats
 
@@ -216,7 +218,7 @@ wqg audit https://example.com --format md --out artifacts > report.stdout.md
 1. Run once to create baselines:
 
 ```bash
-npx wqg audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
+node dist/cli.js audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
 ```
 
 1. Commit `.github/web-quality/baselines/` to track visual regression.
@@ -234,7 +236,7 @@ For a consuming repository, keep configuration in a path you own such as `.githu
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/3.1.5",
+    "userAgent": "wqg/3.1.6",
     "locale": "en-US",
     "colorScheme": "light"
   },
@@ -294,7 +296,7 @@ Workflow behavior (`.github/workflows/quality-gate.yml`):
 - If authenticated inputs are detected (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`) or `WQG_SENSITIVE_AUDIT=true`, artifact upload and PR comments are disabled by default.
 - Set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` only when you intentionally want to publish outputs for a sensitive run.
 - Internal/private targets are blocked by default in CI and authenticated runs unless you explicitly set `--allow-internal-targets` or `WQG_ALLOW_INTERNAL_TARGETS=true`.
-- Public targets are DNS-resolved and pinned before Playwright/Lighthouse execution so redirect chains and follow-on requests cannot silently pivot into private network space during sensitive runs.
+- Requested public targets are DNS-resolved and pinned before Playwright/Lighthouse execution where browser resolver rules are supported. Sensitive-mode redirect destinations and outbound HTTP(S) request targets are verified before continuation and blocked when they resolve to private network space.
 
 ## Output
 
@@ -327,7 +329,7 @@ These commands are for maintainers and contributors working in this repository i
 
 ```bash
 npm ci
-npx playwright install
+npx playwright install chromium
 npm run check
 npm run contracts:check
 npm run security:audit
@@ -336,6 +338,8 @@ npm run smoke:action
 npm run build
 npm run audit -- https://example.com
 ```
+
+`npm run smoke:action` is strict by default. Use `WQG_ACTION_SMOKE_ALLOW_SKIP=true` only for optional local probing on machines without a Bash-side Playwright browser.
 
 Optional Python bundle analytics live in [tools/python/README.md](tools/python/README.md) and are intentionally outside the core CLI path.
 
@@ -362,13 +366,13 @@ Maintainer references:
 <details>
 <summary><strong>What Node.js version do I need?</strong></summary>
 
-Node **20 or later** is required (`engines.node` is set to `>=20`). Earlier versions are not tested and may fail.
+Node **22.19 or later** is required (`engines.node` is set to `>=22.19`). Repo-owned workflows run on Node 24.
 </details>
 
 <details>
 <summary><strong>Why is the first run so slow?</strong></summary>
 
-`npx playwright install` downloads Chromium (and optionally Firefox/WebKit) browsers. This is a one-time cost (~250 MB). In CI, cache `~/.cache/ms-playwright` to skip repeated downloads.
+`npx playwright install chromium` downloads the Chromium browser used by the runners. On Linux CI, use `npx playwright install --with-deps chromium` when system packages are not already present.
 </details>
 
 <details>

@@ -127,17 +127,17 @@ Current repo workflow behaviors worth freezing before later hardening:
   - proves the local composite Action runs against the fixture site
   - asserts `status` is non-empty and `summary-path` exists in the workspace
 - `npm-pack-smoke.yml`
-  - proves the tarball contains `package/schemas/summary.v1.json` and `package/dist/cli.js`
-  - proves a clean install exposes `wqg --version`
+  - proves tarball creation, clean install, `wqg --version`, and a packaged `wqg audit` fixture run
+  - validates emitted summaries and shipped schema/config assets used by the fixture
 - `release.yml`
   - currently triggers on all `v*` tags
   - treats any hyphenated tag as a prerelease
   - creates the GitHub Release without requiring npm publication
-  - still force-moves the stable major tag after release creation; this behavior is frozen as current baseline and scheduled for future hardening
+  - moves the stable major tag only after release validation and GitHub Release creation
 
 ## Packaging Baseline
 
-Commands run on 2026-04-29 to capture the current shipping baseline:
+Commands run on 2026-04-29 to capture the 3.1.4 shipping baseline:
 
 ```bash
 npm pack --json
@@ -159,7 +159,7 @@ Observed results:
 - Entry count: `17`
 - Clean install result: `wqg --version` printed `3.1.4`
 
-Current tarball contents:
+3.1.4 tarball contents:
 
 - `LICENSE`
 - `README.md`
@@ -178,11 +178,10 @@ Current tarball contents:
 - `schemas/summary.v1.json`
 - `schemas/summary.v2.json`
 
-Current smoke depth, intentionally recorded as baseline rather than endorsement:
+Current smoke depth:
 
-- Pack and publish smoke prove tarball creation, clean install, and `wqg --version`.
-- They do not yet prove functional `wqg audit` behavior from the tarball.
-- They do not yet assert the presence of every consumer-relevant schema/config asset individually.
+- Pack and publish smoke prove tarball creation, clean install, `wqg --version`, and a packaged `wqg audit` fixture run.
+- Pack smoke validates the emitted summaries and shipped schema/config assets used by the fixture.
 
 ## Known Baseline Ambiguities Resolved Here
 
@@ -194,6 +193,5 @@ Current smoke depth, intentionally recorded as baseline rather than endorsement:
 ## Planned Follow-ups
 
 - Correctness bugs in config loading, trend handling, action path resolution, and case-study ROI calculation.
-- Release-tag safety, fork-safe PR comments, action pinning, and workflow permission hardening.
+- Continue broadening consumer confidence checks for packaged CLI and Action artifacts as new release surfaces are added.
 - Automated schema/doc/runtime drift detection.
-- Deeper consumer confidence checks for packaged CLI and Action artifacts.
