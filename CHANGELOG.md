@@ -20,6 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The optional Rust visual diff path is now presented as `native-rust` under `native/wqg-visual-diff-native`, with the prior `native-rust-spike` config id accepted as a compatibility alias.
 - Windows local smoke cleanup retries transient file-lock failures and does not fail an otherwise successful package smoke solely because a scratch directory could not be removed immediately.
+- Node 22.19 is now the minimum supported runtime, with repo-owned workflows and the composite Action running on Node 24.
+- Release, npm publish, quality-gate, pack-smoke, action-smoke, and Pages workflows use narrower permissions and non-persistent checkout credentials; npm publish now uses trusted publishing instead of a long-lived `NPM_TOKEN`.
+- Local composite-Action smoke is strict by default; `WQG_ACTION_SMOKE_ALLOW_SKIP=true` is reserved for explicit optional local probes.
+
+### Fixed
+
+- Auth headers and cookies remain scoped to the originally requested audit target after cross-origin redirects.
+- CI-sensitive target blocking now treats GitHub Actions as sensitive mode even when `CI=false` is present in the environment.
+- Screenshot filenames remain distinct after sanitization, avoiding overwritten screenshots, baselines, and visual diffs.
+- Markdown report output escapes target-derived text and path code spans so crafted page names, URLs, insights, or artifact paths cannot corrupt report structure.
+- DNS-resolved private initial targets, malformed native visual-diff output, and HTML report generation now have direct regression coverage.
 
 ## [3.1.5] - 2026-05-04
 

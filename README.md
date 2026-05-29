@@ -296,7 +296,7 @@ Workflow behavior (`.github/workflows/quality-gate.yml`):
 - If authenticated inputs are detected (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`) or `WQG_SENSITIVE_AUDIT=true`, artifact upload and PR comments are disabled by default.
 - Set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` only when you intentionally want to publish outputs for a sensitive run.
 - Internal/private targets are blocked by default in CI and authenticated runs unless you explicitly set `--allow-internal-targets` or `WQG_ALLOW_INTERNAL_TARGETS=true`.
-- Public targets are DNS-resolved and pinned before Playwright/Lighthouse execution so redirect chains and follow-on requests cannot silently pivot into private network space during sensitive runs.
+- Requested public targets are DNS-resolved and pinned before Playwright/Lighthouse execution where browser resolver rules are supported. Sensitive-mode redirect destinations and outbound HTTP(S) request targets are verified before continuation and blocked when they resolve to private network space.
 
 ## Output
 
@@ -338,6 +338,8 @@ npm run smoke:action
 npm run build
 npm run audit -- https://example.com
 ```
+
+`npm run smoke:action` is strict by default. Use `WQG_ACTION_SMOKE_ALLOW_SKIP=true` only for optional local probing on machines without a Bash-side Playwright browser.
 
 Optional Python bundle analytics live in [tools/python/README.md](tools/python/README.md) and are intentionally outside the core CLI path.
 

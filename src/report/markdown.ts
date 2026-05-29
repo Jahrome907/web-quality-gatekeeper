@@ -138,7 +138,15 @@ function escapeHeadingText(value: string): string {
 }
 
 function codeSpan(value: string): string {
-  return `\`${value.replace(/`/g, "\\`").replace(/\r?\n/g, " ")}\``;
+  const normalized = value.replace(/\r?\n/g, " ");
+  const longestRun = Math.max(0, ...(normalized.match(/`+/g) ?? []).map((run) => run.length));
+  const delimiter = "`".repeat(longestRun + 1);
+  const needsPadding =
+    normalized.startsWith("`") ||
+    normalized.endsWith("`") ||
+    normalized.startsWith(" ") ||
+    normalized.endsWith(" ");
+  return needsPadding ? `${delimiter} ${normalized} ${delimiter}` : `${delimiter}${normalized}${delimiter}`;
 }
 
 function normalizeTrendStatus(status: TrendDeltaSummary["status"]): Exclude<

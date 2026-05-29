@@ -32,6 +32,8 @@ npm run smoke:action    # local composite-action audit smoke
 npm run release:dry-run # full maintainer validation + smoke checks
 ```
 
+`npm run smoke:action` is strict by default. Use `WQG_ACTION_SMOKE_ALLOW_SKIP=true` only for optional local probing on machines without a Bash-side Playwright browser.
+
 Architecture and release references:
 
 - [Architecture Map](docs/engineering/ARCHITECTURE_MAP.md)

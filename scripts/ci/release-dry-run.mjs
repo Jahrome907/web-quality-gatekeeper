@@ -1,11 +1,8 @@
-/* global console, process */
+/* global console */
 import { runChecked } from "./_shared.mjs";
 
 function actionSmokeEnv() {
-  if (process.env.CI === "true" || process.env.WQG_ACTION_SMOKE_REQUIRED === "true") {
-    return { WQG_ACTION_SMOKE_REQUIRED: "true" };
-  }
-  return {};
+  return { WQG_ACTION_SMOKE_ALLOW_SKIP: "false" };
 }
 
 async function runReleaseDryRun() {

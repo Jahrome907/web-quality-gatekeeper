@@ -42,6 +42,27 @@ describe("workflow invariants", () => {
     }
   });
 
+  it("disables persisted credentials on repo workflow checkouts", () => {
+    const workflowPaths = WORKFLOW_FILES.filter((relativePath) =>
+      relativePath.startsWith(".github/workflows/")
+    );
+    const checkoutPattern = /uses:\s+actions\/checkout@[0-9a-f]{40}(?:\s+#.*)?/g;
+
+    for (const relativePath of workflowPaths) {
+      const source = readRepoFile(relativePath);
+      for (const match of source.matchAll(checkoutPattern)) {
+        const nextStepIndex = source.indexOf("\n      - name:", (match.index ?? 0) + match[0].length);
+        const checkoutBlock = source.slice(
+          match.index ?? 0,
+          nextStepIndex === -1 ? source.length : nextStepIndex
+        );
+        expect(checkoutBlock, `${relativePath} checkout should not persist credentials`).toContain(
+          "persist-credentials: false"
+        );
+      }
+    }
+  });
+
   it("guards stable major tag movement behind a stable semver check", () => {
     const source = readRepoFile(".github/workflows/release.yml");
 
@@ -129,20 +150,29 @@ describe("workflow invariants", () => {
 
   it("keeps npm publish workflow as a manual backfill path only", () => {
     const source = readRepoFile(".github/workflows/npm-publish.yml");
+    const topPermissions = source.slice(source.indexOf("permissions:"), source.indexOf("jobs:"));
 
     expect(source).toContain("workflow_dispatch:");
     expect(source).toContain("release_tag:");
-    expect(source).toContain("ref: ${{ inputs.release_tag }}");
+    expect(source).toContain("validate-input:");
+    expect(source).toContain("validate-package:");
+    expect(source).toContain("ref: refs/tags/${{ inputs.release_tag }}");
+    expect(source).toContain("persist-credentials: false");
     expect(source).toContain("Smoke test packed tarball");
     expect(source).toContain("npm run smoke:pack");
     expect(source).toContain("Enforce requested tag and package version parity");
     expect(source).toContain("release_tag must be a semantic version tag");
     expect(source).toContain("does not match package.json version tag");
+    expect(source).toContain("Upload publish artifact");
+    expect(source).toContain("actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53");
     expect(source).toContain("Configure npm registry");
     expect(source).toContain("Publish to npm with trusted publishing");
+    expect(source).toContain("npm publish npm-package/*.tgz --provenance --access public");
     expect(source).toContain("package-manager-cache: false");
     expect(source).toContain("node-version: 24");
     expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
+    expect(source).toContain("id-token: write");
+    expect(topPermissions).not.toContain("id-token: write");
     expect(source).not.toContain("types: [published]");
     expect(source).not.toContain("github.event.release.tag_name");
     expect(source).not.toContain("NODE_AUTH_TOKEN");

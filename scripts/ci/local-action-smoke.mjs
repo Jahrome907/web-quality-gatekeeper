@@ -14,15 +14,25 @@ import {
 } from "./_shared.mjs";
 
 function resolveBashCommand() {
+  if (process.env.WQG_ACTION_SMOKE_BASH) {
+    const candidate = process.env.WQG_ACTION_SMOKE_BASH;
+    if (
+      (!path.isAbsolute(candidate) || existsSync(candidate)) &&
+      spawnSync(candidate, ["--version"], { stdio: "ignore" }).status === 0
+    ) {
+      return candidate;
+    }
+    return null;
+  }
+
   const candidates =
     process.platform === "win32"
       ? [
-          process.env.WQG_ACTION_SMOKE_BASH,
           "C:\\Program Files\\Git\\bin\\bash.exe",
           "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
           "bash"
         ]
-      : [process.env.WQG_ACTION_SMOKE_BASH, "bash"];
+      : ["bash"];
 
   for (const candidate of candidates) {
     if (!candidate) {
@@ -121,12 +131,12 @@ function hasActionPlaywrightBrowser() {
 async function runLocalActionSmoke() {
   if (!hasActionPlaywrightBrowser()) {
     const message =
-      "Local action smoke skipped: bash node runtime does not have a Playwright browser installed.";
-    if (process.env.WQG_ACTION_SMOKE_REQUIRED === "true") {
-      throw new Error(`${message} Install the browser or rerun in a provisioned environment.`);
+      "Local action smoke requires a bash node runtime with a Playwright browser installed.";
+    if (process.env.WQG_ACTION_SMOKE_ALLOW_SKIP === "true") {
+      console.log(`${message} Skipping because WQG_ACTION_SMOKE_ALLOW_SKIP=true.`);
+      return;
     }
-    console.log(message);
-    return;
+    throw new Error(`${message} Install the browser or rerun in a provisioned environment.`);
   }
 
   await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-action-local-"] });

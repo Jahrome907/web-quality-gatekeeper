@@ -264,4 +264,73 @@ describe("phase4 markdown rendering", () => {
     expect(markdown).not.toContain("![x](https://bad.example)");
     expect(markdown).not.toContain("![trend](https://bad.example)");
   });
+
+  it("keeps backticks inside Markdown code spans for artifact paths", () => {
+    const markdown = formatSummaryAsMarkdown({
+      $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+      schemaVersion: "2.1.0",
+      mode: "multi",
+      overallStatus: "pass",
+      startedAt: "2026-02-08T00:00:00.000Z",
+      durationMs: 1000,
+      primaryUrl: "https://example.com/",
+      rollup: {
+        pageCount: 1,
+        failedPages: 0,
+        a11yViolations: 0,
+        performanceBudgetFailures: 0,
+        visualFailures: 0
+      },
+      pages: [
+        {
+          ...createPage(0, "landing", "pass"),
+          artifacts: {
+            summary: "pages/01-landing/summary`file.json",
+            summaryV2: "pages/01-landing/summary``v2.json",
+            report: "pages/01-landing/report`file.html"
+          },
+          details: {
+            ...createPage(0, "landing", "pass").details,
+            visual: {
+              threshold: 0.01,
+              failed: false,
+              maxMismatchRatio: 0,
+              results: [
+                {
+                  name: "landing",
+                  currentPath: "screenshots/current`view.png",
+                  baselinePath: "baselines/current``view.png",
+                  diffPath: "diffs/current`view.png",
+                  mismatchRatio: 0,
+                  status: "diffed"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      trend: {
+        status: "ready",
+        historyDir: "trends/a`b",
+        previousSnapshotPath: "trends/prev``snap.json",
+        message: null,
+        metrics: {
+          overallStatusChanged: false,
+          durationMs: { current: 1000, previous: 1000, delta: 0 },
+          failedPages: { current: 0, previous: 0, delta: 0 },
+          a11yViolations: { current: 0, previous: 0, delta: 0 },
+          performanceBudgetFailures: { current: 0, previous: 0, delta: 0 },
+          visualFailures: { current: 0, previous: 0, delta: 0 }
+        },
+        pages: []
+      }
+    } as never);
+
+    expect(markdown).toContain("``trends/a`b``");
+    expect(markdown).toContain("```trends/prev``snap.json```");
+    expect(markdown).toContain("``pages/01-landing/summary`file.json``");
+    expect(markdown).toContain("```pages/01-landing/summary``v2.json```");
+    expect(markdown).toContain("``screenshots/current`view.png``");
+    expect(markdown).toContain("```baselines/current``view.png```");
+  });
 });

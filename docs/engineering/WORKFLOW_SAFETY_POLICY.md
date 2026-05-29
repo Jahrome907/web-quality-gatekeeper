@@ -16,6 +16,9 @@ This document defines the workflow hardening rules for repo-owned automation in 
 - Major-tag movement is an explicit release-side effect and should remain gated by a stable-tag eligibility check.
 - The separately triggered npm publish path must verify that the release tag
   matches `package.json` before publishing.
+- npm publishing uses trusted publishing; the package must have this repository
+  and `.github/workflows/npm-publish.yml` configured as a trusted publisher on
+  npmjs.com before the manual publish workflow can succeed.
 
 ## PR Comment Policy
 

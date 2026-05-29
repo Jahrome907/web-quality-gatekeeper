@@ -127,13 +127,13 @@ Current repo workflow behaviors worth freezing before later hardening:
   - proves the local composite Action runs against the fixture site
   - asserts `status` is non-empty and `summary-path` exists in the workspace
 - `npm-pack-smoke.yml`
-  - proves the tarball contains `package/schemas/summary.v1.json` and `package/dist/cli.js`
-  - proves a clean install exposes `wqg --version`
+  - proves tarball creation, clean install, `wqg --version`, and a packaged `wqg audit` fixture run
+  - validates emitted summaries and shipped schema/config assets used by the fixture
 - `release.yml`
   - currently triggers on all `v*` tags
   - treats any hyphenated tag as a prerelease
   - creates the GitHub Release without requiring npm publication
-  - still force-moves the stable major tag after release creation; this behavior is frozen as current baseline and scheduled for future hardening
+  - moves the stable major tag only after release validation and GitHub Release creation
 
 ## Packaging Baseline
 
@@ -193,6 +193,5 @@ Current smoke depth:
 ## Planned Follow-ups
 
 - Correctness bugs in config loading, trend handling, action path resolution, and case-study ROI calculation.
-- Release-tag safety, fork-safe PR comments, action pinning, and workflow permission hardening.
+- Continue broadening consumer confidence checks for packaged CLI and Action artifacts as new release surfaces are added.
 - Automated schema/doc/runtime drift detection.
-- Deeper consumer confidence checks for packaged CLI and Action artifacts.
