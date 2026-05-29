@@ -40,9 +40,10 @@ These invariants should remain aligned across repo-owned workflows unless a work
 
 - Node version: `24`
 - Dependency install command: `npm ci --ignore-scripts`
-- Playwright browser install when browser-based checks are required:
-  `npx playwright install --with-deps chromium` on Linux and
-  `npx playwright install chromium` on macOS/Windows
+- Browser-based checks prefer the hosted runner Chrome executable resolved by
+  `scripts/ci/resolve-chrome-path.mjs`; Playwright browser install remains a
+  fallback with `npx playwright install --with-deps --only-shell chromium` on
+  Linux and `npx playwright install --only-shell chromium` on macOS/Windows
 - Validation gate for release-sensitive flows includes `npm run check`, `npm run security:audit`, and `npm run build`
 
 ## Maintenance Expectations

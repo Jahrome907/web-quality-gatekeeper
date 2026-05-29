@@ -1,5 +1,5 @@
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockLookup } = vi.hoisted(() => ({
   mockLookup: vi.fn()
@@ -7,6 +7,7 @@ const { mockLookup } = vi.hoisted(() => ({
 const mockLaunch = vi.fn();
 const mockRetry = vi.fn();
 const mockEnsureDir = vi.fn();
+const ORIGINAL_CHROME_PATH = process.env.CHROME_PATH;
 
 vi.mock("playwright", () => ({
   chromium: {
@@ -52,6 +53,7 @@ function createPageDouble() {
 describe("playwright runner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.CHROME_PATH;
     mockRetry.mockImplementation(async (fn: () => unknown) => fn());
     mockLookup.mockImplementation(async (hostname: string) => {
       if (hostname === "app.example.com") {
@@ -62,6 +64,14 @@ describe("playwright runner", () => {
       }
       return [{ address: "203.0.113.10", family: 4 }];
     });
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_CHROME_PATH === undefined) {
+      delete process.env.CHROME_PATH;
+    } else {
+      process.env.CHROME_PATH = ORIGINAL_CHROME_PATH;
+    }
   });
 
   it("opens page with auth headers and cookies", async () => {
@@ -251,6 +261,48 @@ describe("playwright runner", () => {
         logger as never
       )
     ).rejects.toThrow("browser launch failed");
+  });
+
+  it("uses CHROME_PATH when a system Chrome is provided", async () => {
+    process.env.CHROME_PATH = process.platform === "win32" ? "C:\\Windows\\notepad.exe" : "/bin/sh";
+    const page = createPageDouble();
+    const newContext = vi.fn().mockResolvedValue({
+      addCookies: vi.fn().mockResolvedValue(undefined),
+      newPage: vi.fn().mockResolvedValue(page)
+    });
+    mockLaunch.mockResolvedValue({
+      newContext
+    });
+
+    const logger = { debug: vi.fn() };
+    const { openPage } = await import("../src/runner/playwright.js");
+
+    await openPage(
+      "https://example.com",
+      {
+        timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+        playwright: {
+          viewport: { width: 1280, height: 720 },
+          userAgent: "wqg/3.0.0",
+          locale: "en-US",
+          colorScheme: "light"
+        },
+        screenshots: [{ name: "home", path: "/", fullPage: true }],
+        lighthouse: {
+          budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+          formFactor: "desktop"
+        },
+        visual: { threshold: 0.01 },
+        toggles: { a11y: true, perf: true, visual: true }
+      } as never,
+      logger as never
+    );
+
+    expect(mockLaunch).toHaveBeenCalledWith({
+      headless: true,
+      executablePath: process.env.CHROME_PATH
+    });
+    expect(logger.debug).toHaveBeenCalledWith(`Using Chrome at: ${process.env.CHROME_PATH}`);
   });
 
   it("cleans up browser resources when initial navigation fails", async () => {

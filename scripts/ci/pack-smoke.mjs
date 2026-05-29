@@ -75,11 +75,13 @@ async function runPackSmoke() {
     await mkdir(consumerDir, { recursive: true });
     await runChecked("npm", ["init", "-y"], { cwd: consumerDir });
     await installTarballWithRetry(consumerDir, tarballPath);
-    // The consumer install intentionally skips package scripts, so provision the Playwright browser explicitly.
-    await runChecked("npx", ["playwright", "install", "chromium"], {
-      cwd: consumerDir,
-      timeout: 600000
-    });
+    if (!process.env.CHROME_PATH) {
+      // The consumer install intentionally skips package scripts, so provision the Playwright browser explicitly.
+      await runChecked("npx", ["playwright", "install", "--only-shell", "chromium"], {
+        cwd: consumerDir,
+        timeout: 600000
+      });
+    }
 
     const installedWqgBin =
       process.platform === "win32"

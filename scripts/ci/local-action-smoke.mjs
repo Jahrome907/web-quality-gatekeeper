@@ -107,7 +107,7 @@ function hasActionBash() {
   );
 }
 
-function hasActionPlaywrightBrowser() {
+function hasActionBrowser() {
   const bashCommand = resolveBashCommand();
   if (!bashCommand || !hasActionBash()) {
     return false;
@@ -118,7 +118,7 @@ function hasActionPlaywrightBrowser() {
       bashCommand,
       [
         "-lc",
-        "node -e \"const fs=require('node:fs');const { chromium } = require('playwright');process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)\""
+        "node -e \"const fs=require('node:fs');if(process.env.CHROME_PATH&&fs.existsSync(process.env.CHROME_PATH))process.exit(0);const { chromium } = require('playwright');process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)\""
       ],
       {
         cwd: ROOT,
@@ -129,9 +129,9 @@ function hasActionPlaywrightBrowser() {
 }
 
 async function runLocalActionSmoke() {
-  if (!hasActionPlaywrightBrowser()) {
+  if (!hasActionBrowser()) {
     const message =
-      "Local action smoke requires a bash node runtime with a Playwright browser installed.";
+      "Local action smoke requires a bash node runtime with CHROME_PATH or a Playwright browser installed.";
     if (process.env.WQG_ACTION_SMOKE_ALLOW_SKIP === "true") {
       console.log(`${message} Skipping because WQG_ACTION_SMOKE_ALLOW_SKIP=true.`);
       return;

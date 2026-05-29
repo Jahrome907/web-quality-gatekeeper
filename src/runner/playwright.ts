@@ -1,4 +1,5 @@
 import path from "node:path";
+import { existsSync } from "node:fs";
 import {
   chromium,
   type Browser,
@@ -27,6 +28,14 @@ const MAX_JS_ERRORS = 100;
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_SEGMENT_CAPTURE_POINTS = 200;
 const MAX_BROWSER_RELAUNCHES = 4;
+
+function resolveChromePath(): string | undefined {
+  if (!process.env.CHROME_PATH) {
+    return undefined;
+  }
+
+  return existsSync(process.env.CHROME_PATH) ? process.env.CHROME_PATH : undefined;
+}
 
 export interface ScreenshotResult {
   name: string;
@@ -342,8 +351,13 @@ async function launchNavigatedPage(
   const launchArgs = launchHostResolverRules
     ? [`--host-resolver-rules=${launchHostResolverRules}`]
     : undefined;
+  const chromePath = resolveChromePath();
+  if (chromePath) {
+    logger.debug(`Using Chrome at: ${chromePath}`);
+  }
   const browser = await chromium.launch({
     headless: true,
+    ...(chromePath ? { executablePath: chromePath } : {}),
     ...(launchArgs ? { args: launchArgs } : {})
   });
   const extraHeaders = auth?.headers && Object.keys(auth.headers).length > 0 ? auth.headers : null;

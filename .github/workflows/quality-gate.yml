@@ -42,8 +42,15 @@ jobs:
         # Security: Use --ignore-scripts to prevent malicious postinstall scripts
         run: npm ci --ignore-scripts
 
+      - name: Resolve Chrome path
+        run: node scripts/ci/resolve-chrome-path.mjs
+
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        if: env.CHROME_PATH == ''
+        timeout-minutes: 10
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "120000"
+        run: npx playwright install --with-deps --only-shell chromium
 
       - name: Run full maintainer validation
         run: npm run validate:full

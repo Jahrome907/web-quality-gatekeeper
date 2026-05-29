@@ -142,12 +142,15 @@ describe("workflow invariants", () => {
     );
     expect(source).not.toContain("cache: npm");
     expect(source).not.toContain("cache-dependency-path:");
+    expect(source).toContain("- name: Resolve Chrome path");
+    expect(source).toContain("run: node scripts/ci/resolve-chrome-path.mjs");
     expect(source).toContain("Install Playwright browsers (Linux)");
-    expect(source).toContain("if: runner.os == 'Linux'");
-    expect(source).toContain("npx playwright install --with-deps chromium");
+    expect(source).toContain("if: env.CHROME_PATH == '' && runner.os == 'Linux'");
+    expect(source).toContain('PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "120000"');
+    expect(source).toContain("npx playwright install --with-deps --only-shell chromium");
     expect(source).toContain("Install Playwright browsers (macOS/Windows)");
-    expect(source).toContain("if: runner.os != 'Linux'");
-    expect(source).toContain("npx playwright install chromium");
+    expect(source).toContain("if: env.CHROME_PATH == '' && runner.os != 'Linux'");
+    expect(source).toContain("npx playwright install --only-shell chromium");
   });
 
   it("keeps npm pack smoke coverage on a cross-platform matrix", () => {
@@ -155,11 +158,15 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("matrix:");
     expect(source).toContain("os: [ubuntu-latest, macos-latest, windows-latest]");
+    expect(source).toContain("Resolve Chrome path");
+    expect(source).toContain("node scripts/ci/resolve-chrome-path.mjs");
     expect(source).toContain("Install Playwright browsers");
-    expect(source).toContain("npx playwright install --with-deps chromium");
-    expect(source).toContain("if: runner.os == 'Linux'");
-    expect(source).toContain("if: runner.os != 'Linux'");
-    expect(source).toContain("npx playwright install chromium");
+    expect(source).toContain("timeout-minutes: 10");
+    expect(source).toContain('PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "120000"');
+    expect(source).toContain("npx playwright install --with-deps --only-shell chromium");
+    expect(source).toContain("if: env.CHROME_PATH == '' && runner.os == 'Linux'");
+    expect(source).toContain("if: env.CHROME_PATH == '' && runner.os != 'Linux'");
+    expect(source).toContain("npx playwright install --only-shell chromium");
     expect(source).toContain("Run package smoke");
     expect(source).toContain("npm run smoke:pack");
   });
