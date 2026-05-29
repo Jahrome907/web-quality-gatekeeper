@@ -1,5 +1,6 @@
 /* global console, process */
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, rm, cp, mkdir } from "node:fs/promises";
 import { assertActionSmoke } from "./assert-action-smoke.mjs";
@@ -12,11 +13,41 @@ import {
   startFixtureServer
 } from "./_shared.mjs";
 
+function resolveBashCommand() {
+  const candidates =
+    process.platform === "win32"
+      ? [
+          process.env.WQG_ACTION_SMOKE_BASH,
+          "C:\\Program Files\\Git\\bin\\bash.exe",
+          "C:\\Program Files\\Git\\usr\\bin\\bash.exe",
+          "bash"
+        ]
+      : [process.env.WQG_ACTION_SMOKE_BASH, "bash"];
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+    if (path.isAbsolute(candidate) && !existsSync(candidate)) {
+      continue;
+    }
+    if (spawnSync(candidate, ["--version"], { stdio: "ignore" }).status === 0) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function runBashScript(script, options = {}) {
   const { cwd = ROOT, env = {} } = options;
+  const bashCommand = resolveBashCommand();
+  if (!bashCommand) {
+    return Promise.reject(new Error("A working bash runtime is required for local action smoke."));
+  }
 
   return new Promise((resolve, reject) => {
-    const child = spawn("bash", ["-lc", "bash -s"], {
+    const child = spawn(bashCommand, ["-lc", "bash -s"], {
       cwd,
       env: {
         ...process.env,
@@ -57,20 +88,24 @@ function toBashLiteral(value) {
 }
 
 function hasActionBash() {
-  return (
-    spawnSync("bash", ["--version"], { stdio: "ignore" }).status === 0 &&
-    spawnSync("bash", ["-lc", "command -v node >/dev/null 2>&1"], { stdio: "ignore" }).status === 0
+  const bashCommand = resolveBashCommand();
+  return Boolean(
+    bashCommand &&
+      spawnSync(bashCommand, ["-lc", "command -v node >/dev/null 2>&1"], {
+        stdio: "ignore"
+      }).status === 0
   );
 }
 
 function hasActionPlaywrightBrowser() {
-  if (!hasActionBash()) {
+  const bashCommand = resolveBashCommand();
+  if (!bashCommand || !hasActionBash()) {
     return false;
   }
 
   return (
     spawnSync(
-      "bash",
+      bashCommand,
       [
         "-lc",
         "node -e \"const fs=require('node:fs');const { chromium } = require('playwright');process.exit(fs.existsSync(chromium.executablePath()) ? 0 : 1)\""

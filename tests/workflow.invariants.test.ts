@@ -47,7 +47,7 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("Resolve major tag update eligibility");
     expect(source).toContain("^v([0-9]+)\\.[0-9]+\\.[0-9]+(\\+[0-9A-Za-z.-]+)?$");
-    expect(source).toContain("if: steps.major-tag.outputs.should_update == 'true'");
+    expect(source).toContain("if: needs.validate.outputs.should_update_major == 'true'");
   });
 
   it("keeps PR summary comments fork-safe and permission-tolerant", () => {
@@ -55,8 +55,12 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("Determine PR comment capability");
     expect(source).toContain("steps.pr_comment.outputs.can_comment == 'true'");
+    expect(source).toContain("pr-comment:");
+    expect(source).toContain("needs.quality-gate.outputs.can_comment == 'true'");
+    expect(source).toContain("issues: write");
     expect(source).toContain("continue-on-error: true");
     expect(source).toContain("Skipping PR comment due to token permission limits");
+    expect(source).not.toContain("pull-requests: write");
   });
 
   it("keeps repo quality-gate audits hermetic by preferring local docs preview targets", () => {
@@ -99,6 +103,8 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("- name: Checkout");
     expect(source).toContain("persist-credentials: false");
+    expect(source).toContain("node-version: 24");
+    expect(source).toContain("cache-dependency-path: ${{ github.action_path }}/package-lock.json");
     expect(source).toContain("Install Playwright browsers (Linux)");
     expect(source).toContain("if: runner.os == 'Linux'");
     expect(source).toContain("npx playwright install --with-deps chromium");
@@ -132,15 +138,15 @@ describe("workflow invariants", () => {
     expect(source).toContain("Enforce requested tag and package version parity");
     expect(source).toContain("release_tag must be a semantic version tag");
     expect(source).toContain("does not match package.json version tag");
-    expect(source).toContain("Require maintainer publish token for emergency backfill");
-    expect(source).toContain("Configure npm auth token");
-    expect(source).toContain("Publish to npm with token fallback");
-    expect(source).toContain("HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}");
+    expect(source).toContain("Configure npm registry");
+    expect(source).toContain("Publish to npm with trusted publishing");
+    expect(source).toContain("package-manager-cache: false");
     expect(source).toContain("node-version: 24");
     expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
     expect(source).not.toContain("types: [published]");
     expect(source).not.toContain("github.event.release.tag_name");
-    expect(source).not.toContain("Publish to npm with trusted publishing");
+    expect(source).not.toContain("NODE_AUTH_TOKEN");
+    expect(source).not.toContain("NPM_TOKEN");
   });
 
   it("keeps release workflow focused on GitHub Release and stable Action tag publication", () => {
@@ -151,6 +157,10 @@ describe("workflow invariants", () => {
     expect(source).toContain("Enforce tag and package version parity");
     expect(source).toContain("Verify release runtime");
     expect(source).toContain("node-version: 24");
+    expect(source).toContain("package-manager-cache: false");
+    expect(source).toContain("persist-credentials: false");
+    expect(source).toContain("contents: read");
+    expect(source).toContain("contents: write");
     expect(source).toContain("npm run release:dry-run");
     expect(source).not.toContain("npm publish --provenance --access public");
     expect(source).not.toContain("HAS_NPM_TOKEN");

@@ -21,8 +21,10 @@ jobs:
       WQG_ALLOW_SENSITIVE_OUTPUTS: "false"
     permissions:
       contents: read
-      issues: write
-      pull-requests: write
+    outputs:
+      can_comment: ${{ steps.pr_comment.outputs.can_comment }}
+      publish_outputs: ${{ steps.policy.outputs.publish_outputs }}
+      pr_comment_body: ${{ steps.pr_summary.outputs.body }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -33,7 +35,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -237,53 +239,70 @@ jobs:
           path: artifacts
           if-no-files-found: warn
 
-      - name: Comment PR summary
+      - name: Prepare PR summary comment
+        id: pr_summary
         if: always() && steps.policy.outputs.publish_outputs == 'true' && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && steps.pr_comment.outputs.can_comment == 'true'
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const output = process.env.GITHUB_OUTPUT;
+          const summaryPath = 'artifacts/summary.json';
+          const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+          let body = '## Web Quality Gatekeeper\n';
+
+          if (fs.existsSync(summaryPath)) {
+            const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+            const status = summary.overallStatus?.toUpperCase() ?? 'UNKNOWN';
+            const perf = summary.performance?.metrics || {};
+            const budgets = summary.performance?.budgets || {};
+            const a11y = summary.a11y?.countsByImpact || {};
+            const visual = summary.visual;
+
+            body += `- Status: **${status}**\n`;
+            if (summary.performance) {
+              body += `- Performance: score ${perf.performanceScore ?? 'n/a'} (min ${budgets.performance ?? 'n/a'}), `;
+              body += `LCP ${perf.lcpMs ?? 'n/a'}ms (max ${budgets.lcpMs ?? 'n/a'}), `;
+              body += `CLS ${perf.cls ?? 'n/a'} (max ${budgets.cls ?? 'n/a'}), `;
+              body += `TBT ${perf.tbtMs ?? 'n/a'}ms (max ${budgets.tbtMs ?? 'n/a'})\n`;
+            } else {
+              body += '- Performance: skipped\n';
+            }
+
+            if (summary.a11y) {
+              body += `- A11y: critical ${a11y.critical ?? 0}, serious ${a11y.serious ?? 0}, moderate ${a11y.moderate ?? 0}, minor ${a11y.minor ?? 0}\n`;
+            } else {
+              body += '- A11y: skipped\n';
+            }
+
+            if (visual) {
+              body += `- Visual: max mismatch ${visual.maxMismatchRatio?.toFixed(4) ?? 'n/a'} (threshold ${visual.threshold})\n`;
+            } else {
+              body += '- Visual: skipped\n';
+            }
+          } else {
+            body += '- Summary: `artifacts/summary.json` not found\n';
+          }
+
+          body += `- Artifacts: ${runUrl}\n`;
+          fs.appendFileSync(output, `body<<WQG_COMMENT\n${body}WQG_COMMENT\n`);
+          NODE
+
+  pr-comment:
+    runs-on: ubuntu-latest
+    needs: quality-gate
+    if: always() && needs.quality-gate.outputs.publish_outputs == 'true' && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && needs.quality-gate.outputs.can_comment == 'true' && needs.quality-gate.outputs.pr_comment_body != ''
+    permissions:
+      issues: write
+    steps:
+      - name: Comment PR summary
         continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          WQG_PR_COMMENT_BODY: ${{ needs.quality-gate.outputs.pr_comment_body }}
         with:
           script: |
             try {
-              const fs = require('fs');
-              const summaryPath = 'artifacts/summary.json';
-              const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
-              let body = '## Web Quality Gatekeeper\n';
-
-              if (fs.existsSync(summaryPath)) {
-                const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-                const status = summary.overallStatus?.toUpperCase() ?? 'UNKNOWN';
-                const perf = summary.performance?.metrics || {};
-                const budgets = summary.performance?.budgets || {};
-                const a11y = summary.a11y?.countsByImpact || {};
-                const visual = summary.visual;
-
-                body += `- Status: **${status}**\n`;
-                if (summary.performance) {
-                  body += `- Performance: score ${perf.performanceScore ?? 'n/a'} (min ${budgets.performance ?? 'n/a'}), `;
-                  body += `LCP ${perf.lcpMs ?? 'n/a'}ms (max ${budgets.lcpMs ?? 'n/a'}), `;
-                  body += `CLS ${perf.cls ?? 'n/a'} (max ${budgets.cls ?? 'n/a'}), `;
-                  body += `TBT ${perf.tbtMs ?? 'n/a'}ms (max ${budgets.tbtMs ?? 'n/a'})\n`;
-                } else {
-                  body += '- Performance: skipped\n';
-                }
-
-                if (summary.a11y) {
-                  body += `- A11y: critical ${a11y.critical ?? 0}, serious ${a11y.serious ?? 0}, moderate ${a11y.moderate ?? 0}, minor ${a11y.minor ?? 0}\n`;
-                } else {
-                  body += '- A11y: skipped\n';
-                }
-
-                if (visual) {
-                  body += `- Visual: max mismatch ${visual.maxMismatchRatio?.toFixed(4) ?? 'n/a'} (threshold ${visual.threshold})\n`;
-                } else {
-                  body += '- Visual: skipped\n';
-                }
-              } else {
-                body += '- Summary: `artifacts/summary.json` not found\n';
-              }
-
-              body += `- Artifacts: ${runUrl}\n`;
-
+              const body = process.env.WQG_PR_COMMENT_BODY;
               const { data: comments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
