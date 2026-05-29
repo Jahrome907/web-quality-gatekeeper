@@ -173,8 +173,8 @@ function createFullConfig() {
 }
 
 function isCiLike(): boolean {
-  const value = `${process.env.CI ?? process.env.GITHUB_ACTIONS ?? ""}`.toLowerCase();
-  return value === "1" || value === "true" || value === "yes" || value === "on";
+  const values = [process.env.CI, process.env.GITHUB_ACTIONS];
+  return values.some((value) => ["1", "true", "yes", "on"].includes(`${value ?? ""}`.toLowerCase()));
 }
 
 describe("runAudit orchestration", () => {
@@ -185,6 +185,46 @@ describe("runAudit orchestration", () => {
     mockBuildHtmlReport.mockReturnValue("<html>report</html>");
     mockBuildSummary.mockReturnValue(createSummary("pass"));
     mockBuildSummaryV2.mockReturnValue(createSummaryV2("pass"));
+  });
+
+  it("treats GitHub Actions as sensitive mode when CI is explicitly false", async () => {
+    const previousCi = process.env.CI;
+    const previousGithubActions = process.env.GITHUB_ACTIONS;
+    process.env.CI = "false";
+    process.env.GITHUB_ACTIONS = "true";
+    mockLoadConfig.mockResolvedValue({
+      ...createFullConfig(),
+      urls: [{ name: "local", url: "http://127.0.0.1:4173" }]
+    });
+
+    try {
+      const { runAudit } = await import("../src/index.js");
+      await expect(
+        runAudit(undefined, {
+          config: "configs/default.json",
+          out: "artifacts",
+          baselineDir: "baselines",
+          setBaseline: false,
+          failOnA11y: true,
+          failOnPerf: true,
+          failOnVisual: true,
+          verbose: false
+        })
+      ).rejects.toThrow("Blocked internal target");
+    } finally {
+      if (previousCi === undefined) {
+        delete process.env.CI;
+      } else {
+        process.env.CI = previousCi;
+      }
+      if (previousGithubActions === undefined) {
+        delete process.env.GITHUB_ACTIONS;
+      } else {
+        process.env.GITHUB_ACTIONS = previousGithubActions;
+      }
+    }
+
+    expect(mockOpenPage).not.toHaveBeenCalled();
   });
 
   it("runs all enabled checks, rewrites paths, and writes both summary versions", async () => {

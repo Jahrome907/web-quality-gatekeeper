@@ -90,8 +90,12 @@ export interface AuditOptions {
 }
 
 function isCiEnvironment(env: NodeJS.ProcessEnv = process.env): boolean {
-  const value = `${env.CI ?? env.GITHUB_ACTIONS ?? ""}`.toLowerCase();
-  return value === "1" || value === "true" || value === "yes" || value === "on";
+  return isTruthy(env.CI) || isTruthy(env.GITHUB_ACTIONS);
+}
+
+function isTruthy(value: string | undefined): boolean {
+  const normalized = `${value ?? ""}`.toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
 function severityWeight(value: string): number {

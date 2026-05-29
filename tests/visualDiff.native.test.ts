@@ -104,6 +104,45 @@ setTimeout(() => {}, 60000);
   return stubPath;
 }
 
+async function createMalformedNativeEngineStub(
+  tempDir: string,
+  mode: "bad-json" | "negative-diff" | "short-diff"
+): Promise<string> {
+  const stubPath = path.join(tempDir, `native-engine-${mode}-stub.mjs`);
+  const source = `#!/usr/bin/env node
+import { writeFile } from "node:fs/promises";
+
+const mode = ${JSON.stringify(mode)};
+const args = process.argv.slice(2);
+function readFlag(flag) {
+  const index = args.indexOf(flag);
+  if (index === -1 || index === args.length - 1) {
+    throw new Error(\`Missing value for \${flag}\`);
+  }
+  return args[index + 1];
+}
+
+const width = Number.parseInt(readFlag("--width"), 10);
+const height = Number.parseInt(readFlag("--height"), 10);
+const diffPath = readFlag("--diff-out");
+
+if (mode === "bad-json") {
+  await writeFile(diffPath, Buffer.alloc(width * height * 4));
+  process.stdout.write("not-json");
+} else if (mode === "negative-diff") {
+  await writeFile(diffPath, Buffer.alloc(width * height * 4));
+  process.stdout.write(JSON.stringify({ diffPixels: -1 }));
+} else {
+  await writeFile(diffPath, Buffer.alloc(1));
+  process.stdout.write(JSON.stringify({ diffPixels: 0 }));
+}
+`;
+
+  await writeFile(stubPath, source, "utf8");
+  await chmod(stubPath, 0o755);
+  return stubPath;
+}
+
 describe("runVisualDiff native engine", () => {
   it("falls back to pixelmatch when the native engine binary is missing", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
@@ -171,6 +210,83 @@ describe("runVisualDiff native engine", () => {
       expect(summary.maxMismatchRatio).toBe(0.25);
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);
       expect(logger.warn).not.toHaveBeenCalled();
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to pixelmatch when includeAA is enabled", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const nativeBinaryPath = await createNativeEngineStub(tempDir);
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { engine: "native-rust", nativeBinaryPath, pixelmatch: { includeAA: true } }
+      );
+
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Native visual diff engine does not support includeAA=true yet; falling back to pixelmatch."
+      );
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ["bad-json", "Unexpected token"] as const,
+    ["negative-diff", "invalid diff pixel count"] as const,
+    ["short-diff", "diff bytes"] as const,
+  ])("falls back to pixelmatch when the native engine returns %s output", async (mode, warning) => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const nativeBinaryPath = await createMalformedNativeEngineStub(tempDir, mode);
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { engine: "native-rust", nativeBinaryPath }
+      );
+
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Native visual diff engine failed; falling back to pixelmatch.")
+      );
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(warning));
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

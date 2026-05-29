@@ -347,14 +347,21 @@ describe("CLI integration", () => {
   }, 20000);
 
   it("report.html contains expected heading", async () => {
-    // Re-use the output from the first test if still present
-    const reportPath = path.join(outDir, "report.html");
-    if (!existsSync(reportPath)) {
-      return; // skip if prior test didn't run
+    const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-report-heading-"));
+    const modeOutDir = path.join(modeRoot, "artifacts");
+
+    try {
+      const run = await runCli(cliPath, buildAuditArgsWithOut(modeOutDir, ["--format", "html"]), 60000);
+      expect(run.status).toBe(0);
+
+      const reportPath = path.join(modeOutDir, "report.html");
+      expect(existsSync(reportPath)).toBe(true);
+      const html = await readFile(reportPath, "utf8");
+      expect(html).toContain("Web Quality Gatekeeper");
+    } finally {
+      await rm(modeRoot, { recursive: true, force: true });
     }
-    const html = await readFile(reportPath, "utf8");
-    expect(html).toContain("Web Quality Gatekeeper");
-  });
+  }, 90000);
 
   it("blocks internal targets in CI mode unless explicit override is provided", async () => {
     const run = await runCli(
