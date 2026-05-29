@@ -124,8 +124,24 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("- name: Checkout");
     expect(source).toContain("persist-credentials: false");
-    expect(source).toContain("node-version: 24");
-    expect(source).toContain("cache-dependency-path: ${{ github.action_path }}/package-lock.json");
+    expect(source).toContain(
+      [
+        "    - name: Setup Node",
+        "      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0",
+        "      with:",
+        "        node-version: 24"
+      ].join("\n")
+    );
+    expect(source).toContain(
+      [
+        "    - name: Install dependencies",
+        "      working-directory: ${{ github.action_path }}",
+        "      shell: bash",
+        "      run: npm ci --ignore-scripts"
+      ].join("\n")
+    );
+    expect(source).not.toContain("cache: npm");
+    expect(source).not.toContain("cache-dependency-path:");
     expect(source).toContain("Install Playwright browsers (Linux)");
     expect(source).toContain("if: runner.os == 'Linux'");
     expect(source).toContain("npx playwright install --with-deps chromium");
