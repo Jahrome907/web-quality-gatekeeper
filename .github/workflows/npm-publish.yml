@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag to backfill (for example v3.1.5)"
+        description: "Release tag to backfill (for example v3.1.6)"
         required: true
         type: string
 
@@ -23,7 +23,7 @@ jobs:
           RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::release_tag must be a semantic version tag (for example v3.1.5)."
+            echo "::error::release_tag must be a semantic version tag (for example v3.1.6)."
             exit 1
           fi
           echo "release_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
