@@ -190,7 +190,9 @@ describe("workflow invariants", () => {
     expect(source).toContain("actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53");
     expect(source).toContain("Configure npm registry");
     expect(source).toContain("Publish to npm with trusted publishing");
-    expect(source).toContain("npm publish npm-package/*.tgz --provenance --access public");
+    expect(source).toContain("tarballs=(./npm-package/*.tgz)");
+    expect(source).toContain('Expected exactly one packed npm tarball, found ${#tarballs[@]}.');
+    expect(source).toContain('npm publish "${tarballs[0]}" --provenance --access public');
     expect(source).toContain("package-manager-cache: false");
     expect(source).toContain("node-version: 24");
     expect(source).toContain("node scripts/ci/assert-publish-runtime.mjs");
