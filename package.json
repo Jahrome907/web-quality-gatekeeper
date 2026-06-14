@@ -1,6 +1,6 @@
 {
   "name": "web-quality-gatekeeper",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Quality gate CLI and GitHub Action for Playwright, axe-core, Lighthouse, and visual diffs.",
   "author": "Jahrome907",
   "license": "MIT",
@@ -91,7 +91,9 @@
     "@sentry/node": {
       "minimatch": "10.2.4"
     },
+    "axios": "1.17.0",
     "basic-ftp": "6.0.0",
+    "esbuild": "0.28.1",
     "yauzl": "3.2.1"
   },
   "devDependencies": {
@@ -105,7 +107,7 @@
     "eslint": "^10.3.0",
     "prettier": "^3.8.3",
     "tsup": "^8.1.0",
-    "tsx": "^4.19.0",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.2",
     "vitest": "^4.0.17",

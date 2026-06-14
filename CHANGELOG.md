@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.1] - 2026-06-14
+
+### Security
+
+- Updated the packaged lockfile to resolve the current `axios` advisory set reported through `wait-on`.
+- Forced the build-time `esbuild` tree to `0.28.1` and updated `tsx` so local build/test tooling no longer resolves the vulnerable `esbuild` range.
+
 ## [3.2.0] - 2026-06-13
 
 ### Added
@@ -322,7 +329,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
-[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.0...HEAD
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.1...HEAD
+[3.2.1]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.0...v3.2.1
 [3.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.6...v3.2.0
 [3.1.6]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.5...v3.1.6
 [3.1.5]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.4...v3.1.5
