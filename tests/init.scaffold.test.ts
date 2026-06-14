@@ -28,13 +28,13 @@ describe("consumer init scaffold", () => {
       ).resolves.toContain("Jahrome907/web-quality-gatekeeper@v3");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
-      ).resolves.toContain("actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd");
+      ).resolves.toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
       ).resolves.toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
-      ).resolves.toContain("# v6.0.2");
+      ).resolves.toContain("# v6.0.3");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
       ).resolves.toContain("# v7.0.1");

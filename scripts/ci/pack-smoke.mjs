@@ -170,7 +170,7 @@ async function runPackSmoke() {
       "utf8"
     );
     for (const expectedWorkflowText of [
-      "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+      "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
       "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
       "WQG_SENSITIVE_AUDIT",
       "WQG_ALLOW_SENSITIVE_OUTPUTS",

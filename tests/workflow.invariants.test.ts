@@ -325,7 +325,7 @@ describe("workflow invariants", () => {
     expect(source).toContain("does not match package.json version tag");
     expect(source).toContain("Upload publish artifact");
     expect(source).toContain("npm pack --ignore-scripts --json > pack.json");
-    expect(source).toContain("actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53");
+    expect(source).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c");
     expect(source).toContain("Configure npm registry");
     expect(source).toContain("needs: [validate-input, validate-package]");
     expect(source).toContain("Publish to npm with trusted publishing");
@@ -407,8 +407,8 @@ describe("workflow invariants", () => {
 
     expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
     expect(source).toContain("id: wqg");
-    expect(source).toContain("actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd");
-    expect(source).toContain("# v6.0.2");
+    expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
+    expect(source).toContain("# v6.0.3");
     expect(source).not.toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
     expect(source).toContain("# v7.0.1");
