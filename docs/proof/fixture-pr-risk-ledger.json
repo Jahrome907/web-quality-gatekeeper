@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v3/schemas/pr-risk-ledger.v1.json",
   "schemaVersion": "1.0.0",
   "generatedAt": "2026-05-11T22:00:00.000Z",
-  "toolVersion": "3.1.6",
+  "toolVersion": "3.2.0",
   "overallStatus": "pass",
   "mode": "single",
   "primaryUrl": "https://fixture.example/",
