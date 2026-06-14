@@ -304,8 +304,10 @@ describe("workflow invariants", () => {
     expect(source).toContain("^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$");
     expect(source).toContain("validate-input:");
     expect(source).toContain("npm_dist_tag:");
+    expect(source).toContain('if [[ "$RELEASE_TAG" =~ ^v[0-9]+\\.[0-9]+\\.[0-9]+- ]]; then');
     expect(source).toContain('echo "npm_dist_tag=next" >> "$GITHUB_OUTPUT"');
     expect(source).toContain('echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"');
+    expect(source).not.toContain('if [[ "$RELEASE_TAG" == *-* ]]; then');
     expect(source).toContain("validate-package:");
     expect(source).toContain("ref: refs/tags/${{ inputs.release_tag }}");
     expect(source).toContain("persist-credentials: false");
@@ -322,6 +324,7 @@ describe("workflow invariants", () => {
     expect(source).toContain("release_tag must be a semantic version tag");
     expect(source).toContain("does not match package.json version tag");
     expect(source).toContain("Upload publish artifact");
+    expect(source).toContain("npm pack --ignore-scripts --json > pack.json");
     expect(source).toContain("actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53");
     expect(source).toContain("Configure npm registry");
     expect(source).toContain("needs: [validate-input, validate-package]");

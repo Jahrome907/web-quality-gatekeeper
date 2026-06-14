@@ -28,7 +28,7 @@ jobs:
             exit 1
           fi
           echo "release_version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
-          if [[ "$RELEASE_TAG" == *-* ]]; then
+          if [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+- ]]; then
             echo "npm_dist_tag=next" >> "$GITHUB_OUTPUT"
           else
             echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"
@@ -113,7 +113,7 @@ jobs:
       - name: Pack publish artifact
         id: pack
         run: |
-          npm pack --json > pack.json
+          npm pack --ignore-scripts --json > pack.json
           TARBALL="$(node -p "JSON.parse(require('node:fs').readFileSync('pack.json', 'utf8'))[0].filename")"
           echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
 
