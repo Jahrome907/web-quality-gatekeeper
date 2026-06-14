@@ -6,12 +6,12 @@ Web Quality Gatekeeper is focused on practical CI evidence for web teams. The pr
 
 - Keep the GitHub Action and source-checkout CLI paths stable for consumers.
 - Improve merge-review evidence through the PR Risk Ledger artifacts.
+- Keep consumer scaffolds useful for first-run setup without making them the release blocker.
 - Promote the Rust visual diff engine behind an optional, documented runtime path.
 - Keep published proof artifacts reproducible from repository-owned fixtures.
 
 ## Near-Term Work
 
-- Expand `wqg init` templates with profile-specific comments and baseline guidance.
 - Add release provenance artifacts to the GitHub Release workflow when the release surface is ready.
 - Publish a maintained SBOM alongside release artifacts once dependency metadata is stable across the package and Action paths.
 

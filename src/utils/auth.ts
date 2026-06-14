@@ -27,24 +27,54 @@ function isSameOrigin(requestUrl: string, targetUrl: string): boolean {
 }
 
 const HEADER_FORMAT_HINT =
-  'Expected "Name: Value", for example --header "Authorization: Bearer <token>". ' +
+  'Expected "Name: Value", for example --header "X-WQG-Auth: Token <token>". ' +
   "Repeat --header for multiple values or use WQG_AUTH_HEADERS.";
 
 const COOKIE_FORMAT_HINT =
-  'Expected "name=value", for example --cookie "session_id=abc123". ' +
+  'Expected "name=value", for example --cookie "wqg_session=abc123". ' +
   "Repeat --cookie for multiple values or use WQG_AUTH_COOKIES.";
+
+const HTTP_TOKEN_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
+function assertHeaderEntryShape(entry: unknown): string {
+  if (typeof entry !== "string") {
+    throw new Error(`Invalid --header value. ${HEADER_FORMAT_HINT}`);
+  }
+  return entry;
+}
+
+function assertCookieEntryShape(entry: unknown): string {
+  if (typeof entry !== "string") {
+    throw new Error(`Invalid --cookie value. ${COOKIE_FORMAT_HINT}`);
+  }
+  return entry;
+}
+
+function isSafeHttpToken(value: string): boolean {
+  return HTTP_TOKEN_PATTERN.test(value);
+}
+
+function hasControlCharacters(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 31 || codePoint === 127;
+  });
+}
 
 function parseHeaderEntry(entry: string): [string, string] {
   const trimmed = entry.trim();
   const separator = trimmed.indexOf(":");
   if (separator <= 0) {
-    throw new Error(`Invalid --header value: ${entry}. ${HEADER_FORMAT_HINT}`);
+    throw new Error(`Invalid --header value. ${HEADER_FORMAT_HINT}`);
   }
 
   const name = trimmed.slice(0, separator).trim();
   const value = trimmed.slice(separator + 1).trim();
   if (!name || !value) {
-    throw new Error(`Invalid --header value: ${entry}. ${HEADER_FORMAT_HINT}`);
+    throw new Error(`Invalid --header value. ${HEADER_FORMAT_HINT}`);
+  }
+  if (!isSafeHttpToken(name) || hasControlCharacters(value)) {
+    throw new Error(`Invalid --header value. ${HEADER_FORMAT_HINT}`);
   }
 
   return [name, value];
@@ -55,13 +85,16 @@ function parseCookieEntry(entry: string): AuthCookie {
   const firstPair = trimmed.split(";")[0]?.trim() ?? "";
   const separator = firstPair.indexOf("=");
   if (separator <= 0) {
-    throw new Error(`Invalid --cookie value: ${entry}. ${COOKIE_FORMAT_HINT}`);
+    throw new Error(`Invalid --cookie value. ${COOKIE_FORMAT_HINT}`);
   }
 
   const name = firstPair.slice(0, separator).trim();
   const value = firstPair.slice(separator + 1).trim();
   if (!name || !value) {
-    throw new Error(`Invalid --cookie value: ${entry}. ${COOKIE_FORMAT_HINT}`);
+    throw new Error(`Invalid --cookie value. ${COOKIE_FORMAT_HINT}`);
+  }
+  if (!isSafeHttpToken(name) || hasControlCharacters(value)) {
+    throw new Error(`Invalid --cookie value. ${COOKIE_FORMAT_HINT}`);
   }
 
   return { name, value };
@@ -87,12 +120,17 @@ function parseHeaderEnv(raw: string): string[] {
     return [];
   }
   if (trimmed.startsWith("{")) {
-    const parsed = JSON.parse(trimmed) as Record<string, string>;
-    return Object.entries(parsed).map(([name, value]) => `${name}: ${value}`);
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    return Object.entries(parsed).map(([name, value]) => {
+      if (typeof value !== "string") {
+        throw new Error(`Invalid --header value. ${HEADER_FORMAT_HINT}`);
+      }
+      return `${name}: ${value}`;
+    });
   }
   if (trimmed.startsWith("[")) {
-    const parsed = JSON.parse(trimmed) as string[];
-    return parsed;
+    const parsed = JSON.parse(trimmed) as unknown[];
+    return parsed.map(assertHeaderEntryShape);
   }
   return splitByLine(trimmed);
 }
@@ -103,20 +141,22 @@ function parseCookieEnv(raw: string): string[] {
     return [];
   }
   if (trimmed.startsWith("{")) {
-    const parsed = JSON.parse(trimmed) as Record<string, string>;
-    return Object.entries(parsed).map(([name, value]) => `${name}=${value}`);
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    return Object.entries(parsed).map(([name, value]) => {
+      if (typeof value !== "string") {
+        throw new Error(`Invalid --cookie value. ${COOKIE_FORMAT_HINT}`);
+      }
+      return `${name}=${value}`;
+    });
   }
   if (trimmed.startsWith("[")) {
-    const parsed = JSON.parse(trimmed) as string[];
-    return parsed;
+    const parsed = JSON.parse(trimmed) as unknown[];
+    return parsed.map(assertCookieEntryShape);
   }
   return splitCookieEnv(trimmed);
 }
 
-function collectHeaderInputs(
-  cliHeaders: string[],
-  env: NodeJS.ProcessEnv
-): string[] {
+function collectHeaderInputs(cliHeaders: string[], env: NodeJS.ProcessEnv): string[] {
   const values: string[] = [];
   if (env.WQG_AUTH_HEADER) {
     values.push(env.WQG_AUTH_HEADER);
@@ -128,10 +168,7 @@ function collectHeaderInputs(
   return values;
 }
 
-function collectCookieInputs(
-  cliCookies: string[],
-  env: NodeJS.ProcessEnv
-): string[] {
+function collectCookieInputs(cliCookies: string[], env: NodeJS.ProcessEnv): string[] {
   const values: string[] = [];
   if (env.WQG_AUTH_COOKIE) {
     values.push(env.WQG_AUTH_COOKIE);
@@ -146,7 +183,7 @@ function collectCookieInputs(
 function parseHeaderEntries(entries: string[]): Record<string, string> {
   const headers: Record<string, string> = {};
   for (const entry of entries) {
-    const [name, value] = parseHeaderEntry(entry);
+    const [name, value] = parseHeaderEntry(assertHeaderEntryShape(entry));
     const existingKey = findHeaderKeyInsensitive(headers, name);
     if (existingKey && existingKey !== name) {
       delete headers[existingKey];
@@ -197,7 +234,7 @@ export function parseAuditAuth(
   const cookieEntries = collectCookieInputs(cliCookies, env);
 
   const headers = parseHeaderEntries(headerEntries);
-  const cookies = cookieEntries.map(parseCookieEntry);
+  const cookies = cookieEntries.map((entry) => parseCookieEntry(assertCookieEntryShape(entry)));
 
   if (Object.keys(headers).length === 0 && cookies.length === 0) {
     return null;

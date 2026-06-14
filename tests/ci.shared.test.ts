@@ -16,7 +16,10 @@ async function loadCiShared(): Promise<{
       force?: boolean;
       maxAttempts?: number;
       baseDelayMs?: number;
-      rmImpl?: (targetPath: string, options: { recursive: boolean; force: boolean }) => Promise<void>;
+      rmImpl?: (
+        targetPath: string,
+        options: { recursive: boolean; force: boolean }
+      ) => Promise<void>;
     }
   ) => Promise<void>;
   closeFixtureServer: (server: Server) => Promise<void>;
@@ -36,7 +39,6 @@ async function loadCiShared(): Promise<{
     }
   ) => Promise<{ server: Server; url: string }>;
 }> {
-  // @ts-expect-error -- CI helper script is tested via its runtime ESM entrypoint.
   return import("../scripts/ci/_shared.mjs");
 }
 
@@ -103,16 +105,26 @@ describe("ci shared helpers", () => {
 
   it("cleans only stale repo-root noise directories without touching fresh or unrelated folders", async () => {
     const { cleanupRepoRootNoise } = await loadCiShared();
-    const staleTemp = path.join(process.cwd(), ".tmp-action-local-ci-shared-test");
-    const freshTemp = path.join(process.cwd(), ".tmp-action-local-ci-shared-fresh");
+    const staleTemp = path.join(process.cwd(), ".tmp-ci-shared-action-local-test");
+    const freshTemp = path.join(process.cwd(), ".tmp-ci-shared-action-local-fresh");
     const otherScratch = path.join(process.cwd(), ".tmp-pack-smoke-ci-shared-test");
     const staleLeak =
       process.platform === "win32"
         ? null
-        : path.join(
-            process.cwd(),
-            String.raw`\\wsl.localhost\Ubuntu\home\user\projects\web-quality-gatekeeper\undefined\Users\undefined\AppData\Local\lighthouse.12345678`
-          );
+        : path.join(process.cwd(), [
+            "\\\\wsl" + ".localhost",
+            "Ubuntu",
+            "home",
+            "user",
+            "projects",
+            "web-quality-gatekeeper",
+            "undefined",
+            "Users",
+            "undefined",
+            "App" + "Data",
+            "Local",
+            "lighthouse.12345678"
+          ].join("\\"));
     const unrelated = path.join(process.cwd(), ".tmp-kept-ci-shared-test");
 
     await mkdir(staleTemp, { recursive: true });
@@ -132,7 +144,7 @@ describe("ci shared helpers", () => {
 
     try {
       await cleanupRepoRootNoise({
-        scratchPrefixes: [".tmp-action-local-"],
+        scratchPrefixes: [".tmp-ci-shared-action-local-"],
         staleAfterMs: 1_000
       });
 

@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ConfigSchema } from "./schema.js";
+import { ConfigSchema, MAX_EXTENDS_REFERENCES, MAX_EXTENDS_REFERENCE_LENGTH } from "./schema.js";
 import type { Config } from "./schema.js";
 import { defaultConfig } from "./defaultConfig.js";
 import { resolvePolicyReference } from "./policies.js";
@@ -9,7 +9,9 @@ export interface LoadConfigOptions {
   policy?: string | null;
 }
 
-function formatZodError(error: { issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }> }): string {
+function formatZodError(error: {
+  issues: ReadonlyArray<{ path: ReadonlyArray<PropertyKey>; message: string }>;
+}): string {
   return error.issues
     .map((issue) => {
       const segments = issue.path.map((segment) => String(segment));
@@ -78,10 +80,7 @@ async function readJsonObject(filePath: string): Promise<JsonObject> {
   return parsed;
 }
 
-async function loadLayeredConfig(
-  filePath: string,
-  visited: Set<string>
-): Promise<JsonObject> {
+async function loadLayeredConfig(filePath: string, visited: Set<string>): Promise<JsonObject> {
   const resolvedPath = path.resolve(filePath);
   if (visited.has(resolvedPath)) {
     throw new Error(`Config extends cycle detected at ${resolvedPath}`);
@@ -98,6 +97,12 @@ async function loadLayeredConfig(
 
   const extendRefs: string[] = [];
   if (Array.isArray(rawConfig.extends)) {
+    if (rawConfig.extends.length > MAX_EXTENDS_REFERENCES) {
+      throw new Error(
+        `Invalid config at ${resolvedPath}: extends must contain at most ${MAX_EXTENDS_REFERENCES} policy references.`
+      );
+    }
+
     rawConfig.extends.forEach((entry, index) => {
       if (typeof entry !== "string") {
         throw new Error(
@@ -105,8 +110,11 @@ async function loadLayeredConfig(
         );
       }
       if (entry.trim().length === 0) {
+        throw new Error(`Invalid config at ${resolvedPath}: extends[${index}] must not be empty.`);
+      }
+      if (entry.length > MAX_EXTENDS_REFERENCE_LENGTH) {
         throw new Error(
-          `Invalid config at ${resolvedPath}: extends[${index}] must not be empty.`
+          `Invalid config at ${resolvedPath}: extends[${index}] must be at most ${MAX_EXTENDS_REFERENCE_LENGTH} characters.`
         );
       }
       extendRefs.push(entry);
@@ -127,7 +135,10 @@ async function loadLayeredConfig(
   return mergeConfigValues(merged, selfConfig) as JsonObject;
 }
 
-export async function loadConfig(configPath: string, options: LoadConfigOptions = {}): Promise<Config> {
+export async function loadConfig(
+  configPath: string,
+  options: LoadConfigOptions = {}
+): Promise<Config> {
   let merged: JsonObject = cloneValue(defaultConfig) as JsonObject;
 
   if (options.policy) {

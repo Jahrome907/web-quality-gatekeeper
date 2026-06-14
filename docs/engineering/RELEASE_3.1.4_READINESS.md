@@ -1,10 +1,14 @@
-# Release 3.1.4 Readiness Record
+# Historical Release 3.1.4 Readiness Record
 
 Date: 2026-04-29
 Branch: `release/3.1.4`
 
-This is a historical readiness record for v3.1.4, not the current redeploy checklist.
-Scope: release preparation for the next public `v3` patch line, GitHub Release creation, and stable Action tag movement.
+This is an archived readiness record for v3.1.4. Do not use it as the current
+release checklist. For current release validation, use `CONTRIBUTING.md`,
+`docs/testing-matrix.md`, and `docs/engineering/WORKFLOW_SAFETY_POLICY.md`.
+
+Historical scope: release preparation for the v3.1.4 public patch line, GitHub
+Release creation, and stable Action tag movement.
 
 ## Release Contents
 
@@ -23,18 +27,19 @@ This release includes the OSS hardening work in the release branch:
 - Windows artifact write hardening
 - local release dry-run behavior that remains strict in CI
 
-## Public Surface Checklist
+## Historical Public Surface Checklist
 
 - `package.json` and lockfile root package entries align on `3.1.4`.
 - README and docs site advertise source-checkout CLI usage and the `@v3` Action line.
 - `configs/default.json` uses the `wqg/3.1.4` default user agent.
 - Compatibility docs list `Jahrome907/web-quality-gatekeeper@v3` as the current stable Action usage.
 - Published proof artifacts are sanitized for public distribution and align with the package version.
-- No personal filesystem paths, secrets, private URLs, or generated-tool wording should appear in public docs, examples, release notes, or proof artifacts.
+- No personal filesystem paths, secrets, private URLs, or tool-origin wording
+  should appear in public docs, examples, release notes, or proof artifacts.
 
-## Required Verification
+## Historical Required Verification
 
-Run before tagging:
+This was the required verification set before tagging v3.1.4:
 
 - `npm run lint`
 - `npm run typecheck`
@@ -48,11 +53,13 @@ Run before tagging:
 - `npm run release:dry-run`
 - `git diff --check`
 
-Local `smoke:action` is strict by default and fails when the Bash-side Node runtime lacks a Playwright browser. Optional probing must use `WQG_ACTION_SMOKE_ALLOW_SKIP=true` explicitly.
+Local `smoke:action` was strict by default and failed when the Bash-side Node
+runtime lacked a Playwright browser. Optional probing used
+`WQG_ACTION_SMOKE_ALLOW_SKIP=true` explicitly.
 
-## Remote Release Steps
+## Historical Remote Release Steps
 
-After the PR merges to `main`:
+These were the post-merge steps for v3.1.4:
 
 1. Confirm `main` is clean and contains `package.json` version `3.1.4`.
 2. Push tag `v3.1.4` at the merge commit.
@@ -61,4 +68,5 @@ After the PR merges to `main`:
 5. Confirm the GitHub Pages docs and README show source-checkout CLI guidance and `@v3` usage.
 6. Run the separately triggered `NPM Publish` workflow after maintainer npm credentials are configured.
 
-No remote mutation is complete until the GitHub Release and stable major tag state agree.
+No remote mutation was complete until the GitHub Release and stable major tag
+state agreed.

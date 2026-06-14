@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
 
 permissions:
   contents: read
@@ -28,6 +28,9 @@ jobs:
         with:
           node-version: 24
           package-manager-cache: false
+
+      - name: Check Node engine
+        run: npm run engines:check
 
       - name: Extract version from tag
         id: version
@@ -98,9 +101,55 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     needs: validate
+    concurrency:
+      group: release-major-${{ needs.validate.outputs.major || github.ref_name }}
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
+      - name: Checkout for tag update
+        if: needs.validate.outputs.should_update_major == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate stable major tag movement
+        if: needs.validate.outputs.should_update_major == 'true'
+        env:
+          MAJOR: ${{ needs.validate.outputs.major }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          git fetch --force --tags origin
+          if git rev-parse -q --verify "refs/tags/$MAJOR" >/dev/null; then
+            export CURRENT_VERSION="$(git tag --points-at "$MAJOR" --list "${MAJOR}.*" | grep -E "^${MAJOR}\.[0-9]+\.[0-9]+(\+[0-9A-Za-z.-]+)?$" | sed 's/^v//' | sort -V | tail -n 1 || true)"
+          else
+            export CURRENT_VERSION=""
+          fi
+          node <<'NODE'
+          const current = process.env.CURRENT_VERSION;
+          const candidate = process.env.RELEASE_TAG?.replace(/^v/, "");
+          function parseStable(value) {
+            const match = value?.match(/^(\d+)\.(\d+)\.(\d+)(?:\+[0-9A-Za-z.-]+)?$/);
+            if (!match) {
+              throw new Error(`Expected stable SemVer, received '${value ?? ""}'.`);
+            }
+            return match.slice(1).map(Number);
+          }
+          if (current) {
+            const left = parseStable(candidate);
+            const right = parseStable(current);
+            for (let index = 0; index < 3; index += 1) {
+              if (left[index] > right[index]) {
+                process.exit(0);
+              }
+              if (left[index] < right[index]) {
+                throw new Error(`Refusing to move ${process.env.MAJOR} backward from v${current} to ${process.env.RELEASE_TAG}.`);
+              }
+            }
+          }
+          NODE
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
@@ -110,18 +159,12 @@ jobs:
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
 
-      - name: Checkout for tag update
-        if: needs.validate.outputs.should_update_major == 'true'
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
       - name: Update major version tag
         if: needs.validate.outputs.should_update_major == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
           MAJOR: ${{ needs.validate.outputs.major }}
         run: |
-          git tag -f "$MAJOR" "${GITHUB_REF_NAME}"
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$MAJOR" --force
+          RELEASE_COMMIT="$(git rev-list -n 1 "${GITHUB_REF_NAME}^{commit}")"
+          git tag -f "$MAJOR" "$RELEASE_COMMIT"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$MAJOR" --force

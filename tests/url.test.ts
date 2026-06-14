@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { UsageError, classifyTargetUrl, isInternalIpAddress, validateUrl } from "../src/utils/url.js";
+import {
+  UsageError,
+  classifyTargetUrl,
+  isInternalIpAddress,
+  validateUrl
+} from "../src/utils/url.js";
 
 describe("validateUrl edge cases", () => {
   it("normalizes trailing slash", () => {
@@ -44,9 +49,7 @@ describe("validateUrl edge cases", () => {
 
   it("throws UsageError for malformed URLs", () => {
     expect(() => validateUrl("http://")).toThrow(UsageError);
-    expect(() => validateUrl("http://")).toThrow(
-      "Expected an absolute http:// or https:// URL"
-    );
+    expect(() => validateUrl("http://")).toThrow("Expected an absolute http:// or https:// URL");
   });
 
   it("rejects non-http schemes", () => {
@@ -63,6 +66,14 @@ describe("validateUrl edge cases", () => {
     expect(() => validateUrl("https://alice:secret@example.com")).toThrow(
       "Username/password in URLs are not allowed"
     );
+    expect(() => validateUrl("https://alice:secret@example.com")).not.toThrow("secret");
+  });
+
+  it("redacts credentials from URL validation errors", () => {
+    expect(() => validateUrl("ftp://alice:secret@example.com/file")).toThrow(
+      "ftp://example.com/file"
+    );
+    expect(() => validateUrl("ftp://alice:secret@example.com/file")).not.toThrow("secret");
   });
 
   it("detects private IPv4 ranges in IP classifier", () => {

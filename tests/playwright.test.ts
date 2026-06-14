@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  sanitizeName,
-  resolveUrl,
-  validateScreenshotPath
-} from "../src/runner/playwright.js";
+import { sanitizeName, resolveUrl, validateScreenshotPath } from "../src/runner/playwright.js";
 
 describe("sanitizeName", () => {
   it("lowercases and strips special chars", () => {
@@ -41,6 +37,15 @@ describe("validateScreenshotPath", () => {
   it("rejects https URL injection", () => {
     expect(() => validateScreenshotPath("https://evil.com/path")).toThrow(
       "must be a relative path, not a URL"
+    );
+  });
+
+  it("rejects protocol-relative URL injection", () => {
+    expect(() => validateScreenshotPath("//evil.com/path")).toThrow(
+      "must not be protocol-relative"
+    );
+    expect(() => validateScreenshotPath("/\\evil.com\\path")).toThrow(
+      "must not be protocol-relative"
     );
   });
 

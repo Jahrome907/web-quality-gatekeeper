@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { defaultConfig } from "../src/config/defaultConfig.js";
 import { loadConfig } from "../src/config/loadConfig.js";
+import { ConfigSchema } from "../src/config/schema.js";
 
 describe("loadConfig", () => {
+  it("keeps internal defaults aligned with the shipped default config", () => {
+    const shippedDefault = JSON.parse(
+      readFileSync(path.join(process.cwd(), "configs", "default.json"), "utf8")
+    ) as unknown;
+
+    expect(defaultConfig).toEqual(ConfigSchema.parse(shippedDefault));
+  });
+
   it("loads a valid config file", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "wqg-cfg-"));
     const cfgPath = path.join(dir, "config.json");
@@ -172,6 +183,42 @@ describe("loadConfig", () => {
 
     try {
       await expect(loadConfig(cfgPath)).rejects.toThrow(/extends/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects extends arrays above the runtime schema limit before resolving files", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "wqg-cfg-"));
+    const cfgPath = path.join(dir, "too-many-extends.json");
+    await writeFile(
+      cfgPath,
+      JSON.stringify({
+        extends: Array.from({ length: 9 }, (_, index) => `./missing-${index}.json`)
+      })
+    );
+
+    try {
+      await expect(loadConfig(cfgPath)).rejects.toThrow(/extends must contain at most 8/i);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects overlong extends entries before resolving files", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "wqg-cfg-"));
+    const cfgPath = path.join(dir, "long-extends.json");
+    await writeFile(
+      cfgPath,
+      JSON.stringify({
+        extends: ["./" + "a".repeat(301) + ".json"]
+      })
+    );
+
+    try {
+      await expect(loadConfig(cfgPath)).rejects.toThrow(
+        /extends\[0\] must be at most 300 characters/i
+      );
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

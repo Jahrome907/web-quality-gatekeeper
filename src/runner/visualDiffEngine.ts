@@ -6,6 +6,14 @@ import { promisify } from "node:util";
 import pixelmatch from "pixelmatch";
 import { pathExists } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
+import {
+  buildNativeVisualDiffChildEnv,
+  classifyNativeVisualDiffPath,
+  isCiEnvironment,
+  isNativeVisualEngine,
+  isTruthy,
+  resolveNativeVisualDiffInvocation
+} from "./nativeVisualDiffSupport.js";
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_NATIVE_TIMEOUT_MS = 5000;
@@ -30,29 +38,17 @@ interface NativeVisualDiffResult {
   diffPixels?: unknown;
 }
 
-function resolveNativeInvocation(binaryPath: string): {
-  command: string;
-  args: string[];
-} {
-  const extension = path.extname(binaryPath).toLowerCase();
-  if (extension === ".js" || extension === ".mjs" || extension === ".cjs") {
-    return {
-      command: process.execPath,
-      args: [binaryPath]
-    };
-  }
-
-  return {
-    command: binaryPath,
-    args: []
-  };
+function resolveEngine(options: VisualDiffEngineOptions): VisualDiffEngineName {
+  const configuredEngine = process.env.WQG_VISUAL_DIFF_ENGINE ?? options.engine;
+  return isNativeVisualEngine(configuredEngine) ? "native-rust" : "pixelmatch";
 }
 
-function resolveEngine(options: VisualDiffEngineOptions): VisualDiffEngineName {
-  const configuredEngine = options.engine ?? process.env.WQG_VISUAL_DIFF_ENGINE;
-  return configuredEngine === "native-rust" || configuredEngine === "native-rust-spike"
-    ? "native-rust"
-    : "pixelmatch";
+function nativeEngineAllowedInCurrentEnvironment(): boolean {
+  return !isCiEnvironment() || isTruthy(process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE);
+}
+
+function scriptNativeEngineAllowed(): boolean {
+  return isTruthy(process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE);
 }
 
 function resolveNativeTimeoutMs(): number {
@@ -93,9 +89,9 @@ async function runPixelmatch(
   return {
     diffPixels: pixelmatch(baseline, current, diff, width, height, {
       includeAA: options.includeAA,
-      threshold: options.threshold,
+      threshold: options.threshold
     }),
-    engine: "pixelmatch",
+    engine: "pixelmatch"
   };
 }
 
@@ -107,17 +103,29 @@ async function runNativeRust(
   height: number,
   options: VisualDiffEngineOptions
 ): Promise<VisualDiffComputation | null> {
-  if (options.includeAA) {
-    options.logger.warn(
-      "Native visual diff engine does not support includeAA=true yet; falling back to pixelmatch."
-    );
-    return null;
-  }
-
-  const binaryPath = options.nativeBinaryPath ?? process.env.WQG_VISUAL_DIFF_NATIVE_BIN;
+  const binaryPath = process.env.WQG_VISUAL_DIFF_NATIVE_BIN ?? options.nativeBinaryPath;
   if (!binaryPath || !(await pathExists(binaryPath))) {
     options.logger.warn(
       "Native visual diff engine requested but no executable was provided; falling back to pixelmatch."
+    );
+    return null;
+  }
+  const nativePathType = await classifyNativeVisualDiffPath(binaryPath);
+  if (nativePathType === "script") {
+    options.logger.warn(
+      "Native visual diff engine path appears to be a shell, batch, PowerShell, or shebang script; use a reviewed native binary or a JavaScript test adapter. Falling back to pixelmatch."
+    );
+    return null;
+  }
+  if (nativePathType === "javascript-adapter" && !scriptNativeEngineAllowed()) {
+    options.logger.warn(
+      "Native visual diff engine path appears to be a JavaScript adapter; set WQG_ALLOW_SCRIPT_NATIVE_ENGINE=true only for trusted test adapters. Falling back to pixelmatch."
+    );
+    return null;
+  }
+  if (!options.includeAA) {
+    options.logger.warn(
+      "Native visual diff engine does not support anti-aliased pixel suppression yet; set visual.pixelmatch.includeAA=true only when that parity tradeoff is acceptable. Falling back to pixelmatch."
     );
     return null;
   }
@@ -127,7 +135,7 @@ async function runNativeRust(
   const currentPath = path.join(tempDir, "current.rgba");
   const diffPath = path.join(tempDir, "diff.rgba");
   const timeoutMs = resolveNativeTimeoutMs();
-  const invocation = resolveNativeInvocation(binaryPath);
+  const invocation = resolveNativeVisualDiffInvocation(binaryPath);
 
   try {
     await Promise.all([writeFile(baselinePath, baseline), writeFile(currentPath, current)]);
@@ -146,17 +154,20 @@ async function runNativeRust(
         "--diff-out",
         diffPath,
         "--threshold",
-        String(options.threshold),
+        String(options.threshold)
       ],
       {
-        timeout: timeoutMs
+        timeout: timeoutMs,
+        env: buildNativeVisualDiffChildEnv()
       }
     );
     const parsed = JSON.parse(stdout.trim()) as NativeVisualDiffResult;
     const diffPixels =
       typeof parsed.diffPixels === "number" ? Math.trunc(parsed.diffPixels) : Number.NaN;
     if (!Number.isFinite(diffPixels) || diffPixels < 0) {
-      throw new Error(`Native visual diff engine returned invalid diff pixel count: ${stdout.trim()}`);
+      throw new Error(
+        `Native visual diff engine returned invalid diff pixel count: ${stdout.trim()}`
+      );
     }
 
     const nativeDiff = await readFile(diffPath);
@@ -168,7 +179,7 @@ async function runNativeRust(
     diff.set(nativeDiff);
     return {
       diffPixels,
-      engine: "native-rust",
+      engine: "native-rust"
     };
   } catch (error) {
     options.logger.warn(
@@ -190,6 +201,13 @@ export async function computeVisualDiff(
 ): Promise<VisualDiffComputation> {
   const engine = resolveEngine(options);
   if (engine === "native-rust") {
+    if (!nativeEngineAllowedInCurrentEnvironment()) {
+      options.logger.warn(
+        "Native visual diff engine is disabled in CI unless WQG_ALLOW_NATIVE_VISUAL_ENGINE=true; falling back to pixelmatch."
+      );
+      return runPixelmatch(baseline, current, diff, width, height, options);
+    }
+
     const nativeResult = await runNativeRust(baseline, current, diff, width, height, options);
     if (nativeResult) {
       return nativeResult;

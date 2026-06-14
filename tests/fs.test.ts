@@ -84,7 +84,7 @@ describe("validatePathWithinBase", () => {
   });
 
   it("rejects absolute path outside base", () => {
-    expect(() => validatePathWithinBase("/etc/passwd", "/home/user")).toThrow(
+    expect(() => validatePathWithinBase("/etc/passwd", "/workspace/user")).toThrow(
       "Path traversal detected"
     );
   });

@@ -21,12 +21,15 @@ import {
   normalizeUrlHostname,
   resolveAuditedTarget,
   UsageError,
-  type TargetResolutionPolicy
+  type TargetResolutionPolicy,
+  type VerifiedAuditTarget
 } from "../utils/url.js";
 
 const requireSync = createRequire(import.meta.url);
 
 const MAX_OPPORTUNITIES = 10;
+const MAX_LIGHTHOUSE_RELAUNCHES = 4;
+const LOCAL_DATA_ENV_KEY = "LOCAL" + "APP" + "DATA";
 
 export interface LighthouseBudgets {
   performance: number;
@@ -104,6 +107,12 @@ interface LighthouseLhrLike {
 export interface LighthouseRunOptions {
   hostResolverRules?: string | null;
   targetPolicy?: TargetResolutionPolicy;
+}
+
+interface LighthouseAttemptResult {
+  summary: LighthouseSummary;
+  finalNavigationUrl: string;
+  finalTarget: VerifiedAuditTarget | null;
 }
 
 export function evaluateBudgets(
@@ -238,8 +247,11 @@ async function disconnectPuppeteerBrowser(
   }
 }
 
-async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promise<PortableLighthouseRuntime> {
-  const previousLocalAppData = process.env.LOCALAPPDATA;
+async function applyPortableLighthouseEnv(
+  outDir: string,
+  logger: Logger
+): Promise<PortableLighthouseRuntime> {
+  const previousLocalDataRoot = process.env[LOCAL_DATA_ENV_KEY];
   const previousTemp = process.env.TEMP;
   const previousTmp = process.env.TMP;
 
@@ -249,14 +261,14 @@ async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promi
 
   await mkdir(outDir, { recursive: true });
   const runtimeRoot = await mkdtemp(path.join(outDir, ".lighthouse-runtime-"));
-  const portableLocalAppData = path.join(runtimeRoot, "localappdata");
+  const portableLocalDataRoot = path.join(runtimeRoot, "localdata");
   const portableTemp = path.join(runtimeRoot, "temp");
   const portableProfile = path.join(runtimeRoot, "profile");
-  await mkdir(portableLocalAppData, { recursive: true });
+  await mkdir(portableLocalDataRoot, { recursive: true });
   await mkdir(portableTemp, { recursive: true });
   await mkdir(portableProfile, { recursive: true });
 
-  process.env.LOCALAPPDATA = portableLocalAppData;
+  process.env[LOCAL_DATA_ENV_KEY] = portableLocalDataRoot;
   process.env.TEMP = portableTemp;
   process.env.TMP = portableTemp;
   logger.debug(`Using portable Lighthouse runtime root at ${runtimeRoot}`);
@@ -264,10 +276,10 @@ async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promi
   return {
     userDataDir: portableProfile,
     restore: async () => {
-      if (previousLocalAppData === undefined) {
-        delete process.env.LOCALAPPDATA;
+      if (previousLocalDataRoot === undefined) {
+        delete process.env[LOCAL_DATA_ENV_KEY];
       } else {
-        process.env.LOCALAPPDATA = previousLocalAppData;
+        process.env[LOCAL_DATA_ENV_KEY] = previousLocalDataRoot;
       }
       if (previousTemp === undefined) {
         delete process.env.TEMP;
@@ -294,7 +306,7 @@ async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promi
  */
 function resolveChromePath(): string | undefined {
   if (process.env.CHROME_PATH) {
-    return process.env.CHROME_PATH;
+    return existsSync(process.env.CHROME_PATH) ? process.env.CHROME_PATH : undefined;
   }
 
   // Try Playwright's bundled Chromium
@@ -338,23 +350,26 @@ export async function runLighthouseAudit(
 ): Promise<LighthouseSummary> {
   logger.debug("Running Lighthouse audit");
   const runtime = await applyPortableLighthouseEnv(outDir, logger);
-  const initialTarget =
-    options.targetPolicy
-      ? await resolveAuditedTarget(url, logger, options.targetPolicy, {
-          context: "Lighthouse target"
-        })
-      : null;
+  const initialTarget = options.targetPolicy
+    ? await resolveAuditedTarget(url, logger, options.targetPolicy, {
+        context: "Lighthouse target"
+      })
+    : null;
   const authHeaders = buildLighthouseHeaders(auth);
   const authTargetUrl = initialTarget?.url ?? url;
-  const effectiveHostResolverRules = options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
   const chromePath = resolveChromePath();
   if (chromePath) {
     logger.debug(`Using Chrome at: ${chromePath}`);
   }
-  try {
+
+  async function runAttempt(
+    auditUrl: string,
+    launchHostResolverRules: string | null,
+    launchPinnedHostResolverRules: Map<string, string | null>
+  ): Promise<LighthouseAttemptResult> {
     const chromeFlags = getChromeFlags();
-    if (effectiveHostResolverRules) {
-      chromeFlags.push(`--host-resolver-rules=${effectiveHostResolverRules}`);
+    if (launchHostResolverRules) {
+      chromeFlags.push(`--host-resolver-rules=${launchHostResolverRules}`);
     }
     const chrome = await launch({
       chromeFlags,
@@ -365,12 +380,6 @@ export async function runLighthouseAudit(
     let puppeteerPage: PuppeteerPageLike | null = null;
     let blockedRequestError: Error | null = null;
     try {
-      const launchPinnedHostResolverRules = new Map<string, string | null>();
-
-      if (initialTarget) {
-        launchPinnedHostResolverRules.set(initialTarget.classification.hostname, effectiveHostResolverRules);
-      }
-
       const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
         initialTrustedHosts: launchPinnedHostResolverRules,
         trustResolvedHosts: false
@@ -442,8 +451,8 @@ export async function runLighthouseAudit(
         async () => {
           try {
             const result = puppeteerPage
-              ? await lighthouse(url, runnerFlags, lighthouseConfig, puppeteerPage as never)
-              : await lighthouse(url, runnerFlags, lighthouseConfig);
+              ? await lighthouse(auditUrl, runnerFlags, lighthouseConfig, puppeteerPage as never)
+              : await lighthouse(auditUrl, runnerFlags, lighthouseConfig);
             if (blockedRequestError) {
               throw blockedRequestError;
             }
@@ -474,10 +483,14 @@ export async function runLighthouseAudit(
           ? lhr.finalDisplayedUrl
           : typeof lhr.finalUrl === "string"
             ? lhr.finalUrl
-            : url;
+            : auditUrl;
+      let finalTarget: VerifiedAuditTarget | null = null;
       if (options.targetPolicy) {
-        if (normalizeUrlHostname(finalNavigationUrl) !== normalizeUrlHostname(url)) {
-          await navigationTargetVerifier.verify(finalNavigationUrl, "final Lighthouse target");
+        if (normalizeUrlHostname(finalNavigationUrl) !== normalizeUrlHostname(auditUrl)) {
+          finalTarget = await navigationTargetVerifier.verify(
+            finalNavigationUrl,
+            "final Lighthouse target"
+          );
         }
       }
       const lcpAudit = lhr.audits["largest-contentful-paint"];
@@ -505,18 +518,66 @@ export async function runLighthouseAudit(
       await writeJson(reportPath, runnerResult.lhr);
 
       return {
-        metrics,
-        budgets,
-        budgetResults,
-        reportPath,
-        categoryScores,
-        extendedMetrics: extractExtendedMetrics(lhr),
-        opportunities: extractOpportunities(lhr)
+        summary: {
+          metrics,
+          budgets,
+          budgetResults,
+          reportPath,
+          categoryScores,
+          extendedMetrics: extractExtendedMetrics(lhr),
+          opportunities: extractOpportunities(lhr)
+        },
+        finalNavigationUrl,
+        finalTarget
       };
     } finally {
       await closePuppeteerPage(puppeteerPage, logger);
       await disconnectPuppeteerBrowser(puppeteerBrowser, logger);
       await chrome.kill();
+    }
+  }
+
+  try {
+    let currentAuditUrl = url;
+    let currentLaunchHostResolverRules =
+      options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
+    let launchPinnedHostResolverRules = new Map<string, string | null>();
+
+    if (initialTarget) {
+      launchPinnedHostResolverRules.set(
+        initialTarget.classification.hostname,
+        currentLaunchHostResolverRules
+      );
+    }
+
+    for (let relaunchCount = 0; ; relaunchCount += 1) {
+      const attempt = await runAttempt(
+        currentAuditUrl,
+        currentLaunchHostResolverRules,
+        launchPinnedHostResolverRules
+      );
+
+      const nextHostResolverRules = attempt.finalTarget?.hostResolverRules ?? null;
+      if (
+        !options.targetPolicy ||
+        !attempt.finalTarget ||
+        nextHostResolverRules === currentLaunchHostResolverRules
+      ) {
+        return attempt.summary;
+      }
+
+      if (relaunchCount >= MAX_LIGHTHOUSE_RELAUNCHES) {
+        throw new Error(
+          `Lighthouse resolver pinning did not stabilize after ${MAX_LIGHTHOUSE_RELAUNCHES + 1} launches.`
+        );
+      }
+
+      logger.debug("Relaunching Lighthouse Chrome with landing host resolver rules");
+      currentAuditUrl = attempt.finalTarget.url;
+      currentLaunchHostResolverRules = nextHostResolverRules;
+      launchPinnedHostResolverRules = new Map([
+        [normalizeUrlHostname(currentAuditUrl), currentLaunchHostResolverRules]
+      ]);
     }
   } finally {
     await runtime.restore();

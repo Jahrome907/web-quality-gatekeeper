@@ -9,6 +9,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-06-13
+
+### Added
+
+- `wqg doctor` checks Node.js, config validity, output paths, browser availability, and optional native visual diff readiness before heavier audit runs.
+- `wqg audit --format json-v2`, `--format pr-risk-ledger`, and `--format action-plan` expose the richer summary and remediation artifacts directly on stdout for scripting.
+- `schemas/pr-risk-ledger.v1.json` and `docs/contracts/pr-risk-ledger-v1-contract.md` define the stable PR Risk Ledger JSON contract.
+- Package metadata now advertises the public API declaration file through `package.json#types` and the root export's `types` field.
+- Composite Action outputs now expose stable paths for the v2 summary, report, Action Plan, and PR Risk Ledger artifacts.
+
+### Changed
+
+- `wqg init --profile <name> --url <url>` can write a concrete audited URL into the generated consumer config, workflow, and setup guidance.
+- Generated `wqg init` workflows now upload report artifacts by default while keeping a sensitive-output opt-out.
+- README, Pages, the checked-in consumer example, and generated scaffold workflows now show the same sensitive-output-aware artifact upload pattern with current pinned checkout and upload-artifact actions.
+- Public and generated consumer workflows now upload the Action-emitted summary, report, Action Plan, and PR Risk Ledger artifact paths instead of relying on a hard-coded output directory.
+- Summary v2 schema/version advanced to `2.3.0` and now exposes PR Risk Ledger artifact pointers in the aggregate artifact map.
+- Fixture case-study provenance now records the Node engine preflight result and PR Risk Ledger artifact paths alongside report, summary, Action Plan, Lighthouse, and screenshot evidence.
+- Public baseline/improved case-study provenance now requires Action Plan and PR Risk Ledger paths alongside report and summary paths.
+- Fixture case-study provenance now fails closed when required review and screenshot artifacts are missing.
+- `npm run validate:full` and `npm run release:dry-run` run the Node engine preflight before expensive release validation.
+- `npm run release:dry-run` now includes the Python analytics smoke alongside contract, package, and Action smoke checks.
+- `npm run release:dry-run` avoids rerunning the runtime audit already enforced by `validate:full`.
+- The quality-gate workflow now relies on `validate:full` for runtime audit enforcement instead of rerunning the audit in a second step.
+- The manual npm publish workflow now uses `validate:full` plus `contracts:check` instead of hand-rolled validation commands, and publishes prereleases under the npm `next` dist-tag instead of `latest`.
+- The native visual diff workflow now pins Node 24 before running its npm smoke helper.
+- The native visual diff workflow now also runs for native runtime support helper changes.
+- Source-checkout, proof-reproduction docs, and repo-owned workflows now run the Node engine preflight before dependency install, browser install, build, or fixture commands.
+- Package smoke coverage now runs on both Node 22.19 and Node 24 so the advertised minimum runtime is checked alongside the release runtime.
+- The README repo-development command list now includes `engines:check` and `validate:full`.
+- The pull request checklist now routes Python analytics changes to `npm run python:smoke`.
+- Pack smoke now verifies shipped schemas, config assets, root API type metadata, CLI shebang integrity, installed `wqg init` artifact-upload scaffolding, and an installed TypeScript consumer compile.
+- Public proof and provenance wording now describes source fixtures and proof bundles in product-facing language.
+- Compatibility baseline follow-ups now distinguish completed contract-drift work from remaining release provenance and SBOM publication work.
+
+### Fixed
+
+- Native visual diff execution is disabled in CI unless `WQG_ALLOW_NATIVE_VISUAL_ENGINE=true` is set, script adapters are refused by default, and doctor diagnostics mirror the runtime fallback rules.
+- Protocol-relative screenshot paths are rejected so config and runtime validation keep screenshots on the audited target.
+- Python smoke diagnostics now report interpreter launch failures, honor `WQG_PYTHON` for explicit interpreter selection, and avoid writing bytecode caches during validation.
+- Pack and integration smoke helpers rebuild stale `dist` output when source or build metadata changes, and local Action smoke now runs from an isolated built-runtime snapshot so parallel builds cannot remove its CLI mid-run.
+- The npm `prepack` lifecycle now rebuilds `dist` before packing or publishing so source checkouts cannot emit tarballs without the CLI/API bundle.
+- `npm run native:visual-diff:build` now resolves the default Windows rustup Cargo path and builds the native engine with `--locked`.
+- Auth headers and cookies now follow verified navigation redirects so authenticated audits keep session context on trusted landing origins.
+- Emitted summaries, aggregate reports, trend entries, and PR Risk Ledger inputs now record the audited landing URL after redirects.
+- Stable major Action tag publication now refuses backward movement before creating the GitHub Release, and the release workflow no longer retriggers on bare major aliases.
+- The composite Action no longer checks out and cleans the caller workspace before reading relative config or policy inputs.
+- The trusted-publishing runtime preflight now resolves `npm.cmd` on Windows.
+- Maintainer documentation now has automated guards for local Markdown links, documented npm scripts, helper scripts, referenced test files, historical release framing, and stale roadmap entries.
+- Maintainer testing guidance now describes `contracts:check` as the combined summary and PR Risk Ledger contract gate.
+
 ## [3.1.6] - 2026-05-29
 
 ### Added
@@ -271,7 +322,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
-[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.6...HEAD
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.6...v3.2.0
 [3.1.6]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.5...v3.1.6
 [3.1.5]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.4...v3.1.5
 [3.1.4]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.3...v3.1.4

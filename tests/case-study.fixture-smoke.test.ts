@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 const execFileAsync = promisify(execFile);
 const SCRIPT_PATH = path.join(process.cwd(), "scripts", "case-study", "run-fixture-case-study.mjs");
-const CLI_ENTRY_FRAGMENT = path.join("src", "cli.ts");
+const CLI_ENTRY_FRAGMENT = "src/cli.ts";
 
 async function hideFile(filePath: string): Promise<() => Promise<void>> {
   if (!existsSync(filePath)) {
@@ -53,30 +53,52 @@ describe("fixture case-study happy path", () => {
       kind: string;
       command: string;
       source: { type: string; configPath: string };
+      environment: {
+        nodeVersion: string;
+        nodeEngine: { ok: boolean; message: string };
+      };
       outputs: {
         reportPath: string;
         summaryV2Path: string;
         lighthousePath: string | null;
-        actionPlanPath: string | null;
-        screenshotPath: string | null;
+        actionPlanPath: string;
+        prRiskLedgerPath: string;
+        prRiskLedgerMarkdownPath: string;
+        screenshotPath: string;
       };
       result: { overallStatus: string };
     };
 
     expect(manifest.kind).toBe("fixture-case-study-run");
     expect(manifest.command).toContain(CLI_ENTRY_FRAGMENT);
+    expect(manifest.command).toContain("npx tsx src/cli.ts audit http://127.0.0.1:");
+    expect(manifest.command).not.toContain("node_modules");
+    expect(manifest.command).not.toContain(".cmd");
+    expect(manifest.command).not.toContain(process.cwd());
+    expect(manifest.command).not.toContain("\\");
     expect(manifest.source.type).toBe("local-fixture");
-    expect(manifest.source.configPath).toMatch(/tests[\\/]fixtures[\\/]integration-config\.json/);
+    expect(manifest.source.configPath).toBe("tests/fixtures/integration-config.json");
+    expect(manifest.environment.nodeVersion).toMatch(/^\d+\.\d+\.\d+/);
+    expect(typeof manifest.environment.nodeEngine.ok).toBe("boolean");
+    expect(manifest.environment.nodeEngine.message).toContain("Node.js");
+    expect(Object.values(manifest.outputs).filter(Boolean)).toSatisfy((values: unknown[]) =>
+      values.every((value) => typeof value === "string" && !value.includes("\\"))
+    );
     expect(manifest.outputs.reportPath).toContain("report.html");
     expect(manifest.outputs.summaryV2Path).toContain("summary.v2.json");
     if (manifest.outputs.lighthousePath) {
       expect(existsSync(path.join(process.cwd(), manifest.outputs.lighthousePath))).toBe(true);
     }
-    if (manifest.outputs.actionPlanPath) {
-      expect(existsSync(path.join(process.cwd(), manifest.outputs.actionPlanPath))).toBe(true);
-    }
-    expect(manifest.outputs.screenshotPath).not.toBeNull();
-    expect(existsSync(path.join(process.cwd(), manifest.outputs.screenshotPath!))).toBe(true);
+    expect(manifest.outputs.actionPlanPath).toContain("action-plan.md");
+    expect(existsSync(path.join(process.cwd(), manifest.outputs.actionPlanPath))).toBe(true);
+    expect(manifest.outputs.prRiskLedgerPath).toContain("pr-risk-ledger.json");
+    expect(existsSync(path.join(process.cwd(), manifest.outputs.prRiskLedgerPath))).toBe(true);
+    expect(manifest.outputs.prRiskLedgerMarkdownPath).toContain("pr-risk-ledger.md");
+    expect(existsSync(path.join(process.cwd(), manifest.outputs.prRiskLedgerMarkdownPath))).toBe(
+      true
+    );
+    expect(manifest.outputs.screenshotPath).toContain("screenshots");
+    expect(existsSync(path.join(process.cwd(), manifest.outputs.screenshotPath))).toBe(true);
     expect(manifest.result.overallStatus).toBe("pass");
   }, 120000);
 

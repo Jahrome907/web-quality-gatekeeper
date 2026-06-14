@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v3/schemas/pr-risk-ledger.v1.json",
+  "title": "Web Quality Gatekeeper PR Risk Ledger v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "generatedAt",
+    "toolVersion",
+    "overallStatus",
+    "mode",
+    "primaryUrl",
+    "summaryPath",
+    "reportPath",
+    "riskCount",
+    "highestSeverity",
+    "entries"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v3/schemas/pr-risk-ledger.v1.json"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "toolVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "overallStatus": {
+      "type": "string",
+      "enum": ["pass", "fail"]
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["single", "multi"]
+    },
+    "primaryUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "summaryPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reportPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "riskCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "highestSeverity": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low", "none"]
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "severity",
+        "source",
+        "title",
+        "affectedSurfaces",
+        "evidence",
+        "recommendedAction",
+        "verification"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["critical", "high", "medium", "low"]
+        },
+        "source": {
+          "type": "string",
+          "enum": ["a11y", "perf", "visual", "runtime", "trend", "aggregate"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "affectedSurfaces": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recommendedAction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "verification": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

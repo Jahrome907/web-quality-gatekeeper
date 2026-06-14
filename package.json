@@ -1,6 +1,6 @@
 {
   "name": "web-quality-gatekeeper",
-  "version": "3.1.6",
+  "version": "3.2.0",
   "description": "Quality gate CLI and GitHub Action for Playwright, axe-core, Lighthouse, and visual diffs.",
   "author": "Jahrome907",
   "license": "MIT",
@@ -29,9 +29,16 @@
     "wqg": "dist/cli.js"
   },
   "main": "dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./cli": "./dist/cli.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./cli": "./dist/cli.js",
+    "./configs/*": "./configs/*",
+    "./schemas/*": "./schemas/*"
   },
   "files": [
     "dist",
@@ -43,21 +50,24 @@
   "scripts": {
     "dev": "tsx src/cli.ts",
     "build": "tsup",
+    "prepack": "npm run build",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint .",
     "format": "prettier . --write",
     "typecheck": "tsc --noEmit",
-    "contracts:check": "vitest run tests/summary.contract-drift.test.ts",
+    "engines:check": "node scripts/ci/assert-node-engine.mjs",
+    "contracts:check": "vitest run tests/summary.contract-drift.test.ts tests/prRiskLedger.test.ts",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "validate:full": "npm run lint && npm run typecheck && npm run build && npm test && npm run security:audit",
+    "validate:full": "npm run engines:check && npm run lint && npm run typecheck && npm run build && npm test && npm run security:audit",
     "smoke:pack": "node scripts/ci/pack-smoke.mjs",
     "smoke:action": "node scripts/ci/local-action-smoke.mjs",
     "release:dry-run": "node scripts/ci/release-dry-run.mjs",
     "security:audit": "node scripts/enforce-runtime-audit.mjs --exceptions configs/security/audit-exceptions.json",
     "python:smoke": "node scripts/ci/python-smoke.mjs",
     "bench:visual-diff": "node benchmarks/visual-diff-benchmark.mjs",
-    "native:visual-diff:build": "cargo build --manifest-path native/wqg-visual-diff-native/Cargo.toml --release",
+    "native:visual-diff:build": "node scripts/ci/native-visual-diff-build.mjs",
+    "native:visual-diff:smoke": "node scripts/ci/native-visual-diff-smoke.mjs",
     "audit": "tsx src/cli.ts audit",
     "audit:ci": "tsx src/cli.ts audit --config configs/default.json --out artifacts --baseline-dir baselines --no-fail-on-a11y",
     "case-study:fixture": "node scripts/case-study/run-fixture-case-study.mjs",

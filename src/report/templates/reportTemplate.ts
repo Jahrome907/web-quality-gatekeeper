@@ -221,12 +221,16 @@ function renderGalleryOverflow(items: string[], noun: string, containerClass: st
   `;
 }
 
-function renderRadarChart(categoryScores: {
-  performance?: number;
-  accessibility?: number;
-  bestPractices?: number;
-  seo?: number;
-} | undefined): string {
+function renderRadarChart(
+  categoryScores:
+    | {
+        performance?: number;
+        accessibility?: number;
+        bestPractices?: number;
+        seo?: number;
+      }
+    | undefined
+): string {
   const axes = [
     { key: "performance" as const, label: "Perf", full: "Performance" },
     { key: "accessibility" as const, label: "A11y", full: "Accessibility" },
@@ -234,7 +238,7 @@ function renderRadarChart(categoryScores: {
     { key: "bestPractices" as const, label: "Best", full: "Best Practices" }
   ];
 
-  const values = axes.map(a => {
+  const values = axes.map((a) => {
     const raw = categoryScores?.[a.key];
     return typeof raw === "number" ? clamp(Math.round(raw * 100), 0, 100) : 0;
   });
@@ -254,7 +258,7 @@ function renderRadarChart(categoryScores: {
   let gridPaths = "";
   for (let lv = 1; lv <= levels; lv++) {
     const r = (maxR * lv) / levels;
-    const pts = angles.map(a => `${px(a, r)},${py(a, r)}`).join(" ");
+    const pts = angles.map((a) => `${px(a, r)},${py(a, r)}`).join(" ");
     gridPaths += `<polygon points="${pts}" class="radar-grid" />`;
   }
 
@@ -416,7 +420,13 @@ function renderVitalCard(label: string, value: number | null, def: VitalDefiniti
   const state = vitalState(value, def);
   const markerLeft = thresholdPosition(value, def);
   const stateLabel =
-    state === "pass" ? "Pass" : state === "needs-improvement" ? "Needs improvement" : state === "fail" ? "Fail" : "Unknown";
+    state === "pass"
+      ? "Pass"
+      : state === "needs-improvement"
+        ? "Needs improvement"
+        : state === "fail"
+          ? "Fail"
+          : "Unknown";
   const unavailableNote =
     value === null ? `<p class="vital-note">Not reported by this Lighthouse run.</p>` : "";
 
@@ -510,8 +520,7 @@ function extractDiagnosticBucket(source: unknown): DiagnosticBucket {
     .slice(0, MAX_DIAGNOSTIC_ROWS);
 
   const rawCountValue =
-    toFiniteNumber(sourceRecord?.count) ??
-    (Array.isArray(source) ? source.length : list.length);
+    toFiniteNumber(sourceRecord?.count) ?? (Array.isArray(source) ? source.length : list.length);
   const rawCount = toNonNegativeInteger(rawCountValue);
   const inferredTruncated = toBoolean(sourceRecord?.truncated) ?? rawCount > entries.length;
 
@@ -543,9 +552,7 @@ function extractDiagnostics(summary: Summary | SummaryV2): DiagnosticsData {
       entries: consoleEntries
     });
     const jsErrors = extractDiagnosticBucket({
-      count: toNonNegativeInteger(
-        toFiniteNumber(jsSignals?.total) ?? jsEntries.length
-      ),
+      count: toNonNegativeInteger(toFiniteNumber(jsSignals?.total) ?? jsEntries.length),
       truncated: toNonNegativeInteger(toFiniteNumber(jsSignals?.dropped) ?? 0) > 0,
       entries: jsEntries
     });
@@ -650,9 +657,7 @@ function extractResourceBreakdown(summary: Summary | SummaryV2): ResourceBreakdo
 
     const slices: ResourceSlice[] = Array.from(byType.entries()).map(([type, bucket]) => {
       const inferredBytes =
-        requestDenominator > 0
-          ? (transferSizeBytes * bucket.requests) / requestDenominator
-          : 0;
+        requestDenominator > 0 ? (transferSizeBytes * bucket.requests) / requestDenominator : 0;
       return {
         type,
         bytes: toNonNegativeNumber(inferredBytes),
@@ -695,14 +700,10 @@ function extractResourceBreakdown(summary: Summary | SummaryV2): ResourceBreakdo
     const typeRaw = toStringValue(item.type) ?? toStringValue(item.resourceType) ?? "other";
     const normalizedType = normalizeResourceType(typeRaw);
     const bytes = toNonNegativeNumber(
-      toFiniteNumber(item.transferSize) ??
-        toFiniteNumber(item.bytes) ??
-        0
+      toFiniteNumber(item.transferSize) ?? toFiniteNumber(item.bytes) ?? 0
     );
     const requests = toNonNegativeInteger(
-      toFiniteNumber(item.requestCount) ??
-        toFiniteNumber(item.count) ??
-        0
+      toFiniteNumber(item.requestCount) ?? toFiniteNumber(item.count) ?? 0
     );
 
     const bucket = byType.get(normalizedType);
@@ -718,11 +719,15 @@ function extractResourceBreakdown(summary: Summary | SummaryV2): ResourceBreakdo
     requests: toNonNegativeInteger(totals.requests)
   }));
 
-  const computedBytes = toNonNegativeNumber(slices.reduce((total, slice) => total + slice.bytes, 0));
+  const computedBytes = toNonNegativeNumber(
+    slices.reduce((total, slice) => total + slice.bytes, 0)
+  );
   const computedRequests = toNonNegativeInteger(
     slices.reduce((total, slice) => total + slice.requests, 0)
   );
-  const declaredBytes = toNonNegativeNumber(toFiniteNumber(legacyResource.totalBytes) ?? computedBytes);
+  const declaredBytes = toNonNegativeNumber(
+    toFiniteNumber(legacyResource.totalBytes) ?? computedBytes
+  );
   const declaredRequests = toNonNegativeInteger(
     toFiniteNumber(legacyResource.totalRequests) ?? computedRequests
   );
@@ -786,31 +791,11 @@ export function renderReportTemplate(view: ReportViewModel): string {
   const perfMetrics = toRecord(perfRecord?.metrics);
   const perfExtended = toRecord(perfRecord?.extendedMetrics);
   const vitalValues = {
-    fcp: firstFiniteNumber(
-      perfExtended?.fcpMs,
-      perfMetrics?.fcpMs,
-      perfRecord?.fcpMs
-    ),
-    lcp: firstFiniteNumber(
-      perfMetrics?.lcpMs,
-      perfExtended?.lcpMs,
-      perfRecord?.lcpMs
-    ),
-    cls: firstFiniteNumber(
-      perfMetrics?.cls,
-      perfExtended?.cls,
-      perfRecord?.cls
-    ),
-    tbt: firstFiniteNumber(
-      perfMetrics?.tbtMs,
-      perfExtended?.tbtMs,
-      perfRecord?.tbtMs
-    ),
-    ttfb: firstFiniteNumber(
-      perfExtended?.ttfbMs,
-      perfMetrics?.ttfbMs,
-      perfRecord?.ttfbMs
-    )
+    fcp: firstFiniteNumber(perfExtended?.fcpMs, perfMetrics?.fcpMs, perfRecord?.fcpMs),
+    lcp: firstFiniteNumber(perfMetrics?.lcpMs, perfExtended?.lcpMs, perfRecord?.lcpMs),
+    cls: firstFiniteNumber(perfMetrics?.cls, perfExtended?.cls, perfRecord?.cls),
+    tbt: firstFiniteNumber(perfMetrics?.tbtMs, perfExtended?.tbtMs, perfRecord?.tbtMs),
+    ttfb: firstFiniteNumber(perfExtended?.ttfbMs, perfMetrics?.ttfbMs, perfRecord?.ttfbMs)
   };
 
   const vitalsMarkup = VITAL_DEFINITIONS.map((def) =>
@@ -897,8 +882,10 @@ export function renderReportTemplate(view: ReportViewModel): string {
     perf?.opportunities && perf.opportunities.length > 0
       ? [...perf.opportunities]
           .sort((left, right) => {
-            const leftScore = (left.estimatedSavingsMs ?? 0) + (left.estimatedSavingsBytes ?? 0) / 1000;
-            const rightScore = (right.estimatedSavingsMs ?? 0) + (right.estimatedSavingsBytes ?? 0) / 1000;
+            const leftScore =
+              (left.estimatedSavingsMs ?? 0) + (left.estimatedSavingsBytes ?? 0) / 1000;
+            const rightScore =
+              (right.estimatedSavingsMs ?? 0) + (right.estimatedSavingsBytes ?? 0) / 1000;
             return rightScore - leftScore;
           })
           .map(
@@ -935,7 +922,9 @@ export function renderReportTemplate(view: ReportViewModel): string {
             const impact = violation.impact ? violation.impact.toLowerCase() : "unknown";
             const wcagTags =
               violation.wcagTags.length > 0
-                ? violation.wcagTags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("")
+                ? violation.wcagTags
+                    .map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`)
+                    .join("")
                 : `<span class="muted">No WCAG tags</span>`;
             const nodeRows =
               violation.nodes.length > 0
@@ -985,7 +974,8 @@ export function renderReportTemplate(view: ReportViewModel): string {
   const visualCards =
     visual && visual.results.length > 0
       ? visual.results.map((result) => {
-          const mismatch = result.mismatchRatio !== null ? formatRatio(result.mismatchRatio) : "n/a";
+          const mismatch =
+            result.mismatchRatio !== null ? formatRatio(result.mismatchRatio) : "n/a";
           const baselinePath = normalizeAssetPath(result.baselinePath);
           const currentPath = normalizeAssetPath(result.currentPath);
           const diffPath = normalizeAssetPath(result.diffPath);
@@ -993,7 +983,9 @@ export function renderReportTemplate(view: ReportViewModel): string {
             <article class="visual-card card">
               <header>
                 <h3>${escapeHtml(result.name)}</h3>
-                <div class="visual-meta">${statusPill(result.status)}</div>
+                <div class="visual-meta">${statusPill(result.status)}${
+                  result.engine ? `<span>${escapeHtml(result.engine)}</span>` : ""
+                }</div>
               </header>
               <div class="visual-grid">
                 <figure>
@@ -1072,7 +1064,8 @@ export function renderReportTemplate(view: ReportViewModel): string {
   const resourceBar = resources.available
     ? resources.slices
         .map((slice) => {
-          const percent = resourceTotal > 0 ? clamp((slice.bytes / resourceTotal) * 100, 0, 100) : 0;
+          const percent =
+            resourceTotal > 0 ? clamp((slice.bytes / resourceTotal) * 100, 0, 100) : 0;
           const percentLabel = `${formatNumber(percent, 1)}%`;
           const tooltipLabel = `${slice.type}: ${formatBytes(slice.bytes)} · ${formatNumber(
             slice.requests,
@@ -1104,20 +1097,19 @@ export function renderReportTemplate(view: ReportViewModel): string {
         )
         .join("")
     : `<tr><td colspan="4">Resource breakdown not available in summary data.</td></tr>`;
-  const resourceLegend =
-    resources.available
-      ? resources.slices
-          .map(
-            (slice) => `
+  const resourceLegend = resources.available
+    ? resources.slices
+        .map(
+          (slice) => `
               <div class="resource-legend-item">
                 <span class="resource-legend-swatch ${slice.type.toLowerCase()}"></span>
                 <span>${slice.type}</span>
                 <span class="muted">(${escapeHtml(formatBytes(slice.bytes))})</span>
               </div>
             `
-          )
-          .join("")
-      : "";
+        )
+        .join("")
+    : "";
 
   const insightMarkup =
     insightRecommendations.length > 0
@@ -1128,7 +1120,8 @@ export function renderReportTemplate(view: ReportViewModel): string {
             const source = toStringValue(insight.source) ?? "unknown";
             const severity = (toStringValue(insight.severity) ?? "low").toLowerCase();
             const why = toStringValue(insight.why) ?? "No rationale provided.";
-            const expectedImpact = toStringValue(insight.expectedImpact) ?? "No impact estimate provided.";
+            const expectedImpact =
+              toStringValue(insight.expectedImpact) ?? "No impact estimate provided.";
             const remediationList = Array.isArray(insight.remediation)
               ? insight.remediation
                   .map((step) => toStringValue(step))
@@ -1168,7 +1161,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
             `;
           })
           .join("")
-      : `<p class="muted">No remediation recommendations were generated for this run.</p>`;
+      : `<p class="muted">No remediation recommendations are available for this run.</p>`;
 
   const isAggregateView = Boolean(view.aggregate && view.aggregate.pageCount > 1);
   const headerTargetMarkup = escapeHtml(view.displayTarget);
@@ -1195,8 +1188,8 @@ export function renderReportTemplate(view: ReportViewModel): string {
         <div class="summary-point">Captured screenshots: ${screenshots.length}</div>
       `;
   const targetCoverageRows = isAggregateView
-    ? view.aggregate!.pages
-        .map(
+    ? view
+        .aggregate!.pages.map(
           (page) => `
             <tr>
               <th scope="row">${escapeHtml(page.name)}</th>
@@ -2582,7 +2575,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
 
     <section id="action-plan" class="section card" data-view-section="simple">
       <h2>Action Plan</h2>
-      <p class="muted">Prioritized remediation guidance generated from accessibility, performance, visual, and runtime failures.</p>
+      <p class="muted">Prioritized remediation guidance based on accessibility, performance, visual, and runtime failures.</p>
       ${insightMarkup}
       ${trendInsightMarkup}
     </section>

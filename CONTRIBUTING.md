@@ -6,6 +6,7 @@ Thanks for contributing to Web Quality Gatekeeper. Please review the
 ## Development setup
 
 ```bash
+npm run engines:check
 npm ci
 npx playwright install chromium
 npm run validate:full
@@ -24,15 +25,22 @@ npx playwright install --with-deps chromium
 Use the stable entrypoints below so local verification matches repo automation:
 
 ```bash
-npm run validate:full   # lint + typecheck + build + tests + security:audit
-npm run contracts:check # summary schema/runtime/doc drift gate
+npm run validate:full   # engine preflight + lint + typecheck + build + tests + security:audit
+npm run engines:check   # fail fast when local Node does not satisfy package.json
+npm run contracts:check # summary and PR Risk Ledger contract drift gate
 npm run security:audit  # runtime dependency audit exceptions gate
 npm run smoke:pack      # clean tarball install + real packaged audit
 npm run smoke:action    # local composite-action audit smoke
-npm run release:dry-run # full maintainer validation + smoke checks
+npm run python:smoke    # Python analytics bundle smoke
+npm run release:dry-run # full maintainer validation + contract, package, Action, and Python smoke checks
 ```
 
-`npm run smoke:action` is strict by default. Use `WQG_ACTION_SMOKE_ALLOW_SKIP=true` only for optional local probing on machines without a Bash-side Playwright browser.
+`npm run validate:full` and `npm run release:dry-run` run the Node engine
+preflight first. Upgrade local Node to the package `engines.node` floor before
+using either command as release evidence.
+`npm run smoke:action` is strict by default. Use
+`WQG_ACTION_SMOKE_ALLOW_SKIP=true` only for optional local probing on machines
+without a Bash-side Playwright browser.
 
 Architecture and release references:
 

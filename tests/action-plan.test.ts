@@ -34,7 +34,9 @@ describe("buildActionPlanMarkdown", () => {
     expect(markdown).toContain("## 1. Fix runtime and console errors");
     expect(markdown).toContain("## Trend Insights");
     expect(markdown).toContain("### 1. Performance budget failures increased");
-    expect(markdown).toContain("Address high-savings Lighthouse opportunities before tightening budgets.");
+    expect(markdown).toContain(
+      "Address high-savings Lighthouse opportunities before tightening budgets."
+    );
   });
 
   it("still emits trend-only output when prioritized recommendations are absent", () => {
@@ -48,9 +50,36 @@ describe("buildActionPlanMarkdown", () => {
     ]);
 
     expect(markdown).toContain(
-      "No prioritized accessibility, performance, visual, or runtime recommendations were generated."
+      "No prioritized accessibility, performance, visual, or runtime recommendations are available."
     );
     expect(markdown).toContain("## Trend Insights");
     expect(markdown).toContain("Accessibility violations increased");
+  });
+
+  it("escapes untrusted markdown fields before writing action-plan output", () => {
+    const insights: InsightsSummary = {
+      recommendations: [
+        {
+          id: "runtime:unsafe",
+          source: "runtime",
+          severity: "high",
+          title: "Fix <script>alert(1)</script> [link](https://bad.example)",
+          why: "Contains <unsafe> report text.",
+          evidence: ["Observed | pipe and `code`"],
+          remediation: ["Remove <script> payload."],
+          verification: ["Rerun and confirm [status](https://bad.example) clears."],
+          expectedImpact: "Prevents report markdown injection.",
+          references: []
+        }
+      ]
+    };
+
+    const markdown = buildActionPlanMarkdown(insights);
+
+    expect(markdown).toContain("&lt;script&gt;alert\\(1\\)&lt;/script&gt;");
+    expect(markdown).toContain("\\[link\\]\\(https://bad.example\\)");
+    expect(markdown).toContain("Observed \\| pipe and \\`code\\`");
+    expect(markdown).not.toContain("<script>");
+    expect(markdown).not.toContain("[link](https://bad.example)");
   });
 });

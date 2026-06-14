@@ -46,13 +46,33 @@ jobs:
       - name: Assert action outputs
         env:
           WQG_ACTION_SUMMARY_PATH: ${{ steps.wqg.outputs.summary-path }}
+          WQG_ACTION_SUMMARY_V2_PATH: ${{ steps.wqg.outputs.summary-v2-path }}
+          WQG_ACTION_REPORT_PATH: ${{ steps.wqg.outputs.report-path }}
+          WQG_ACTION_ACTION_PLAN_PATH: ${{ steps.wqg.outputs.action-plan-path }}
+          WQG_ACTION_PR_RISK_LEDGER_PATH: ${{ steps.wqg.outputs.pr-risk-ledger-path }}
+          WQG_ACTION_PR_RISK_LEDGER_MD_PATH: ${{ steps.wqg.outputs.pr-risk-ledger-md-path }}
         run: |
           STATUS="${{ steps.wqg.outputs.status }}"
           SUMMARY_PATH="${{ steps.wqg.outputs.summary-path }}"
+          SUMMARY_V2_PATH="${{ steps.wqg.outputs.summary-v2-path }}"
+          REPORT_PATH="${{ steps.wqg.outputs.report-path }}"
+          ACTION_PLAN_PATH="${{ steps.wqg.outputs.action-plan-path }}"
+          PR_RISK_LEDGER_PATH="${{ steps.wqg.outputs.pr-risk-ledger-path }}"
+          PR_RISK_LEDGER_MD_PATH="${{ steps.wqg.outputs.pr-risk-ledger-md-path }}"
 
           test -n "$STATUS"
           test -n "$SUMMARY_PATH"
+          test -n "$SUMMARY_V2_PATH"
+          test -n "$REPORT_PATH"
+          test -n "$ACTION_PLAN_PATH"
+          test -n "$PR_RISK_LEDGER_PATH"
+          test -n "$PR_RISK_LEDGER_MD_PATH"
           test "$SUMMARY_PATH" = "artifacts/summary.json"
+          test "$SUMMARY_V2_PATH" = "artifacts/summary.v2.json"
+          test "$REPORT_PATH" = "artifacts/report.html"
+          test "$ACTION_PLAN_PATH" = "artifacts/action-plan.md"
+          test "$PR_RISK_LEDGER_PATH" = "artifacts/pr-risk-ledger.json"
+          test "$PR_RISK_LEDGER_MD_PATH" = "artifacts/pr-risk-ledger.md"
           case "$STATUS" in
             pass|fail) ;;
             *) echo "Unexpected status: $STATUS"; exit 1 ;;

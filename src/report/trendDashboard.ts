@@ -34,7 +34,7 @@ export function buildTrendDashboardHtml(trend: TrendDeltaSummary): string {
             )}) - ${escapeHtml(insight.recommendation)}</li>`
         )
         .join("\n")
-    : "<li>No trend insights generated.</li>";
+    : "<li>No trend insights are available.</li>";
 
   return `<!doctype html>
 <html lang="en">
@@ -79,7 +79,7 @@ export function buildTrendDashboardHtml(trend: TrendDeltaSummary): string {
         </tr>
       </thead>
       <tbody>
-        ${rows || "<tr><td colspan=\"7\">No trend points available.</td></tr>"}
+        ${rows || '<tr><td colspan="7">No trend points available.</td></tr>'}
       </tbody>
     </table>
   </div>

@@ -4,12 +4,16 @@ import type { AxeSummary } from "../src/runner/axe.js";
 import type { LighthouseSummary } from "../src/runner/lighthouse.js";
 import type { VisualDiffSummary } from "../src/runner/visualDiff.js";
 
+const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
 const baseParams = {
   url: "https://example.com",
   startedAt: "2025-01-01T00:00:00.000Z",
   durationMs: 5000,
   toolVersion: "3.0.0",
-  screenshots: [{ name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }],
+  screenshots: [
+    { name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }
+  ],
   artifacts: {
     summary: "summary.json",
     report: "report.html",
@@ -187,6 +191,6 @@ describe("buildSummary", () => {
     });
     expect(summary.$schema).toBe(SUMMARY_SCHEMA_URI);
     expect(summary.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(summary.toolVersion).toMatch(/^\d+\.\d+\.\d+/);
+    expect(summary.toolVersion).toMatch(SEMVER_PATTERN);
   });
 });

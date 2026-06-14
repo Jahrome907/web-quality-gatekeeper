@@ -125,7 +125,7 @@ function createSummaryV2(overrides?: Partial<SummaryV2>): SummaryV2 {
     ...summary,
     $schema:
       "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-    schemaVersion: "2.2.0",
+    schemaVersion: "2.3.0",
     artifacts: {
       ...summary.artifacts,
       summaryV2: "summary.v2.json"
@@ -389,15 +389,21 @@ describe("buildHtmlReport", () => {
     expect(categorySection?.[0]).toContain("gauge-card");
     expect(categorySection?.[0]).toContain("Performance score");
 
-    const visualsSection = html.match(/<h2>Baseline, Current, and Diff Screenshots<\/h2>[\s\S]*?<\/section>/);
+    const visualsSection = html.match(
+      /<h2>Baseline, Current, and Diff Screenshots<\/h2>[\s\S]*?<\/section>/
+    );
     expect(visualsSection?.[0]).toContain("figcaption>Baseline");
     expect(visualsSection?.[0]).toContain("figcaption>Current");
     expect(visualsSection?.[0]).toContain("figcaption>Diff");
 
-    const screenshotsSection = html.match(/<h2>Captured Playwright Screenshots<\/h2>[\s\S]*?<\/section>/);
+    const screenshotsSection = html.match(
+      /<h2>Captured Playwright Screenshots<\/h2>[\s\S]*?<\/section>/
+    );
     expect(screenshotsSection?.[0]).toContain("screenshots/home.png");
 
-    expect(html).toContain('id="accessibility-summary" class="section card" data-view-section="detailed"');
+    expect(html).toContain(
+      'id="accessibility-summary" class="section card" data-view-section="detailed"'
+    );
   });
 
   it("renders middle-axis radar scores on a separate line from the label text", () => {
@@ -446,7 +452,7 @@ describe("buildHtmlReport", () => {
       summary: {
         $schema:
           "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-        schemaVersion: "2.2.0",
+        schemaVersion: "2.3.0",
         toolVersion: "3.1.4",
         mode: "multi",
         overallStatus: "pass",
@@ -459,7 +465,7 @@ describe("buildHtmlReport", () => {
         },
         schemaVersions: {
           v1: "1.1.0",
-          v2: "2.2.0"
+          v2: "2.3.0"
         },
         compatibility: {
           v1SummaryPath: "summary.json",
@@ -471,6 +477,8 @@ describe("buildHtmlReport", () => {
           summary: "summary.json",
           summaryV2: "summary.v2.json",
           report: "report.html",
+          prRiskLedgerJson: "pr-risk-ledger.json",
+          prRiskLedgerMd: "pr-risk-ledger.md",
           trendDashboardHtml: null,
           trendHistoryJson: null,
           actionPlanMd: "action-plan.md"
@@ -543,7 +551,8 @@ describe("buildHtmlReport", () => {
               id: "trend:perf-regression",
               severity: "medium",
               title: "Performance budget failures increased",
-              recommendation: "Address high-savings Lighthouse opportunities before tightening budgets."
+              recommendation:
+                "Address high-savings Lighthouse opportunities before tightening budgets."
             }
           ]
         },

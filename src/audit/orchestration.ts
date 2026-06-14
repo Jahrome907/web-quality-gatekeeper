@@ -46,12 +46,7 @@ export interface TrendPageDelta {
 }
 
 export interface TrendDeltaSummary {
-  status:
-    | "disabled"
-    | "no_previous"
-    | "incompatible_previous"
-    | "corrupt_previous"
-    | "ready";
+  status: "disabled" | "no_previous" | "incompatible_previous" | "corrupt_previous" | "ready";
   historyDir: string | null;
   previousSnapshotPath: string | null;
   message: string | null;
@@ -147,6 +142,8 @@ export interface AuditSummaryV2 {
     summary: string;
     summaryV2: string;
     report: string;
+    prRiskLedgerJson: string;
+    prRiskLedgerMd: string;
     trendDashboardHtml: string | null;
     trendHistoryJson: string | null;
     actionPlanMd: string | null;
@@ -236,21 +233,23 @@ export async function resolveTargets(
         ];
 
   const isMulti = sourceTargets.length > 1;
-  return Promise.all(sourceTargets.map(async (target, index) => {
-    const normalizedTarget = await resolveAuditedTarget(target.url, logger, policy);
-    const slugBase = `${String(index + 1).padStart(2, "0")}-${toSlug(target.name)}`;
-    const targetOutDir = isMulti ? path.join(outDir, "pages", slugBase) : outDir;
-    const targetBaselineDir = isMulti ? path.join(baselineDir, "pages", slugBase) : baselineDir;
+  return Promise.all(
+    sourceTargets.map(async (target, index) => {
+      const normalizedTarget = await resolveAuditedTarget(target.url, logger, policy);
+      const slugBase = `${String(index + 1).padStart(2, "0")}-${toSlug(target.name)}`;
+      const targetOutDir = isMulti ? path.join(outDir, "pages", slugBase) : outDir;
+      const targetBaselineDir = isMulti ? path.join(baselineDir, "pages", slugBase) : baselineDir;
 
-    return {
-      index,
-      name: target.name,
-      url: normalizedTarget.url,
-      outDir: targetOutDir,
-      baselineDir: targetBaselineDir,
-      hostResolverRules: normalizedTarget.hostResolverRules
-    };
-  }));
+      return {
+        index,
+        name: target.name,
+        url: normalizedTarget.url,
+        outDir: targetOutDir,
+        baselineDir: targetBaselineDir,
+        hostResolverRules: normalizedTarget.hostResolverRules
+      };
+    })
+  );
 }
 
 function toHistoryPoint(snapshot: AuditSummaryV2): TrendHistoryPoint {
@@ -396,7 +395,7 @@ export function buildPageEntry(result: TargetAuditResult): PageSummaryEntry {
   return {
     index: target.index,
     name: target.name,
-    url: target.url,
+    url: summaryV2.url,
     overallStatus: summaryV2.overallStatus,
     startedAt: summaryV2.startedAt,
     durationMs: summaryV2.durationMs,
@@ -618,7 +617,10 @@ export function buildTrendSummary(
       name: page.name,
       url: page.url,
       statusChanged: Boolean(previousPage && previousPage.overallStatus !== page.overallStatus),
-      a11yViolations: toTrendDelta(page.metrics.a11yViolations, previousPage?.metrics.a11yViolations ?? null),
+      a11yViolations: toTrendDelta(
+        page.metrics.a11yViolations,
+        previousPage?.metrics.a11yViolations ?? null
+      ),
       performanceScore: toNullableTrendDelta(
         page.metrics.performanceScore,
         previousPage?.metrics.performanceScore ?? null
@@ -647,7 +649,10 @@ export function buildTrendSummary(
         current.rollup.performanceBudgetFailures,
         previousSnapshot.rollup.performanceBudgetFailures
       ),
-      visualFailures: toTrendDelta(current.rollup.visualFailures, previousSnapshot.rollup.visualFailures)
+      visualFailures: toTrendDelta(
+        current.rollup.visualFailures,
+        previousSnapshot.rollup.visualFailures
+      )
     },
     pages: pageDeltas,
     history: {

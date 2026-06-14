@@ -19,9 +19,9 @@ test-results/
 .tmp-action-debug-*
 .tmp-pack-smoke-*
 .tmp-pack-debug-*
-\\wsl.localhost*
+.tmp-vitest/
+.tmp-vitest-temp/
 
 # Lighthouse Chrome profile artifacts
 lighthouse.*/
 C\:
-C:\\Users\\*\\AppData\\Local\\lighthouse.*

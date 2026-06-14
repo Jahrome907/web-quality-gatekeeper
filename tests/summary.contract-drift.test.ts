@@ -2,6 +2,7 @@ import path from "node:path";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { PR_RISK_LEDGER_ARTIFACT_NAMES } from "../src/report/prRiskLedger.js";
 import {
   buildSummary,
   buildSummaryV2,
@@ -65,7 +66,9 @@ const v1BaseParams = {
   startedAt: "2026-03-12T00:00:00.000Z",
   durationMs: 1234,
   toolVersion: "3.1.4",
-  screenshots: [{ name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }],
+  screenshots: [
+    { name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }
+  ],
   artifacts: {
     summary: SUMMARY_ARTIFACT_NAMES.summary,
     report: SUMMARY_ARTIFACT_NAMES.report,
@@ -87,7 +90,9 @@ const v2BaseParams = {
   startedAt: "2026-03-12T00:00:00.000Z",
   durationMs: 1234,
   toolVersion: "3.1.4",
-  screenshots: [{ name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }],
+  screenshots: [
+    { name: "home", path: "screenshots/home.png", url: "https://example.com", fullPage: true }
+  ],
   artifacts: {
     summary: SUMMARY_ARTIFACT_NAMES.summary,
     summaryV2: SUMMARY_ARTIFACT_NAMES.summaryV2,
@@ -166,8 +171,72 @@ describe("summary contract drift gate", () => {
       visual: null
     });
 
-    expect(validateSummaryV1(summary), JSON.stringify(validateSummaryV1.errors, null, 2)).toBe(true);
-    expect(validateSummaryV2Details(summaryV2Details), JSON.stringify(validateSummaryV2Details.errors, null, 2)).toBe(true);
+    expect(validateSummaryV1(summary), JSON.stringify(validateSummaryV1.errors, null, 2)).toBe(
+      true
+    );
+    expect(
+      validateSummaryV2Details(summaryV2Details),
+      JSON.stringify(validateSummaryV2Details.errors, null, 2)
+    ).toBe(true);
+  });
+
+  it("keeps native engine metadata out of the v1 compatibility summary", () => {
+    const validateSummaryV1 = createValidator(summaryV1Schema);
+    const summary = buildSummary({
+      ...v1BaseParams,
+      a11y: null,
+      performance: null,
+      visual: {
+        threshold: 0.01,
+        failed: false,
+        maxMismatchRatio: 0,
+        results: [
+          {
+            name: "home",
+            currentPath: "screenshots/home.png",
+            baselinePath: "../baselines/home.png",
+            diffPath: "diffs/home.png",
+            mismatchRatio: 0,
+            status: "diffed",
+            engine: "native-rust"
+          }
+        ]
+      }
+    });
+
+    expect(summary.visual?.results[0]).not.toHaveProperty("engine");
+    expect(validateSummaryV1(summary), JSON.stringify(validateSummaryV1.errors, null, 2)).toBe(
+      true
+    );
+  });
+
+  it("accepts package versions with prerelease and build metadata in summary schemas", () => {
+    const validateSummaryV1 = createValidator(summaryV1Schema);
+    const validateSummaryV2Details = createSummaryV2DetailsValidator();
+    const toolVersion = "3.1.6-beta.1+build.5";
+
+    const summary = buildSummary({
+      ...v1BaseParams,
+      toolVersion,
+      a11y: null,
+      performance: null,
+      visual: null
+    });
+    const summaryV2Details = buildSummaryV2({
+      ...v2BaseParams,
+      toolVersion,
+      a11y: null,
+      performance: null,
+      visual: null
+    });
+
+    expect(validateSummaryV1(summary), JSON.stringify(validateSummaryV1.errors, null, 2)).toBe(
+      true
+    );
+    expect(
+      validateSummaryV2Details(summaryV2Details),
+      JSON.stringify(validateSummaryV2Details.errors, null, 2)
+    ).toBe(true);
   });
 
   it("keeps aggregate summary pointers and versions aligned with the shared runtime constants", async () => {
@@ -189,9 +258,10 @@ describe("summary contract drift gate", () => {
     });
 
     const validateSummaryV2 = createSummaryV2Validator();
-    expect(validateSummaryV2(result.summaryV2), JSON.stringify(validateSummaryV2.errors, null, 2)).toBe(
-      true
-    );
+    expect(
+      validateSummaryV2(result.summaryV2),
+      JSON.stringify(validateSummaryV2.errors, null, 2)
+    ).toBe(true);
 
     expect(result.summaryV2.schemaPointers).toEqual(SUMMARY_SCHEMA_POINTERS);
     expect(result.summaryV2.schemaVersions).toEqual(SUMMARY_SCHEMA_VERSIONS);
@@ -217,8 +287,15 @@ describe("summary contract drift gate", () => {
     expect(compatibilityBaselineDoc).toContain("`npm run contracts:check`");
   });
 
+  it("keeps current v2-era schema pointers on the published v2 contract ref", () => {
+    expect(SUMMARY_SCHEMA_URI_V2).toContain("/web-quality-gatekeeper/v2/schemas/");
+    expect(summaryV2Schema.$id).toContain("/web-quality-gatekeeper/v2/schemas/");
+    expect(summaryV2Doc).not.toContain("/web-quality-gatekeeper/v3/schemas/");
+    expect(compatibilityBaselineDoc).not.toContain("/web-quality-gatekeeper/v3/schemas/");
+  });
+
   it("keeps the quality gate workflow wired to the explicit contract drift command", () => {
-    expect(qualityGateWorkflow).toContain("- name: Check summary contracts");
+    expect(qualityGateWorkflow).toContain("- name: Check summary and PR Risk Ledger contracts");
     expect(qualityGateWorkflow).toContain("run: npm run contracts:check");
   });
 
@@ -228,6 +305,10 @@ describe("summary contract drift gate", () => {
       summaryV2: "summary.v2.json",
       report: "report.html",
       actionPlan: "action-plan.md"
+    });
+    expect(PR_RISK_LEDGER_ARTIFACT_NAMES).toEqual({
+      json: "pr-risk-ledger.json",
+      markdown: "pr-risk-ledger.md"
     });
     expect(SUMMARY_V2_COMPATIBILITY_NOTE).toBe(
       "summary.json remains v1-compatible. summary.v2.json contains multipage and trend fields."

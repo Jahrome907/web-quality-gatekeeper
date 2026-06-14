@@ -1,3 +1,3 @@
 # Web Quality Gatekeeper Action Plan
 
-No prioritized recommendations were generated for this run.
+No prioritized recommendations are available for this run.

@@ -6,8 +6,9 @@ import type { AuditSummaryV2 } from "../src/audit/orchestration.js";
 
 function createSummaryFixture(): AuditSummaryV2 {
   return {
-    $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-    schemaVersion: "2.2.0",
+    $schema:
+      "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+    schemaVersion: "2.3.0",
     toolVersion: "3.1.4",
     mode: "single",
     overallStatus: "pass",
@@ -20,11 +21,12 @@ function createSummaryFixture(): AuditSummaryV2 {
     },
     schemaVersions: {
       v1: "1.1.0",
-      v2: "2.2.0"
+      v2: "2.3.0"
     },
     compatibility: {
       v1SummaryPath: "summary.json",
-      v1Schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
+      v1Schema:
+        "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
       v1SchemaVersion: "1.1.0",
       note: "compat"
     },
@@ -32,6 +34,8 @@ function createSummaryFixture(): AuditSummaryV2 {
       summary: "summary.json",
       summaryV2: "summary.v2.json",
       report: "report.html",
+      prRiskLedgerJson: "pr-risk-ledger.json",
+      prRiskLedgerMd: "pr-risk-ledger.md",
       trendDashboardHtml: null,
       trendHistoryJson: null,
       actionPlanMd: null
@@ -71,8 +75,9 @@ function createSummaryFixture(): AuditSummaryV2 {
           failedRequests: 0
         },
         details: {
-          $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-          schemaVersion: "2.2.0",
+          $schema:
+            "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+          schemaVersion: "2.3.0",
           toolVersion: "3.1.4",
           overallStatus: "pass",
           url: "https://example.com",
@@ -101,7 +106,12 @@ function createSummaryFixture(): AuditSummaryV2 {
           runtimeSignals: {
             console: { total: 0, errorCount: 0, warningCount: 0, dropped: 0, messages: [] },
             jsErrors: { total: 0, dropped: 0, errors: [] },
-            network: { totalRequests: 0, failedRequests: 0, transferSizeBytes: 0, resourceTypeBreakdown: {} }
+            network: {
+              totalRequests: 0,
+              failedRequests: 0,
+              transferSizeBytes: 0,
+              resourceTypeBreakdown: {}
+            }
           },
           insights: null
         }
@@ -126,7 +136,7 @@ describe("trend snapshot regression coverage", () => {
     const historyDir = await mkdtemp(path.join(tmpdir(), "wqg-trend-malformed-"));
     const logger = { warn: vi.fn() };
     const malformed = {
-      schemaVersion: "2.2.0",
+      schemaVersion: "2.3.0",
       pages: [],
       rollup: { pageCount: 1 }
     };
@@ -165,7 +175,9 @@ describe("trend snapshot regression coverage", () => {
 
     try {
       const { writeTrendSnapshot } = await import("../src/audit/orchestration.js");
-      await expect(writeTrendSnapshot(historyDir, createSummaryFixture(), 0)).resolves.toBeUndefined();
+      await expect(
+        writeTrendSnapshot(historyDir, createSummaryFixture(), 0)
+      ).resolves.toBeUndefined();
       expect(unlinkSpy).toHaveBeenCalled();
     } finally {
       vi.doUnmock("node:fs/promises");

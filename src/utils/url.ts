@@ -5,28 +5,32 @@ export class UsageError extends Error {
   exitCode = 2;
 }
 
+function safeUrlForMessage(raw: string): string {
+  try {
+    const parsed = new URL(raw);
+    parsed.username = "";
+    parsed.password = "";
+    return parsed.toString();
+  } catch {
+    return "<invalid URL>";
+  }
+}
+
 function invalidUrlMessage(raw: string): string {
-  return `Invalid URL: ${raw}. Expected an absolute http:// or https:// URL, for example https://example.com/.`;
+  return `Invalid URL: ${safeUrlForMessage(raw)}. Expected an absolute http:// or https:// URL, for example https://example.com/.`;
 }
 
 function unsupportedProtocolMessage(raw: string): string {
-  return `Invalid URL: ${raw}. Use http:// or https:// URLs only.`;
+  return `Invalid URL: ${safeUrlForMessage(raw)}. Use http:// or https:// URLs only.`;
 }
 
-function credentialsNotAllowedMessage(raw: string): string {
-  return `Invalid URL: ${raw}. Username/password in URLs are not allowed. Use --header/--cookie inputs instead.`;
+function credentialsNotAllowedMessage(): string {
+  return "Invalid URL. Username/password in URLs are not allowed. Use --header/--cookie inputs instead.";
 }
 
-const LOCAL_HOST_PATTERNS = [
-  /^localhost$/i,
-  /^localhost\.localdomain$/i
-];
+const LOCAL_HOST_PATTERNS = [/^localhost$/i, /^localhost\.localdomain$/i];
 
-const INTERNAL_HOST_PATTERNS = [
-  /^127\.\d+\.\d+\.\d+$/,
-  /^\[?::1\]?$/,
-  /^0\.0\.0\.0$/
-];
+const INTERNAL_HOST_PATTERNS = [/^127\.\d+\.\d+\.\d+$/, /^\[?::1\]?$/, /^0\.0\.0\.0$/];
 
 const INTERNAL_IP_BLOCK_LIST = new BlockList();
 INTERNAL_IP_BLOCK_LIST.addAddress("0.0.0.0", "ipv4");
@@ -140,7 +144,7 @@ export function validateUrl(raw: string): { url: string; isInternal: boolean } {
   }
 
   if (parsed.username || parsed.password) {
-    throw new UsageError(credentialsNotAllowedMessage(raw));
+    throw new UsageError(credentialsNotAllowedMessage());
   }
 
   const internal = isInternalHost(parsed.hostname);
@@ -163,11 +167,13 @@ export async function classifyTargetUrl(raw: string): Promise<TargetClassificati
   }
 
   const { addresses: resolvedAddresses, resolutionFailed } = await resolveHostAddresses(hostname);
-  const hasInternalResolvedAddress = resolvedAddresses.some((address) => isInternalIpAddress(address));
+  const hasInternalResolvedAddress = resolvedAddresses.some((address) =>
+    isInternalIpAddress(address)
+  );
   const pinnedAddress =
     resolutionFailed || hasInternalResolvedAddress || isInternalHost(hostname)
       ? null
-      : resolvedAddresses.find((address) => isIP(address) === 4) ?? resolvedAddresses[0] ?? null;
+      : (resolvedAddresses.find((address) => isIP(address) === 4) ?? resolvedAddresses[0] ?? null);
 
   return {
     url: validated.url,
@@ -180,7 +186,10 @@ export async function classifyTargetUrl(raw: string): Promise<TargetClassificati
   };
 }
 
-export function buildHostResolverRules(hostname: string, pinnedAddress: string | null): string | null {
+export function buildHostResolverRules(
+  hostname: string,
+  pinnedAddress: string | null
+): string | null {
   if (!pinnedAddress || isIP(hostname) !== 0) {
     return null;
   }
@@ -215,7 +224,11 @@ export async function resolveAuditedTarget(
     );
   }
 
-  if (!policy.allowInternalTargets && policy.blockInternalTargets && classification.resolutionFailed) {
+  if (
+    !policy.allowInternalTargets &&
+    policy.blockInternalTargets &&
+    classification.resolutionFailed
+  ) {
     throw new UsageError(
       `Blocked unresolved ${context} in sensitive mode: ${classification.hostname}. ` +
         "DNS resolution failed during SSRF safety checks. " +
@@ -239,7 +252,10 @@ export async function resolveAuditedTarget(
 
   return {
     url: classification.url,
-    hostResolverRules: buildHostResolverRules(classification.hostname, classification.pinnedAddress),
+    hostResolverRules: buildHostResolverRules(
+      classification.hostname,
+      classification.pinnedAddress
+    ),
     classification
   };
 }

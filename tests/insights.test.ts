@@ -6,7 +6,7 @@ function createSummary(): SummaryV2 {
   return {
     $schema:
       "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-    schemaVersion: "2.2.0",
+    schemaVersion: "2.3.0",
     toolVersion: "3.0.0",
     overallStatus: "fail",
     url: "https://example.com",
@@ -37,7 +37,13 @@ function createSummary(): SummaryV2 {
           impact: "serious",
           wcagTags: ["wcag111"],
           tags: ["wcag111"],
-          nodes: [{ target: ["img.hero"], htmlSnippet: "<img class='hero'>", failureSummary: "Missing alt" }]
+          nodes: [
+            {
+              target: ["img.hero"],
+              htmlSnippet: "<img class='hero'>",
+              failureSummary: "Missing alt"
+            }
+          ]
         }
       ],
       metadata: { totalViolations: 1, keptViolations: 1, droppedViolations: 0, droppedNodes: 0 }
@@ -76,7 +82,12 @@ function createSummary(): SummaryV2 {
     runtimeSignals: {
       console: { total: 3, errorCount: 1, warningCount: 0, dropped: 0, messages: [] },
       jsErrors: { total: 0, dropped: 0, errors: [] },
-      network: { totalRequests: 12, failedRequests: 1, transferSizeBytes: 1024, resourceTypeBreakdown: {} }
+      network: {
+        totalRequests: 12,
+        failedRequests: 1,
+        transferSizeBytes: 1024,
+        resourceTypeBreakdown: {}
+      }
     },
     insights: null
   };

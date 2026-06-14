@@ -1,4 +1,5 @@
 import { chmod, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { PNG } from "pngjs";
@@ -23,7 +24,26 @@ function createLogger() {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn(),
+    debug: vi.fn()
+  };
+}
+
+function allowNativeEngineInCi(): () => void {
+  const originalAllowNative = process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+  const originalAllowScriptNative = process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE;
+  process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE = "true";
+  process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE = "true";
+  return () => {
+    if (originalAllowNative === undefined) {
+      delete process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+    } else {
+      process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE = originalAllowNative;
+    }
+    if (originalAllowScriptNative === undefined) {
+      delete process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE;
+    } else {
+      process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE = originalAllowScriptNative;
+    }
   };
 }
 
@@ -36,7 +56,7 @@ async function createWorkspace() {
   await Promise.all([
     mkdir(baselineDir, { recursive: true }),
     mkdir(diffDir, { recursive: true }),
-    mkdir(currentDir, { recursive: true }),
+    mkdir(currentDir, { recursive: true })
   ]);
 
   return { tempDir, baselineDir, diffDir, currentDir };
@@ -144,9 +164,42 @@ if (mode === "bad-json") {
 }
 
 describe("runVisualDiff native engine", () => {
+  it("keeps the pixelmatch checkerboard alpha reference case for semi-transparent pixels", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const baselinePath = path.join(baselineDir, "alpha-edge.png");
+    const currentPath = path.join(currentDir, "alpha-edge.png");
+    const baseline = new PNG({ width: 1, height: 1 });
+    const current = new PNG({ width: 1, height: 1 });
+    setPixel(baseline, 0, 0, [0, 50, 200, 0]);
+    setPixel(current, 0, 0, [0, 100, 20, 17]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "alpha edge", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        1,
+        logger,
+        { pixelmatch: { includeAA: true, threshold: 0.02 } }
+      );
+
+      expect(summary.failed).toBe(false);
+      expect(summary.results[0]?.mismatchRatio).toBe(0);
+      expect(summary.results[0]?.engine).toBe("pixelmatch");
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
   it("falls back to pixelmatch when the native engine binary is missing", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();
+    const restoreNativeAllowance = allowNativeEngineInCi();
 
     const baselinePath = path.join(baselineDir, "home.png");
     const currentPath = path.join(currentDir, "home.png");
@@ -175,6 +228,161 @@ describe("runVisualDiff native engine", () => {
         "Native visual diff engine requested but no executable was provided; falling back to pixelmatch."
       );
     } finally {
+      restoreNativeAllowance();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses JavaScript native adapters unless the test-only opt-in is set", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const originalAllowNative = process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+    const originalAllowScriptNative = process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE;
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const markerPath = path.join(tempDir, "script-executed.txt");
+    const scriptPath = path.join(tempDir, "native-engine-poc.mjs");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+    await writeFile(
+      scriptPath,
+      `import { writeFile } from "node:fs/promises";\nawait writeFile(${JSON.stringify(markerPath)}, "executed");\nprocess.stdout.write(JSON.stringify({ diffPixels: 0 }));\n`,
+      "utf8"
+    );
+    await chmod(scriptPath, 0o755);
+    process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE = "true";
+    delete process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE;
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { engine: "native-rust", nativeBinaryPath: scriptPath }
+      );
+
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(existsSync(markerPath)).toBe(false);
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Native visual diff engine path appears to be a JavaScript adapter; set WQG_ALLOW_SCRIPT_NATIVE_ENGINE=true only for trusted test adapters. Falling back to pixelmatch."
+      );
+    } finally {
+      if (originalAllowNative === undefined) {
+        delete process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+      } else {
+        process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE = originalAllowNative;
+      }
+      if (originalAllowScriptNative === undefined) {
+        delete process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE;
+      } else {
+        process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE = originalAllowScriptNative;
+      }
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses shebang script adapters unless the test-only opt-in is set", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const originalAllowNative = process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+    const originalAllowScriptNative = process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE;
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const scriptPath = path.join(tempDir, "native-engine-wrapper");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+    await writeFile(scriptPath, "#!/bin/sh\nexit 0\n", "utf8");
+    await chmod(scriptPath, 0o755);
+    process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE = "true";
+    delete process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE;
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { engine: "native-rust", nativeBinaryPath: scriptPath }
+      );
+
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(summary.results[0]?.engine).toBe("pixelmatch");
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Native visual diff engine path appears to be a shell, batch, PowerShell, or shebang script; use a reviewed native binary or a JavaScript test adapter. Falling back to pixelmatch."
+      );
+    } finally {
+      if (originalAllowNative === undefined) {
+        delete process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+      } else {
+        process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE = originalAllowNative;
+      }
+      if (originalAllowScriptNative === undefined) {
+        delete process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE;
+      } else {
+        process.env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE = originalAllowScriptNative;
+      }
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses shell script adapters even when JavaScript test adapters are allowed", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const restoreNativeAllowance = allowNativeEngineInCi();
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const markerPath = path.join(tempDir, "shell-executed.txt");
+    const scriptPath = path.join(tempDir, "native-engine-wrapper.sh");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+    await writeFile(scriptPath, `#!/bin/sh\ntouch ${JSON.stringify(markerPath)}\n`, "utf8");
+    await chmod(scriptPath, 0o755);
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { engine: "native-rust", nativeBinaryPath: scriptPath }
+      );
+
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(summary.results[0]?.engine).toBe("pixelmatch");
+      expect(existsSync(markerPath)).toBe(false);
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Native visual diff engine path appears to be a shell, batch, PowerShell, or shebang script; use a reviewed native binary or a JavaScript test adapter. Falling back to pixelmatch."
+      );
+    } finally {
+      restoreNativeAllowance();
       await rm(tempDir, { recursive: true, force: true });
     }
   });
@@ -183,6 +391,195 @@ describe("runVisualDiff native engine", () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();
     const nativeBinaryPath = await createNativeEngineStub(tempDir);
+    const restoreNativeAllowance = allowNativeEngineInCi();
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { engine: "native-rust", nativeBinaryPath, pixelmatch: { includeAA: true } }
+      );
+
+      expect(summary.failed).toBe(true);
+      expect(summary.maxMismatchRatio).toBe(0.25);
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(summary.results[0]?.engine).toBe("native-rust");
+      expect(logger.warn).not.toHaveBeenCalled();
+    } finally {
+      restoreNativeAllowance();
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("lets WQG_VISUAL_DIFF_NATIVE_BIN override a stale configured binary path", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const nativeBinaryPath = await createNativeEngineStub(tempDir);
+    const originalNativeBin = process.env.WQG_VISUAL_DIFF_NATIVE_BIN;
+    const restoreNativeAllowance = allowNativeEngineInCi();
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+    process.env.WQG_VISUAL_DIFF_NATIVE_BIN = nativeBinaryPath;
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        {
+          engine: "native-rust",
+          nativeBinaryPath: path.join(tempDir, "stale-configured-bin"),
+          pixelmatch: { includeAA: true }
+        }
+      );
+
+      expect(summary.results[0]?.engine).toBe("native-rust");
+      expect(logger.warn).not.toHaveBeenCalled();
+    } finally {
+      restoreNativeAllowance();
+      if (originalNativeBin === undefined) {
+        delete process.env.WQG_VISUAL_DIFF_NATIVE_BIN;
+      } else {
+        process.env.WQG_VISUAL_DIFF_NATIVE_BIN = originalNativeBin;
+      }
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("lets WQG_VISUAL_DIFF_ENGINE enable native execution without config engine changes", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const nativeBinaryPath = await createNativeEngineStub(tempDir);
+    const originalEngine = process.env.WQG_VISUAL_DIFF_ENGINE;
+    const originalNativeBin = process.env.WQG_VISUAL_DIFF_NATIVE_BIN;
+    const restoreNativeAllowance = allowNativeEngineInCi();
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+    process.env.WQG_VISUAL_DIFF_ENGINE = "native-rust";
+    process.env.WQG_VISUAL_DIFF_NATIVE_BIN = nativeBinaryPath;
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { pixelmatch: { includeAA: true } }
+      );
+
+      expect(summary.results[0]?.engine).toBe("native-rust");
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(logger.warn).not.toHaveBeenCalled();
+    } finally {
+      restoreNativeAllowance();
+      if (originalEngine === undefined) {
+        delete process.env.WQG_VISUAL_DIFF_ENGINE;
+      } else {
+        process.env.WQG_VISUAL_DIFF_ENGINE = originalEngine;
+      }
+      if (originalNativeBin === undefined) {
+        delete process.env.WQG_VISUAL_DIFF_NATIVE_BIN;
+      } else {
+        process.env.WQG_VISUAL_DIFF_NATIVE_BIN = originalNativeBin;
+      }
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("does not execute the native engine in CI unless explicitly allowed", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const nativeBinaryPath = await createNativeEngineStub(tempDir);
+    const originalCi = process.env.CI;
+    const originalAllowNative = process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+
+    const baselinePath = path.join(baselineDir, "home.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const baseline = new PNG({ width: 2, height: 2 });
+    const current = new PNG({ width: 2, height: 2 });
+    baseline.data.fill(255);
+    current.data.fill(255);
+    setPixel(current, 0, 0, [0, 0, 0, 255]);
+
+    await writePng(baselinePath, baseline);
+    await writePng(currentPath, current);
+    process.env.CI = "true";
+    delete process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+
+    try {
+      const summary = await runVisualDiff(
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
+        baselineDir,
+        diffDir,
+        false,
+        0,
+        logger,
+        { engine: "native-rust", nativeBinaryPath }
+      );
+
+      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
+      expect(summary.results[0]?.engine).toBe("pixelmatch");
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Native visual diff engine is disabled in CI unless WQG_ALLOW_NATIVE_VISUAL_ENGINE=true; falling back to pixelmatch."
+      );
+    } finally {
+      if (originalCi === undefined) {
+        delete process.env.CI;
+      } else {
+        process.env.CI = originalCi;
+      }
+      if (originalAllowNative === undefined) {
+        delete process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE;
+      } else {
+        process.env.WQG_ALLOW_NATIVE_VISUAL_ENGINE = originalAllowNative;
+      }
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to pixelmatch when anti-aliased pixel suppression is requested", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+    const nativeBinaryPath = await createNativeEngineStub(tempDir);
+    const restoreNativeAllowance = allowNativeEngineInCi();
 
     const baselinePath = path.join(baselineDir, "home.png");
     const currentPath = path.join(currentDir, "home.png");
@@ -206,19 +603,25 @@ describe("runVisualDiff native engine", () => {
         { engine: "native-rust", nativeBinaryPath }
       );
 
-      expect(summary.failed).toBe(true);
-      expect(summary.maxMismatchRatio).toBe(0.25);
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);
-      expect(logger.warn).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith(
+        "Native visual diff engine does not support anti-aliased pixel suppression yet; set visual.pixelmatch.includeAA=true only when that parity tradeoff is acceptable. Falling back to pixelmatch."
+      );
     } finally {
+      restoreNativeAllowance();
       await rm(tempDir, { recursive: true, force: true });
     }
   });
 
-  it("falls back to pixelmatch when includeAA is enabled", async () => {
+  it.each([
+    ["bad-json", "Unexpected token"] as const,
+    ["negative-diff", "invalid diff pixel count"] as const,
+    ["short-diff", "diff bytes"] as const
+  ])("falls back to pixelmatch when the native engine returns %s output", async (mode, warning) => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();
-    const nativeBinaryPath = await createNativeEngineStub(tempDir);
+    const nativeBinaryPath = await createMalformedNativeEngineStub(tempDir, mode);
+    const restoreNativeAllowance = allowNativeEngineInCi();
 
     const baselinePath = path.join(baselineDir, "home.png");
     const currentPath = path.join(currentDir, "home.png");
@@ -244,50 +647,11 @@ describe("runVisualDiff native engine", () => {
 
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);
       expect(logger.warn).toHaveBeenCalledWith(
-        "Native visual diff engine does not support includeAA=true yet; falling back to pixelmatch."
-      );
-    } finally {
-      await rm(tempDir, { recursive: true, force: true });
-    }
-  });
-
-  it.each([
-    ["bad-json", "Unexpected token"] as const,
-    ["negative-diff", "invalid diff pixel count"] as const,
-    ["short-diff", "diff bytes"] as const,
-  ])("falls back to pixelmatch when the native engine returns %s output", async (mode, warning) => {
-    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
-    const logger = createLogger();
-    const nativeBinaryPath = await createMalformedNativeEngineStub(tempDir, mode);
-
-    const baselinePath = path.join(baselineDir, "home.png");
-    const currentPath = path.join(currentDir, "home.png");
-    const baseline = new PNG({ width: 2, height: 2 });
-    const current = new PNG({ width: 2, height: 2 });
-    baseline.data.fill(255);
-    current.data.fill(255);
-    setPixel(current, 0, 0, [0, 0, 0, 255]);
-
-    await writePng(baselinePath, baseline);
-    await writePng(currentPath, current);
-
-    try {
-      const summary = await runVisualDiff(
-        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
-        baselineDir,
-        diffDir,
-        false,
-        0,
-        logger,
-        { engine: "native-rust", nativeBinaryPath }
-      );
-
-      expect(summary.results[0]?.mismatchRatio).toBe(0.25);
-      expect(logger.warn).toHaveBeenCalledWith(
         expect.stringContaining("Native visual diff engine failed; falling back to pixelmatch.")
       );
       expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(warning));
     } finally {
+      restoreNativeAllowance();
       await rm(tempDir, { recursive: true, force: true });
     }
   });
@@ -297,6 +661,7 @@ describe("runVisualDiff native engine", () => {
     const logger = createLogger();
     const nativeBinaryPath = await createHangingNativeEngineStub(tempDir);
     const originalTimeout = process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS;
+    const restoreNativeAllowance = allowNativeEngineInCi();
 
     const baselinePath = path.join(baselineDir, "home.png");
     const currentPath = path.join(currentDir, "home.png");
@@ -318,7 +683,7 @@ describe("runVisualDiff native engine", () => {
         false,
         0,
         logger,
-        { engine: "native-rust", nativeBinaryPath }
+        { engine: "native-rust", nativeBinaryPath, pixelmatch: { includeAA: true } }
       );
 
       expect(summary.results[0]?.mismatchRatio).toBe(0.25);
@@ -326,6 +691,7 @@ describe("runVisualDiff native engine", () => {
         "Native visual diff engine failed; falling back to pixelmatch. Timed out after 50ms."
       );
     } finally {
+      restoreNativeAllowance();
       if (originalTimeout === undefined) {
         delete process.env.WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS;
       } else {

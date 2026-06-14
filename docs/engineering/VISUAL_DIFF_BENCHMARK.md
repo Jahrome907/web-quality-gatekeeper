@@ -43,7 +43,7 @@ node benchmarks/visual-diff-benchmark.mjs --iterations 5 --out /tmp/wqg-visual-b
 With the Rust engine after building it:
 
 ```bash
-cargo build --manifest-path native/wqg-visual-diff-native/Cargo.toml --release
+npm run native:visual-diff:build
 node benchmarks/visual-diff-benchmark.mjs \
   --iterations 5 \
   --native-bin native/wqg-visual-diff-native/target/release/wqg-visual-diff-native \
@@ -103,7 +103,8 @@ Inputs and outputs:
 
 Current scope boundaries:
 
-- anti-alias-aware diff semantics still belong to the TypeScript path
+- anti-alias-aware diff semantics still belong to the TypeScript path; native
+  execution is limited to runs that set `visual.pixelmatch.includeAA=true`
 - the native engine is allowed to fall back automatically when unavailable or unsupported
 - no install scripts or required native artifact downloads are allowed in the default consumer path
 
