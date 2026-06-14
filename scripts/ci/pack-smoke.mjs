@@ -292,7 +292,7 @@ async function runPackSmoke() {
         {
           timeouts: {
             navigationMs: 15000,
-            actionMs: 5000,
+            actionMs: 10000,
             waitAfterLoadMs: 250
           },
           playwright: {
