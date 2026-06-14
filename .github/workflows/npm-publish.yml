@@ -95,10 +95,20 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.validate-input.outputs.release_version }}
         run: |
-          if npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version >/dev/null 2>&1; then
+          VIEW_OUTPUT="$(npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org/ 2>&1)" && {
             echo "::error::web-quality-gatekeeper@${RELEASE_VERSION} is already published."
             exit 1
+          }
+          VIEW_STATUS=$?
+
+          if printf '%s\n' "$VIEW_OUTPUT" | grep -Eq "(E404|404 Not Found|is not in this registry)"; then
+            echo "web-quality-gatekeeper@${RELEASE_VERSION} is not published yet."
+            exit 0
           fi
+
+          echo "::error::Unable to confirm that web-quality-gatekeeper@${RELEASE_VERSION} is unpublished."
+          printf '%s\n' "$VIEW_OUTPUT"
+          exit "$VIEW_STATUS"
 
       - name: Pack publish artifact
         id: pack

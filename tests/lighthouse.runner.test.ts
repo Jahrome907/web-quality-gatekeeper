@@ -335,7 +335,7 @@ describe("lighthouse runner", () => {
     });
   });
 
-  it("keeps auth headers on verified Lighthouse navigation redirects", async () => {
+  it("does not forward auth headers on verified cross-origin Lighthouse redirects", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
     const puppeteer = createPuppeteerHarness();
@@ -374,6 +374,37 @@ describe("lighthouse runner", () => {
       }
     );
 
+    expect(mockLaunch).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        chromeFlags: expect.arrayContaining([
+          "--host-resolver-rules=MAP example.com 203.0.113.10"
+        ])
+      })
+    );
+    expect(mockLaunch).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        chromeFlags: expect.arrayContaining([
+          "--host-resolver-rules=MAP www.example.com 203.0.113.10"
+        ])
+      })
+    );
+    expect(mockLighthouse).toHaveBeenNthCalledWith(
+      1,
+      "https://example.com",
+      expect.objectContaining({ port: 9222 }),
+      expect.any(Object),
+      puppeteer.page
+    );
+    expect(mockLighthouse).toHaveBeenNthCalledWith(
+      2,
+      "https://www.example.com/",
+      expect.objectContaining({ port: 9222 }),
+      expect.any(Object),
+      puppeteer.page
+    );
+
     const requestHandler = puppeteer.getRequestHandler();
     if (!requestHandler) {
       throw new Error("request handler not registered");
@@ -392,9 +423,7 @@ describe("lighthouse runner", () => {
 
     expect(continueRequest).toHaveBeenCalledWith({
       headers: {
-        Accept: "text/html",
-        "x-wqg-auth": "Token token-123",
-        Cookie: "wqg_session=abc123"
+        Accept: "text/html"
       }
     });
   });

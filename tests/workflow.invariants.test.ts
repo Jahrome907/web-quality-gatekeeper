@@ -88,6 +88,9 @@ describe("workflow invariants", () => {
     expect(source).toContain('git rev-parse -q --verify "refs/tags/$MAJOR"');
     expect(source).toContain('git tag --points-at "$MAJOR"');
     expect(source).toContain("Refusing to move");
+    expect(source).toContain('RELEASE_COMMIT="$(git rev-list -n 1 "${GITHUB_REF_NAME}^{commit}")"');
+    expect(source).toContain('git tag -f "$MAJOR" "$RELEASE_COMMIT"');
+    expect(source).toContain('"refs/tags/$MAJOR" --force');
   });
 
   it("keeps PR summary comments fork-safe and permission-tolerant", () => {
@@ -309,6 +312,13 @@ describe("workflow invariants", () => {
     expect(source).toContain("Smoke test packed tarball");
     expect(source).toContain("npm run smoke:pack");
     expect(source).toContain("Enforce requested tag and package version parity");
+    expect(source).toContain(
+      'npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org/'
+    );
+    expect(source).toContain("web-quality-gatekeeper@${RELEASE_VERSION} is not published yet.");
+    expect(source).toContain(
+      "Unable to confirm that web-quality-gatekeeper@${RELEASE_VERSION} is unpublished."
+    );
     expect(source).toContain("release_tag must be a semantic version tag");
     expect(source).toContain("does not match package.json version tag");
     expect(source).toContain("Upload publish artifact");

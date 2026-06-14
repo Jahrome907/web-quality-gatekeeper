@@ -165,5 +165,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           MAJOR: ${{ needs.validate.outputs.major }}
         run: |
-          git tag -f "$MAJOR" "${GITHUB_REF_NAME}"
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$MAJOR" --force
+          RELEASE_COMMIT="$(git rev-list -n 1 "${GITHUB_REF_NAME}^{commit}")"
+          git tag -f "$MAJOR" "$RELEASE_COMMIT"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$MAJOR" --force

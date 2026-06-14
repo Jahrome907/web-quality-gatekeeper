@@ -711,7 +711,7 @@ describe("playwright runner", () => {
       {
         name: "wqg_session",
         value: "abc123",
-        url: "https://www.example.com/"
+        url: "https://example.com/"
       }
     ]);
     const redirectedContinue = vi.fn().mockResolvedValue(undefined);
@@ -740,7 +740,6 @@ describe("playwright runner", () => {
     });
     expect(redirectedContinue).toHaveBeenCalledWith({
       headers: {
-        "x-wqg-auth": "Token token-123",
         Accept: "text/html"
       }
     });

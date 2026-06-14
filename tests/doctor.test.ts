@@ -106,6 +106,7 @@ describe("doctor diagnostics", () => {
         env: {
           ...process.env,
           CHROME_PATH: process.execPath,
+          WQG_ALLOW_NATIVE_VISUAL_ENGINE: "true",
           WQG_VISUAL_DIFF_ENGINE: "native-rust",
           WQG_VISUAL_DIFF_NATIVE_BIN: process.execPath
         },
@@ -165,6 +166,7 @@ process.stdout.write(JSON.stringify({ diffPixels: 0 }));
           env: {
             ...process.env,
             CHROME_PATH: process.execPath,
+            WQG_ALLOW_NATIVE_VISUAL_ENGINE: "true",
             WQG_ALLOW_SCRIPT_NATIVE_ENGINE: "true",
             WQG_VISUAL_DIFF_NATIVE_BIN: stubPath
           },

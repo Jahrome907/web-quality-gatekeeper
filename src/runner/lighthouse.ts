@@ -21,12 +21,14 @@ import {
   normalizeUrlHostname,
   resolveAuditedTarget,
   UsageError,
-  type TargetResolutionPolicy
+  type TargetResolutionPolicy,
+  type VerifiedAuditTarget
 } from "../utils/url.js";
 
 const requireSync = createRequire(import.meta.url);
 
 const MAX_OPPORTUNITIES = 10;
+const MAX_LIGHTHOUSE_RELAUNCHES = 4;
 const LOCAL_DATA_ENV_KEY = "LOCAL" + "APP" + "DATA";
 
 export interface LighthouseBudgets {
@@ -105,6 +107,12 @@ interface LighthouseLhrLike {
 export interface LighthouseRunOptions {
   hostResolverRules?: string | null;
   targetPolicy?: TargetResolutionPolicy;
+}
+
+interface LighthouseAttemptResult {
+  summary: LighthouseSummary;
+  finalNavigationUrl: string;
+  finalTarget: VerifiedAuditTarget | null;
 }
 
 export function evaluateBudgets(
@@ -332,24 +340,6 @@ function buildLighthouseHeaders(auth: AuditAuth | null): Record<string, string> 
   return Object.keys(headers).length > 0 ? headers : null;
 }
 
-function isSameOrigin(left: string, right: string): boolean {
-  try {
-    return new URL(left).origin === new URL(right).origin;
-  } catch {
-    return false;
-  }
-}
-
-function selectAuthScopeUrl(requestUrl: string, authScopeUrls: Iterable<string>): string | null {
-  for (const scopeUrl of authScopeUrls) {
-    if (isSameOrigin(requestUrl, scopeUrl)) {
-      return scopeUrl;
-    }
-  }
-
-  return null;
-}
-
 export async function runLighthouseAudit(
   url: string,
   outDir: string,
@@ -367,16 +357,19 @@ export async function runLighthouseAudit(
     : null;
   const authHeaders = buildLighthouseHeaders(auth);
   const authTargetUrl = initialTarget?.url ?? url;
-  const effectiveHostResolverRules =
-    options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
   const chromePath = resolveChromePath();
   if (chromePath) {
     logger.debug(`Using Chrome at: ${chromePath}`);
   }
-  try {
+
+  async function runAttempt(
+    auditUrl: string,
+    launchHostResolverRules: string | null,
+    launchPinnedHostResolverRules: Map<string, string | null>
+  ): Promise<LighthouseAttemptResult> {
     const chromeFlags = getChromeFlags();
-    if (effectiveHostResolverRules) {
-      chromeFlags.push(`--host-resolver-rules=${effectiveHostResolverRules}`);
+    if (launchHostResolverRules) {
+      chromeFlags.push(`--host-resolver-rules=${launchHostResolverRules}`);
     }
     const chrome = await launch({
       chromeFlags,
@@ -386,17 +379,7 @@ export async function runLighthouseAudit(
     let puppeteerBrowser: PuppeteerBrowserLike | null = null;
     let puppeteerPage: PuppeteerPageLike | null = null;
     let blockedRequestError: Error | null = null;
-    const authScopeUrls = new Set<string>([authTargetUrl]);
     try {
-      const launchPinnedHostResolverRules = new Map<string, string | null>();
-
-      if (initialTarget) {
-        launchPinnedHostResolverRules.set(
-          initialTarget.classification.hostname,
-          effectiveHostResolverRules
-        );
-      }
-
       const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
         initialTrustedHosts: launchPinnedHostResolverRules,
         trustResolvedHosts: false
@@ -412,25 +395,16 @@ export async function runLighthouseAudit(
         await puppeteerPage.setRequestInterception(true);
         puppeteerPage.on("request", async (request) => {
           try {
-            let requestAuthScopeUrl =
-              selectAuthScopeUrl(request.url(), authScopeUrls) ?? authTargetUrl;
             if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
               const contextLabel = request.isNavigationRequest()
                 ? "Lighthouse navigation target"
                 : "Lighthouse request target";
-              const verifiedTarget = await navigationTargetVerifier.verify(
-                request.url(),
-                contextLabel
-              );
-              if (request.isNavigationRequest() && verifiedTarget) {
-                authScopeUrls.add(verifiedTarget.url);
-                requestAuthScopeUrl = verifiedTarget.url;
-              }
+              await navigationTargetVerifier.verify(request.url(), contextLabel);
             }
 
             const scopedHeaders = applyScopedAuthHeaders({
               requestUrl: request.url(),
-              targetUrl: requestAuthScopeUrl,
+              targetUrl: authTargetUrl,
               requestHeaders: request.headers(),
               authHeaders
             });
@@ -477,8 +451,8 @@ export async function runLighthouseAudit(
         async () => {
           try {
             const result = puppeteerPage
-              ? await lighthouse(url, runnerFlags, lighthouseConfig, puppeteerPage as never)
-              : await lighthouse(url, runnerFlags, lighthouseConfig);
+              ? await lighthouse(auditUrl, runnerFlags, lighthouseConfig, puppeteerPage as never)
+              : await lighthouse(auditUrl, runnerFlags, lighthouseConfig);
             if (blockedRequestError) {
               throw blockedRequestError;
             }
@@ -509,10 +483,14 @@ export async function runLighthouseAudit(
           ? lhr.finalDisplayedUrl
           : typeof lhr.finalUrl === "string"
             ? lhr.finalUrl
-            : url;
+            : auditUrl;
+      let finalTarget: VerifiedAuditTarget | null = null;
       if (options.targetPolicy) {
-        if (normalizeUrlHostname(finalNavigationUrl) !== normalizeUrlHostname(url)) {
-          await navigationTargetVerifier.verify(finalNavigationUrl, "final Lighthouse target");
+        if (normalizeUrlHostname(finalNavigationUrl) !== normalizeUrlHostname(auditUrl)) {
+          finalTarget = await navigationTargetVerifier.verify(
+            finalNavigationUrl,
+            "final Lighthouse target"
+          );
         }
       }
       const lcpAudit = lhr.audits["largest-contentful-paint"];
@@ -540,18 +518,66 @@ export async function runLighthouseAudit(
       await writeJson(reportPath, runnerResult.lhr);
 
       return {
-        metrics,
-        budgets,
-        budgetResults,
-        reportPath,
-        categoryScores,
-        extendedMetrics: extractExtendedMetrics(lhr),
-        opportunities: extractOpportunities(lhr)
+        summary: {
+          metrics,
+          budgets,
+          budgetResults,
+          reportPath,
+          categoryScores,
+          extendedMetrics: extractExtendedMetrics(lhr),
+          opportunities: extractOpportunities(lhr)
+        },
+        finalNavigationUrl,
+        finalTarget
       };
     } finally {
       await closePuppeteerPage(puppeteerPage, logger);
       await disconnectPuppeteerBrowser(puppeteerBrowser, logger);
       await chrome.kill();
+    }
+  }
+
+  try {
+    let currentAuditUrl = url;
+    let currentLaunchHostResolverRules =
+      options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
+    let launchPinnedHostResolverRules = new Map<string, string | null>();
+
+    if (initialTarget) {
+      launchPinnedHostResolverRules.set(
+        initialTarget.classification.hostname,
+        currentLaunchHostResolverRules
+      );
+    }
+
+    for (let relaunchCount = 0; ; relaunchCount += 1) {
+      const attempt = await runAttempt(
+        currentAuditUrl,
+        currentLaunchHostResolverRules,
+        launchPinnedHostResolverRules
+      );
+
+      const nextHostResolverRules = attempt.finalTarget?.hostResolverRules ?? null;
+      if (
+        !options.targetPolicy ||
+        !attempt.finalTarget ||
+        nextHostResolverRules === currentLaunchHostResolverRules
+      ) {
+        return attempt.summary;
+      }
+
+      if (relaunchCount >= MAX_LIGHTHOUSE_RELAUNCHES) {
+        throw new Error(
+          `Lighthouse resolver pinning did not stabilize after ${MAX_LIGHTHOUSE_RELAUNCHES + 1} launches.`
+        );
+      }
+
+      logger.debug("Relaunching Lighthouse Chrome with landing host resolver rules");
+      currentAuditUrl = attempt.finalTarget.url;
+      currentLaunchHostResolverRules = nextHostResolverRules;
+      launchPinnedHostResolverRules = new Map([
+        [normalizeUrlHostname(currentAuditUrl), currentLaunchHostResolverRules]
+      ]);
     }
   } finally {
     await runtime.restore();

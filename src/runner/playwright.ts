@@ -319,24 +319,6 @@ function takeBlockedRequestError(state: BlockedRequestState | null | undefined):
   return blockedError;
 }
 
-function isSameOrigin(left: string, right: string): boolean {
-  try {
-    return new URL(left).origin === new URL(right).origin;
-  } catch {
-    return false;
-  }
-}
-
-function selectAuthScopeUrl(requestUrl: string, authScopeUrls: Iterable<string>): string | null {
-  for (const scopeUrl of authScopeUrls) {
-    if (isSameOrigin(requestUrl, scopeUrl)) {
-      return scopeUrl;
-    }
-  }
-
-  return null;
-}
-
 async function runWithBlockedRequestHandling<T>(page: Page, action: () => Promise<T>): Promise<T> {
   const state = blockedRequestStates.get(page);
   if (!state) {
@@ -393,7 +375,6 @@ async function launchNavigatedPage(
     initialTrustedHosts,
     trustResolvedHosts: true
   });
-  const authScopeUrls = new Set<string>([authScopeUrl]);
 
   try {
     context = await browser.newContext({
@@ -416,21 +397,13 @@ async function launchNavigatedPage(
     if (options.targetPolicy || extraHeaders) {
       await context.route("**", async (route: Route) => {
         const request = route.request() as Request;
-        let requestAuthScopeUrl = selectAuthScopeUrl(request.url(), authScopeUrls) ?? authScopeUrl;
 
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
           try {
             const contextLabel = request.isNavigationRequest()
               ? "navigation target"
               : "request target";
-            const verifiedTarget = await navigationTargetVerifier.verify(
-              request.url(),
-              contextLabel
-            );
-            if (request.isNavigationRequest() && verifiedTarget) {
-              authScopeUrls.add(verifiedTarget.url);
-              requestAuthScopeUrl = verifiedTarget.url;
-            }
+            await navigationTargetVerifier.verify(request.url(), contextLabel);
           } catch (error) {
             recordBlockedRequest(blockedRequestState, error);
             await route.abort("blockedbyclient");
@@ -440,7 +413,7 @@ async function launchNavigatedPage(
 
         const scopedHeaders = applyScopedAuthHeaders({
           requestUrl: request.url(),
-          targetUrl: requestAuthScopeUrl,
+          targetUrl: authScopeUrl,
           requestHeaders: request.headers(),
           authHeaders: extraHeaders
         });
@@ -510,10 +483,10 @@ export async function openPage(
   }
 
   let currentLaunchHostResolverRules = options.hostResolverRules ?? null;
-  let currentAuthScopeUrl = new URL(url).toString();
+  const authScopeUrl = new URL(url).toString();
   let navigation = await launchNavigatedPage(
     url,
-    currentAuthScopeUrl,
+    authScopeUrl,
     currentLaunchHostResolverRules,
     config,
     logger,
@@ -541,10 +514,9 @@ export async function openPage(
     await closeQuietly(navigation.context, logger, "context");
     await closeQuietly(navigation.browser, logger, "browser");
     currentLaunchHostResolverRules = resolvedHostResolverRules;
-    currentAuthScopeUrl = new URL(resolvedUrl).toString();
     navigation = await launchNavigatedPage(
       resolvedUrl,
-      currentAuthScopeUrl,
+      authScopeUrl,
       currentLaunchHostResolverRules,
       config,
       logger,
