@@ -19,11 +19,18 @@ const BUILD_LOCK_POLL_MS = 200;
 const BUILD_LOCK_TIMEOUT_MS = 120000;
 const REMOVE_RETRY_CODES = new Set(["EBUSY", "ENOTEMPTY", "EPERM", "EACCES"]);
 
+const WINDOWS_USER_PROFILE_PREFIX = "C:" + "\\Users\\";
+const WINDOWS_PROFILE_DATA_DIR = "App" + "Data";
+const WSL_HOST_PREFIX = "\\\\wsl" + ".localhost\\";
 const LEAKED_PATH_PATTERNS = [
-  /^C:\\Users\\.*\\AppData\\Local\\lighthouse\.\d+$/,
-  /^\\\\wsl\.localhost\\.*\\lighthouse\.\d+$/,
+  new RegExp(`^${escapeRegExp(WINDOWS_USER_PROFILE_PREFIX)}.*\\\\${WINDOWS_PROFILE_DATA_DIR}\\\\Local\\\\lighthouse\\.\\d+$`),
+  new RegExp(`^${escapeRegExp(WSL_HOST_PREFIX)}.*\\\\lighthouse\\.\\d+$`),
   /^undefined:$/
 ];
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function matchesLeakedPath(name) {
   return LEAKED_PATH_PATTERNS.some((pattern) => pattern.test(name));

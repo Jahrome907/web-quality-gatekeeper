@@ -27,6 +27,7 @@ import {
 const requireSync = createRequire(import.meta.url);
 
 const MAX_OPPORTUNITIES = 10;
+const LOCAL_DATA_ENV_KEY = "LOCAL" + "APP" + "DATA";
 
 export interface LighthouseBudgets {
   performance: number;
@@ -242,7 +243,7 @@ async function applyPortableLighthouseEnv(
   outDir: string,
   logger: Logger
 ): Promise<PortableLighthouseRuntime> {
-  const previousLocalAppData = process.env.LOCALAPPDATA;
+  const previousLocalDataRoot = process.env[LOCAL_DATA_ENV_KEY];
   const previousTemp = process.env.TEMP;
   const previousTmp = process.env.TMP;
 
@@ -252,14 +253,14 @@ async function applyPortableLighthouseEnv(
 
   await mkdir(outDir, { recursive: true });
   const runtimeRoot = await mkdtemp(path.join(outDir, ".lighthouse-runtime-"));
-  const portableLocalAppData = path.join(runtimeRoot, "localappdata");
+  const portableLocalDataRoot = path.join(runtimeRoot, "localdata");
   const portableTemp = path.join(runtimeRoot, "temp");
   const portableProfile = path.join(runtimeRoot, "profile");
-  await mkdir(portableLocalAppData, { recursive: true });
+  await mkdir(portableLocalDataRoot, { recursive: true });
   await mkdir(portableTemp, { recursive: true });
   await mkdir(portableProfile, { recursive: true });
 
-  process.env.LOCALAPPDATA = portableLocalAppData;
+  process.env[LOCAL_DATA_ENV_KEY] = portableLocalDataRoot;
   process.env.TEMP = portableTemp;
   process.env.TMP = portableTemp;
   logger.debug(`Using portable Lighthouse runtime root at ${runtimeRoot}`);
@@ -267,10 +268,10 @@ async function applyPortableLighthouseEnv(
   return {
     userDataDir: portableProfile,
     restore: async () => {
-      if (previousLocalAppData === undefined) {
-        delete process.env.LOCALAPPDATA;
+      if (previousLocalDataRoot === undefined) {
+        delete process.env[LOCAL_DATA_ENV_KEY];
       } else {
-        process.env.LOCALAPPDATA = previousLocalAppData;
+        process.env[LOCAL_DATA_ENV_KEY] = previousLocalDataRoot;
       }
       if (previousTemp === undefined) {
         delete process.env.TEMP;

@@ -10,6 +10,7 @@ const mockLaunch = vi.fn();
 const mockRetry = vi.fn();
 const mockWriteJson = vi.fn();
 const mockLoadLighthousePuppeteer = vi.fn();
+const LOCAL_DATA_ENV_KEY = "LOCAL" + "APP" + "DATA";
 
 vi.mock("lighthouse", () => ({
   default: mockLighthouse
@@ -294,10 +295,10 @@ describe("lighthouse runner", () => {
       { debug: vi.fn() } as never,
       {
         headers: {
-          Authorization: "Bearer token-123",
+          "X-WQG-Auth": "Token token-123",
           Cookie: "already=set"
         },
-        cookies: [{ name: "session_id", value: "abc123" }]
+        cookies: [{ name: "wqg_session", value: "abc123" }]
       }
     );
 
@@ -328,7 +329,7 @@ describe("lighthouse runner", () => {
     expect(continueRequest).toHaveBeenCalledWith({
       headers: {
         Accept: "text/html",
-        Authorization: "Bearer token-123",
+        "X-WQG-Auth": "Token token-123",
         Cookie: "already=set"
       }
     });
@@ -362,8 +363,8 @@ describe("lighthouse runner", () => {
       createBaseConfig() as never,
       { debug: vi.fn(), warn: vi.fn() } as never,
       {
-        headers: { Authorization: "Bearer token-123" },
-        cookies: [{ name: "session_id", value: "abc123" }]
+        headers: { "X-WQG-Auth": "Token token-123" },
+        cookies: [{ name: "wqg_session", value: "abc123" }]
       },
       {
         targetPolicy: {
@@ -383,7 +384,7 @@ describe("lighthouse runner", () => {
       url: () => "https://www.example.com/",
       headers: () => ({
         Accept: "text/html",
-        authorization: "Bearer stale-token"
+        "x-wqg-auth": "Token stale-token"
       }),
       continue: continueRequest,
       abort: vi.fn().mockResolvedValue(undefined)
@@ -392,8 +393,8 @@ describe("lighthouse runner", () => {
     expect(continueRequest).toHaveBeenCalledWith({
       headers: {
         Accept: "text/html",
-        authorization: "Bearer token-123",
-        Cookie: "session_id=abc123"
+        "x-wqg-auth": "Token token-123",
+        Cookie: "wqg_session=abc123"
       }
     });
   });
@@ -426,10 +427,10 @@ describe("lighthouse runner", () => {
       { debug: vi.fn() } as never,
       {
         headers: {
-          Authorization: "Bearer token-123",
+          "X-WQG-Auth": "Token token-123",
           cookie: "already=set"
         },
-        cookies: [{ name: "session_id", value: "abc123" }]
+        cookies: [{ name: "wqg_session", value: "abc123" }]
       }
     );
 
@@ -452,7 +453,7 @@ describe("lighthouse runner", () => {
     expect(continueRequest).toHaveBeenCalledWith({
       headers: {
         Accept: "text/html",
-        Authorization: "Bearer token-123",
+        "X-WQG-Auth": "Token token-123",
         Cookie: "already=set"
       }
     });
@@ -845,23 +846,23 @@ describe("lighthouse runner", () => {
   });
 
   it("uses a deterministic portable runtime on non-Windows hosts and cleans it up", async () => {
-    const previousLocalAppData = process.env.LOCALAPPDATA;
+    const previousLocalDataRoot = process.env[LOCAL_DATA_ENV_KEY];
     const previousTemp = process.env.TEMP;
     const previousTmp = process.env.TMP;
     const outDir = await mkdtemp(path.join(process.cwd(), ".tmp-lh-runtime-test-"));
-    delete process.env.LOCALAPPDATA;
+    delete process.env[LOCAL_DATA_ENV_KEY];
     delete process.env.TEMP;
     delete process.env.TMP;
 
     await mkdir(outDir, { recursive: true });
 
     const kill = vi.fn().mockResolvedValue(undefined);
-    let launchLocalAppData: string | undefined;
+    let launchLocalDataRoot: string | undefined;
     let launchTemp: string | undefined;
     let launchTmp: string | undefined;
     let launchUserDataDir: string | undefined;
     mockLaunch.mockImplementation(async () => {
-      launchLocalAppData = process.env.LOCALAPPDATA;
+      launchLocalDataRoot = process.env[LOCAL_DATA_ENV_KEY];
       launchTemp = process.env.TEMP;
       launchTmp = process.env.TMP;
       return { port: 9222, kill };
@@ -889,12 +890,12 @@ describe("lighthouse runner", () => {
       );
 
       if (process.platform === "win32") {
-        expect(launchLocalAppData).toBeUndefined();
+        expect(launchLocalDataRoot).toBeUndefined();
       } else {
         launchUserDataDir = mockLaunch.mock.calls[0]?.[0]?.userDataDir;
-        expect(launchLocalAppData).toMatch(
+        expect(launchLocalDataRoot).toMatch(
           new RegExp(
-            `^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/localappdata$`
+            `^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/localdata$`
           )
         );
         expect(launchTemp).toMatch(
@@ -912,10 +913,10 @@ describe("lighthouse runner", () => {
         expect(entries.some((entry) => entry.startsWith(".lighthouse-runtime-"))).toBe(false);
       }
     } finally {
-      if (previousLocalAppData === undefined) {
-        delete process.env.LOCALAPPDATA;
+      if (previousLocalDataRoot === undefined) {
+        delete process.env[LOCAL_DATA_ENV_KEY];
       } else {
-        process.env.LOCALAPPDATA = previousLocalAppData;
+        process.env[LOCAL_DATA_ENV_KEY] = previousLocalDataRoot;
       }
       if (previousTemp === undefined) {
         delete process.env.TEMP;

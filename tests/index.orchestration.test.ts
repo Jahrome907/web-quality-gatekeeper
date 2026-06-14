@@ -544,8 +544,8 @@ describe("runAudit orchestration", () => {
     });
 
     const auth = {
-      headers: { Authorization: "Bearer token-123" },
-      cookies: [{ name: "session_id", value: "abc123" }]
+      headers: { "X-WQG-Auth": "Token token-123" },
+      cookies: [{ name: "wqg_session", value: "abc123" }]
     };
 
     const { runAudit } = await import("../src/index.js");

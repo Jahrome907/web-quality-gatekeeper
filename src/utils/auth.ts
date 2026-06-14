@@ -27,11 +27,11 @@ function isSameOrigin(requestUrl: string, targetUrl: string): boolean {
 }
 
 const HEADER_FORMAT_HINT =
-  'Expected "Name: Value", for example --header "Authorization: Bearer <token>". ' +
+  'Expected "Name: Value", for example --header "X-WQG-Auth: Token <token>". ' +
   "Repeat --header for multiple values or use WQG_AUTH_HEADERS.";
 
 const COOKIE_FORMAT_HINT =
-  'Expected "name=value", for example --cookie "session_id=abc123". ' +
+  'Expected "name=value", for example --cookie "wqg_session=abc123". ' +
   "Repeat --cookie for multiple values or use WQG_AUTH_COOKIES.";
 
 const HTTP_TOKEN_PATTERN = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;

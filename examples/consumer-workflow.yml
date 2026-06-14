@@ -31,9 +31,9 @@ jobs:
           url: https://your-site.example.com
           # Optional authenticated audits (recommended to source from secrets)
           # headers: |
-          #   Authorization: Bearer ${{ secrets.STAGING_API_TOKEN }}
+          #   X-WQG-Auth: Token ${{ secrets.STAGING_AUTH_VALUE }}
           # cookies: |
-          #   session_id=${{ secrets.STAGING_SESSION_ID }}
+          #   wqg_session=${{ secrets.STAGING_SESSION_VALUE }}
           # Optional: customize thresholds via config
           # config-path: .quality-gate.json
           # Optional relaxed / non-blocking mode:

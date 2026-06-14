@@ -271,19 +271,19 @@ describe("CLI integration", () => {
   }, 15000);
 
   it("returns exit code 2 for malformed --header input", async () => {
-    const run = await runCli(cliPath, ["audit", baseUrl, "--header", "Authorization token"], 10000);
+    const run = await runCli(cliPath, ["audit", baseUrl, "--header", "X-WQG-Auth token"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain(
-      'Invalid --header value. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
+      'Invalid --header value. Expected "Name: Value", for example --header "X-WQG-Auth: Token <token>".'
     );
-    expect(run.stderr).not.toContain("Authorization token");
+    expect(run.stderr).not.toContain("X-WQG-Auth token");
   }, 15000);
 
   it("returns exit code 2 for malformed --cookie input", async () => {
     const run = await runCli(cliPath, ["audit", baseUrl, "--cookie", "session"], 10000);
     expect(run.status).toBe(2);
     expect(run.stderr).toContain(
-      'Invalid --cookie value. Expected "name=value", for example --cookie "session_id=abc123".'
+      'Invalid --cookie value. Expected "name=value", for example --cookie "wqg_session=abc123".'
     );
   }, 15000);
 

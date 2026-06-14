@@ -1,6 +1,7 @@
 /* global console, process */
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 export function assertActionSmoke(options = {}) {
   const workspace = options.workspace ?? process.env.GITHUB_WORKSPACE ?? process.cwd();
@@ -94,7 +95,7 @@ export function assertActionSmoke(options = {}) {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   assertActionSmoke();
   console.log("Action smoke assertions passed.");
 }

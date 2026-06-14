@@ -124,8 +124,8 @@ describe("playwright runner", () => {
       } as never,
       logger as never,
       {
-        headers: { Authorization: "Bearer token-123" },
-        cookies: [{ name: "session_id", value: "abc123" }]
+        headers: { "X-WQG-Auth": "Token token-123" },
+        cookies: [{ name: "wqg_session", value: "abc123" }]
       },
       {
         hostResolverRules: "MAP example.com 203.0.113.10"
@@ -147,7 +147,7 @@ describe("playwright runner", () => {
     expect(route).toHaveBeenCalledWith("**", expect.any(Function));
     expect(addCookies).toHaveBeenCalledWith([
       {
-        name: "session_id",
+        name: "wqg_session",
         value: "abc123",
         url: "https://example.com/"
       }
@@ -179,7 +179,7 @@ describe("playwright runner", () => {
     expect(continueRequest).toHaveBeenCalledWith({
       headers: {
         Accept: "text/html",
-        Authorization: "Bearer token-123"
+        "X-WQG-Auth": "Token token-123"
       }
     });
     const crossOriginContinue = vi.fn().mockResolvedValue(undefined);
@@ -187,7 +187,7 @@ describe("playwright runner", () => {
       request: () => ({
         isNavigationRequest: () => false,
         url: () => "https://cdn.example.net/app.js",
-        headers: () => ({ authorization: "Bearer token-123", Accept: "*/*" })
+        headers: () => ({ "x-wqg-auth": "Token token-123", Accept: "*/*" })
       }),
       abort: vi.fn().mockResolvedValue(undefined),
       continue: crossOriginContinue
@@ -677,8 +677,8 @@ describe("playwright runner", () => {
       } as never,
       logger as never,
       {
-        headers: { Authorization: "Bearer token-123" },
-        cookies: [{ name: "session_id", value: "abc123" }]
+        headers: { "X-WQG-Auth": "Token token-123" },
+        cookies: [{ name: "wqg_session", value: "abc123" }]
       },
       {
         hostResolverRules: "MAP example.com 203.0.113.10",
@@ -702,14 +702,14 @@ describe("playwright runner", () => {
     expect(closeBrowserOne).toHaveBeenCalledTimes(1);
     expect(addCookiesOne).toHaveBeenCalledWith([
       {
-        name: "session_id",
+        name: "wqg_session",
         value: "abc123",
         url: "https://example.com/"
       }
     ]);
     expect(addCookiesTwo).toHaveBeenCalledWith([
       {
-        name: "session_id",
+        name: "wqg_session",
         value: "abc123",
         url: "https://www.example.com/"
       }
@@ -733,14 +733,14 @@ describe("playwright runner", () => {
       request: () => ({
         isNavigationRequest: () => true,
         url: () => "https://www.example.com/",
-        headers: () => ({ authorization: "Bearer token-123", Accept: "text/html" })
+        headers: () => ({ "x-wqg-auth": "Token token-123", Accept: "text/html" })
       }),
       abort: vi.fn().mockResolvedValue(undefined),
       continue: redirectedContinue
     });
     expect(redirectedContinue).toHaveBeenCalledWith({
       headers: {
-        authorization: "Bearer token-123",
+        "x-wqg-auth": "Token token-123",
         Accept: "text/html"
       }
     });

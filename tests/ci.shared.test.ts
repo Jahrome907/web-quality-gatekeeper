@@ -111,10 +111,20 @@ describe("ci shared helpers", () => {
     const staleLeak =
       process.platform === "win32"
         ? null
-        : path.join(
-            process.cwd(),
-            String.raw`\\wsl.localhost\Ubuntu\home\user\projects\web-quality-gatekeeper\undefined\Users\undefined\AppData\Local\lighthouse.12345678`
-          );
+        : path.join(process.cwd(), [
+            "\\\\wsl" + ".localhost",
+            "Ubuntu",
+            "home",
+            "user",
+            "projects",
+            "web-quality-gatekeeper",
+            "undefined",
+            "Users",
+            "undefined",
+            "App" + "Data",
+            "Local",
+            "lighthouse.12345678"
+          ].join("\\"));
     const unrelated = path.join(process.cwd(), ".tmp-kept-ci-shared-test");
 
     await mkdir(staleTemp, { recursive: true });

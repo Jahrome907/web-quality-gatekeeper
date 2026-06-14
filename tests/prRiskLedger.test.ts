@@ -96,9 +96,9 @@ function createSummary(): AuditSummaryV2 {
           visual: "pass"
         },
         artifacts: {
-          summary: "pages/home/summary.json",
-          summaryV2: "pages/home/summary.v2.json",
-          report: "pages/home/report.html"
+          summary: "pages/main/summary.json",
+          summaryV2: "pages/main/summary.v2.json",
+          report: "pages/main/report.html"
         },
         metrics: {
           a11yViolations: 2,

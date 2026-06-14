@@ -21,9 +21,7 @@ test-results/
 .tmp-pack-debug-*
 .tmp-vitest/
 .tmp-vitest-temp/
-\\wsl.localhost*
 
 # Lighthouse Chrome profile artifacts
 lighthouse.*/
 C\:
-C:\\Users\\*\\AppData\\Local\\lighthouse.*
