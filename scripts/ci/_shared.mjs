@@ -137,8 +137,69 @@ export async function runChecked(command, args, options = {}) {
   }
 }
 
-function hasBuiltArtifacts() {
-  return existsSync(path.join(ROOT, "dist", "cli.js")) && existsSync(path.join(ROOT, "dist", "index.js"));
+async function listBuildInputs(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listBuildInputs(entryPath)));
+    } else if (entry.isFile() && /\.(ts|tsx|json)$/.test(entry.name)) {
+      files.push(entryPath);
+    }
+  }
+
+  return files;
+}
+
+async function getOldestMtime(paths) {
+  let oldest = Number.POSITIVE_INFINITY;
+
+  for (const candidate of paths) {
+    if (!existsSync(candidate)) {
+      return null;
+    }
+    const stats = await stat(candidate);
+    oldest = Math.min(oldest, stats.mtimeMs);
+  }
+
+  return oldest;
+}
+
+async function getNewestMtime(paths) {
+  let newest = 0;
+
+  for (const candidate of paths) {
+    if (!existsSync(candidate)) {
+      continue;
+    }
+    const stats = await stat(candidate);
+    newest = Math.max(newest, stats.mtimeMs);
+  }
+
+  return newest;
+}
+
+async function hasFreshBuiltArtifacts() {
+  const requiredBuildOutputs = [
+    path.join(ROOT, "dist", "cli.js"),
+    path.join(ROOT, "dist", "index.js"),
+    path.join(ROOT, "dist", "index.d.ts")
+  ];
+  const oldestBuildOutput = await getOldestMtime(requiredBuildOutputs);
+  if (oldestBuildOutput === null) {
+    return false;
+  }
+
+  const buildInputs = [
+    path.join(ROOT, "package.json"),
+    path.join(ROOT, "tsconfig.json"),
+    path.join(ROOT, "tsup.config.ts"),
+    ...(await listBuildInputs(path.join(ROOT, "src")))
+  ];
+  const newestBuildInput = await getNewestMtime(buildInputs);
+  return oldestBuildOutput >= newestBuildInput;
 }
 
 async function acquireBuildLock(timeoutMs = BUILD_LOCK_TIMEOUT_MS) {
@@ -161,13 +222,13 @@ async function acquireBuildLock(timeoutMs = BUILD_LOCK_TIMEOUT_MS) {
 }
 
 export async function ensureRepoBuild() {
-  if (hasBuiltArtifacts()) {
+  if (await hasFreshBuiltArtifacts()) {
     return;
   }
 
   await acquireBuildLock();
   try {
-    if (hasBuiltArtifacts()) {
+    if (await hasFreshBuiltArtifacts()) {
       return;
     }
     await runChecked("npm", ["run", "build"]);

@@ -3,7 +3,14 @@
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { closeFixtureServer, FIXTURE_DIR, ROOT, runChecked, startFixtureServer } from "../ci/_shared.mjs";
+import {
+  closeFixtureServer,
+  FIXTURE_DIR,
+  ROOT,
+  runChecked,
+  startFixtureServer
+} from "../ci/_shared.mjs";
+import { assertNodeEngine } from "../ci/assert-node-engine.mjs";
 
 function usage() {
   console.error(
@@ -66,7 +73,8 @@ function resolveCliCommand() {
     }
     return {
       command: process.execPath,
-      args: [builtCli]
+      args: [builtCli],
+      manifestCommand: ["node", "dist/cli.js"]
     };
   }
 
@@ -79,14 +87,16 @@ function resolveCliCommand() {
   if (existsSync(tsxBin)) {
     return {
       command: tsxBin,
-      args: [path.join(ROOT, "src", "cli.ts")]
+      args: [path.join(ROOT, "src", "cli.ts")],
+      manifestCommand: ["npx", "tsx", "src/cli.ts"]
     };
   }
 
   if (existsSync(builtCli)) {
     return {
       command: process.execPath,
-      args: [builtCli]
+      args: [builtCli],
+      manifestCommand: ["node", "dist/cli.js"]
     };
   }
 
@@ -99,8 +109,51 @@ function readJson(filePath) {
   return JSON.parse(readFileSync(filePath, "utf8"));
 }
 
+function toPortablePath(filePath) {
+  return filePath.split(path.sep).join("/");
+}
+
+function toPortableRelativePath(filePath) {
+  return toPortablePath(path.relative(ROOT, filePath));
+}
+
+function toPortableCommandToken(token) {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(token) || token.startsWith("-")) {
+    return token;
+  }
+  const looksLikePath =
+    path.isAbsolute(token) ||
+    /^[A-Za-z]:[\\/]/.test(token) ||
+    token.startsWith(".") ||
+    token.includes("/") ||
+    token.includes("\\");
+  if (!looksLikePath) {
+    return token;
+  }
+
+  const resolved = path.resolve(token);
+  const relativeToRoot = path.relative(ROOT, resolved);
+  if (!relativeToRoot.startsWith("..") && !path.isAbsolute(relativeToRoot)) {
+    return toPortablePath(relativeToRoot);
+  }
+  return toPortablePath(token);
+}
+
+function toPortableCommand(tokens) {
+  return tokens.map(toPortableCommandToken).join(" ");
+}
+
 function toRelativePathOrNull(filePath) {
-  return existsSync(filePath) ? path.relative(ROOT, filePath) : null;
+  return existsSync(filePath) ? toPortableRelativePath(filePath) : null;
+}
+
+function toRequiredRelativePath(filePath, label) {
+  if (!existsSync(filePath)) {
+    throw new Error(
+      `Fixture case study did not write required ${label}: ${toPortableRelativePath(filePath)}`
+    );
+  }
+  return toPortableRelativePath(filePath);
 }
 
 function buildManifest({
@@ -110,7 +163,8 @@ function buildManifest({
   command,
   summaryPath,
   reportPath,
-  summary
+  summary,
+  nodeEngine
 }) {
   const page = Array.isArray(summary.pages) ? summary.pages[0] : null;
   const metrics = page?.details?.performance?.metrics ?? {};
@@ -122,17 +176,35 @@ function buildManifest({
     source: {
       type: "local-fixture",
       repoPath: "tests/fixtures/site",
-      configPath: path.relative(ROOT, configPath),
+      configPath: toPortableRelativePath(configPath),
       url
+    },
+    environment: {
+      nodeVersion: process.versions.node,
+      nodeEngine
     },
     command,
     outputs: {
-      outDir,
-      summaryV2Path: path.relative(ROOT, summaryPath),
-      reportPath: path.relative(ROOT, reportPath),
+      outDir: toPortableRelativePath(outDir),
+      summaryV2Path: toPortableRelativePath(summaryPath),
+      reportPath: toPortableRelativePath(reportPath),
       lighthousePath: toRelativePathOrNull(path.join(outDir, "artifacts", "lighthouse.json")),
-      actionPlanPath: toRelativePathOrNull(path.join(outDir, "artifacts", "action-plan.md")),
-      screenshotPath: toRelativePathOrNull(path.join(outDir, "artifacts", "screenshots", "home.png"))
+      actionPlanPath: toRequiredRelativePath(
+        path.join(outDir, "artifacts", "action-plan.md"),
+        "Action Plan"
+      ),
+      prRiskLedgerPath: toRequiredRelativePath(
+        path.join(outDir, "artifacts", "pr-risk-ledger.json"),
+        "PR Risk Ledger JSON"
+      ),
+      prRiskLedgerMarkdownPath: toRequiredRelativePath(
+        path.join(outDir, "artifacts", "pr-risk-ledger.md"),
+        "PR Risk Ledger Markdown"
+      ),
+      screenshotPath: toRequiredRelativePath(
+        path.join(outDir, "artifacts", "screenshots", "home.png"),
+        "home screenshot"
+      )
     },
     result: {
       overallStatus: String(summary.overallStatus ?? "unknown"),
@@ -152,12 +224,13 @@ const options = (() => {
     return parseArgs(process.argv.slice(2));
   } catch (error) {
     usage();
-    console.error((error).message);
+    console.error(error.message);
     process.exit(2);
   }
 })();
 
-const { command, args } = resolveCliCommand();
+const { command, args, manifestCommand } = resolveCliCommand();
+const nodeEngine = assertNodeEngine();
 const artifactDir = path.join(options.outDir, "artifacts");
 const baselineDir = path.join(options.outDir, "baselines");
 const configPath = options.configPath;
@@ -198,19 +271,20 @@ try {
     url: targetUrl,
     outDir: options.outDir,
     configPath,
-    command: `${command} ${auditArgs.join(" ")}`,
+    command: toPortableCommand([...manifestCommand, ...auditArgs.slice(args.length)]),
     summaryPath,
     reportPath,
-    summary
+    summary,
+    nodeEngine
   });
 
   const manifestPath = path.join(options.outDir, "fixture-provenance.json");
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
-  console.log(`Fixture case study completed: ${path.relative(ROOT, options.outDir)}`);
-  console.log(`- report: ${path.relative(ROOT, reportPath)}`);
-  console.log(`- summary: ${path.relative(ROOT, summaryPath)}`);
-  console.log(`- provenance: ${path.relative(ROOT, manifestPath)}`);
+  console.log(`Fixture case study completed: ${toPortableRelativePath(options.outDir)}`);
+  console.log(`- report: ${toPortableRelativePath(reportPath)}`);
+  console.log(`- summary: ${toPortableRelativePath(summaryPath)}`);
+  console.log(`- provenance: ${toPortableRelativePath(manifestPath)}`);
 } finally {
   if (fixtureServer?.server) {
     await closeFixtureServer(fixtureServer.server);

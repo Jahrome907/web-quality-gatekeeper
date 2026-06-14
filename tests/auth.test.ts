@@ -55,14 +55,64 @@ describe("parseAuditAuth", () => {
 
   it("throws for malformed header", () => {
     expect(() => parseAuditAuth(["Authorization token"], [], {})).toThrow(
-      'Invalid --header value: Authorization token. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
+      'Invalid --header value. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
+    );
+  });
+
+  it("rejects unsafe header names and values before browser routing", () => {
+    expect(() => parseAuditAuth(["Bad Header: secret"], [], {})).toThrow(
+      'Invalid --header value. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
+    );
+    expect(() => parseAuditAuth(["Authorization: Bearer secret\r\nX-Evil: 1"], [], {})).toThrow(
+      'Invalid --header value. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
     );
   });
 
   it("throws for malformed cookie", () => {
     expect(() => parseAuditAuth([], ["session"], {})).toThrow(
-      'Invalid --cookie value: session. Expected "name=value", for example --cookie "session_id=abc123".'
+      'Invalid --cookie value. Expected "name=value", for example --cookie "session_id=abc123".'
     );
+  });
+
+  it("rejects unsafe cookie names and values before browser routing", () => {
+    expect(() => parseAuditAuth([], ["bad name=secret"], {})).toThrow(
+      'Invalid --cookie value. Expected "name=value", for example --cookie "session_id=abc123".'
+    );
+    expect(() => parseAuditAuth([], ["session=secret\r\nother=value"], {})).toThrow(
+      'Invalid --cookie value. Expected "name=value", for example --cookie "session_id=abc123".'
+    );
+  });
+
+  it("rejects non-string auth JSON entries with deterministic errors", () => {
+    expect(() => parseAuditAuth([], [], { WQG_AUTH_HEADERS: '{"Authorization":42}' })).toThrow(
+      'Invalid --header value. Expected "Name: Value", for example --header "Authorization: Bearer <token>".'
+    );
+    expect(() => parseAuditAuth([], [], { WQG_AUTH_COOKIES: '["session=ok",42]' })).toThrow(
+      'Invalid --cookie value. Expected "name=value", for example --cookie "session_id=abc123".'
+    );
+  });
+
+  it("does not echo malformed auth secrets in parse errors", () => {
+    const headerSecret = "Bearer secret-token-value";
+    const cookieSecret = "session_id=secret-cookie-value";
+    let headerError: unknown;
+    let cookieError: unknown;
+
+    try {
+      parseAuditAuth([headerSecret], [], {});
+    } catch (error) {
+      headerError = error;
+    }
+    expect(headerError).toBeInstanceOf(Error);
+    expect((headerError as Error).message).not.toContain(headerSecret);
+
+    try {
+      parseAuditAuth([], [cookieSecret.replace("=", "")], {});
+    } catch (error) {
+      cookieError = error;
+    }
+    expect(cookieError).toBeInstanceOf(Error);
+    expect((cookieError as Error).message).not.toContain("secret-cookie-value");
   });
 });
 

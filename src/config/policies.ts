@@ -20,14 +20,22 @@ export function resolvePolicyReference(reference: string, cwd: string): string {
     );
   }
 
-  const byPrefix = trimmed.startsWith("policy:") ? trimmed.slice("policy:".length) : trimmed;
+  const hasPolicyPrefix = trimmed.startsWith("policy:");
+  const byPrefix = hasPolicyPrefix ? trimmed.slice("policy:".length).trim() : trimmed;
+  if (byPrefix.length === 0) {
+    throw new Error(
+      'Policy reference must not be empty. Use a built-in policy like "docs" or a JSON file path such as ./configs/policies/custom.json.'
+    );
+  }
+
   if ((BUILTIN_POLICIES as readonly string[]).includes(byPrefix)) {
     return path.join(POLICY_DIR, `${byPrefix}.json`);
   }
 
-  if (path.isAbsolute(trimmed)) {
-    return trimmed;
+  const pathReference = hasPolicyPrefix ? byPrefix : trimmed;
+  if (path.isAbsolute(pathReference)) {
+    return pathReference;
   }
 
-  return path.resolve(cwd, trimmed);
+  return path.resolve(cwd, pathReference);
 }

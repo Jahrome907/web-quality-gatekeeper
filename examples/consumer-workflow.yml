@@ -20,11 +20,12 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
       - name: Run quality gate (strict by default)
+        id: wqg
         uses: Jahrome907/web-quality-gatekeeper@v3
         with:
           url: https://your-site.example.com
@@ -44,8 +45,14 @@ jobs:
 
       - name: Upload artifacts
         if: always() && (env.WQG_SENSITIVE_AUDIT != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: artifacts
+          path: |
+            ${{ steps.wqg.outputs.summary-path }}
+            ${{ steps.wqg.outputs.summary-v2-path }}
+            ${{ steps.wqg.outputs.report-path }}
+            ${{ steps.wqg.outputs.action-plan-path }}
+            ${{ steps.wqg.outputs.pr-risk-ledger-path }}
+            ${{ steps.wqg.outputs.pr-risk-ledger-md-path }}
           if-no-files-found: warn

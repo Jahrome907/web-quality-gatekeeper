@@ -6,11 +6,27 @@ on:
     branches: [main]
     paths:
       - "native/wqg-visual-diff-native/**"
+      - "src/config/schema.ts"
+      - "src/runner/visualDiff.ts"
+      - "src/runner/visualDiffEngine.ts"
+      - "src/runner/nativeVisualDiffSupport.ts"
+      - "scripts/ci/native-visual-diff-build.mjs"
+      - "scripts/ci/native-visual-diff-smoke.mjs"
+      - "tests/config.schema.boundaries.test.ts"
+      - "tests/visualDiff.native.test.ts"
       - ".github/workflows/native-visual-diff.yml"
       - "package.json"
   pull_request:
     paths:
       - "native/wqg-visual-diff-native/**"
+      - "src/config/schema.ts"
+      - "src/runner/visualDiff.ts"
+      - "src/runner/visualDiffEngine.ts"
+      - "src/runner/nativeVisualDiffSupport.ts"
+      - "scripts/ci/native-visual-diff-build.mjs"
+      - "scripts/ci/native-visual-diff-smoke.mjs"
+      - "tests/config.schema.boundaries.test.ts"
+      - "tests/visualDiff.native.test.ts"
       - ".github/workflows/native-visual-diff.yml"
       - "package.json"
 
@@ -19,15 +35,31 @@ permissions:
 
 jobs:
   cargo-test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
 
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
       - name: Test native visual diff engine
+        timeout-minutes: 10
         run: cargo test --manifest-path native/wqg-visual-diff-native/Cargo.toml --locked
 
       - name: Build native visual diff engine
-        run: cargo build --manifest-path native/wqg-visual-diff-native/Cargo.toml --release --locked
+        timeout-minutes: 10
+        run: npm run native:visual-diff:build
+
+      - name: Smoke native visual diff binary
+        timeout-minutes: 2
+        run: npm run native:visual-diff:smoke

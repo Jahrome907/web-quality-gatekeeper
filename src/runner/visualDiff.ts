@@ -6,7 +6,11 @@ import { DEFAULT_PIXELMATCH_INCLUDE_AA, DEFAULT_PIXELMATCH_THRESHOLD } from "../
 import { copyFileSafe, ensureDir, pathExists, writeJson } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import type { ScreenshotResult } from "./playwright.js";
-import { computeVisualDiff, type ConfiguredVisualDiffEngineName } from "./visualDiffEngine.js";
+import {
+  computeVisualDiff,
+  type ConfiguredVisualDiffEngineName,
+  type VisualDiffEngineName
+} from "./visualDiffEngine.js";
 
 // Security: Baseline manifest for integrity verification
 interface BaselineManifest {
@@ -105,6 +109,7 @@ export interface VisualDiffResult {
   diffPath: string | null;
   mismatchRatio: number | null;
   status: VisualStatus;
+  engine?: VisualDiffEngineName;
 }
 
 export interface VisualDiffSummary {
@@ -170,7 +175,11 @@ interface ClippedRegion {
   endY: number;
 }
 
-function clipRegion(region: VisualIgnoreRegion, width: number, height: number): ClippedRegion | null {
+function clipRegion(
+  region: VisualIgnoreRegion,
+  width: number,
+  height: number
+): ClippedRegion | null {
   const startX = Math.max(0, Math.min(width, region.x));
   const startY = Math.max(0, Math.min(height, region.y));
   const endX = Math.max(0, Math.min(width, region.x + region.width));
@@ -303,7 +312,9 @@ export async function runVisualDiff(
     }
 
     if (loadedManifest.corrupt) {
-      logger.warn(`Skipping comparison for ${shot.name} because baseline integrity metadata is corrupt.`);
+      logger.warn(
+        `Skipping comparison for ${shot.name} because baseline integrity metadata is corrupt.`
+      );
       failed = true;
       results.push({
         name: shot.name,
@@ -361,7 +372,7 @@ export async function runVisualDiff(
       ...(options.nativeBinaryPath ? { nativeBinaryPath: options.nativeBinaryPath } : {})
     };
 
-    const { diffPixels } = await computeVisualDiff(
+    const { diffPixels, engine } = await computeVisualDiff(
       baselineNormalized.data,
       currentNormalized.data,
       diff.data,
@@ -384,7 +395,8 @@ export async function runVisualDiff(
       baselinePath,
       diffPath,
       mismatchRatio,
-      status: "diffed"
+      status: "diffed",
+      engine
     });
   }
 

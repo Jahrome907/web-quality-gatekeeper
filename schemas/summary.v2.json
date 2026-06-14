@@ -29,18 +29,15 @@
     },
     "schemaVersion": {
       "type": "string",
-      "const": "2.2.0"
+      "const": "2.3.0"
     },
     "toolVersion": {
       "type": "string",
-      "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
     },
     "mode": {
       "type": "string",
-      "enum": [
-        "single",
-        "multi"
-      ]
+      "enum": ["single", "multi"]
     },
     "overallStatus": {
       "$ref": "#/$defs/overallStatus"
@@ -60,10 +57,7 @@
     "schemaPointers": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "v1",
-        "v2"
-      ],
+      "required": ["v1", "v2"],
       "properties": {
         "v1": {
           "type": "string",
@@ -78,10 +72,7 @@
     "schemaVersions": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "v1",
-        "v2"
-      ],
+      "required": ["v1", "v2"],
       "properties": {
         "v1": {
           "type": "string",
@@ -96,12 +87,7 @@
     "compatibility": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "v1SummaryPath",
-        "v1Schema",
-        "v1SchemaVersion",
-        "note"
-      ],
+      "required": ["v1SummaryPath", "v1Schema", "v1SchemaVersion", "note"],
       "properties": {
         "v1SummaryPath": {
           "type": "string"
@@ -169,6 +155,8 @@
         "summary",
         "summaryV2",
         "report",
+        "prRiskLedgerJson",
+        "prRiskLedgerMd",
         "trendDashboardHtml",
         "trendHistoryJson",
         "actionPlanMd"
@@ -183,23 +171,20 @@
         "report": {
           "type": "string"
         },
+        "prRiskLedgerJson": {
+          "type": "string"
+        },
+        "prRiskLedgerMd": {
+          "type": "string"
+        },
         "trendDashboardHtml": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "trendHistoryJson": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "actionPlanMd": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         }
       }
     },
@@ -210,28 +195,16 @@
   "$defs": {
     "overallStatus": {
       "type": "string",
-      "enum": [
-        "pass",
-        "fail"
-      ]
+      "enum": ["pass", "fail"]
     },
     "stepStatus": {
       "type": "string",
-      "enum": [
-        "pass",
-        "fail",
-        "skipped"
-      ]
+      "enum": ["pass", "fail", "skipped"]
     },
     "steps": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "playwright",
-        "a11y",
-        "perf",
-        "visual"
-      ],
+      "required": ["playwright", "a11y", "perf", "visual"],
       "properties": {
         "playwright": {
           "$ref": "#/$defs/stepStatus"
@@ -271,16 +244,10 @@
           "type": "string"
         },
         "axe": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "lighthouse": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "screenshotsDir": {
           "type": "string"
@@ -296,12 +263,7 @@
     "screenshot": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "name",
-        "path",
-        "url",
-        "fullPage"
-      ],
+      "required": ["name", "path", "url", "fullPage"],
       "properties": {
         "name": {
           "type": "string"
@@ -321,12 +283,7 @@
     "a11yImpactCounts": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "critical",
-        "serious",
-        "moderate",
-        "minor"
-      ],
+      "required": ["critical", "serious", "moderate", "minor"],
       "properties": {
         "critical": {
           "type": "number",
@@ -349,11 +306,7 @@
     "a11yNode": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "target",
-        "htmlSnippet",
-        "failureSummary"
-      ],
+      "required": ["target", "htmlSnippet", "failureSummary"],
       "properties": {
         "target": {
           "type": "array",
@@ -367,10 +320,7 @@
           "maxLength": 501
         },
         "failureSummary": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "maxLength": 1001
         }
       }
@@ -378,16 +328,7 @@
     "a11yViolation": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "description",
-        "help",
-        "helpUrl",
-        "impact",
-        "wcagTags",
-        "tags",
-        "nodes"
-      ],
+      "required": ["id", "description", "help", "helpUrl", "impact", "wcagTags", "tags", "nodes"],
       "properties": {
         "id": {
           "type": "string"
@@ -402,10 +343,7 @@
           "type": "string"
         },
         "impact": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "wcagTags": {
           "type": "array",
@@ -433,12 +371,7 @@
     "a11yMetadata": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "totalViolations",
-        "keptViolations",
-        "droppedViolations",
-        "droppedNodes"
-      ],
+      "required": ["totalViolations", "keptViolations", "droppedViolations", "droppedNodes"],
       "properties": {
         "totalViolations": {
           "type": "number",
@@ -466,13 +399,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "violations",
-            "countsByImpact",
-            "reportPath",
-            "details",
-            "metadata"
-          ],
+          "required": ["violations", "countsByImpact", "reportPath", "details", "metadata"],
           "properties": {
             "violations": {
               "type": "number",
@@ -501,12 +428,7 @@
     "performanceMetrics": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "performanceScore",
-        "lcpMs",
-        "cls",
-        "tbtMs"
-      ],
+      "required": ["performanceScore", "lcpMs", "cls", "tbtMs"],
       "properties": {
         "performanceScore": {
           "type": "number",
@@ -530,12 +452,7 @@
     "performanceBudgets": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "performance",
-        "lcpMs",
-        "cls",
-        "tbtMs"
-      ],
+      "required": ["performance", "lcpMs", "cls", "tbtMs"],
       "properties": {
         "performance": {
           "type": "number",
@@ -559,12 +476,7 @@
     "performanceBudgetResults": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "performance",
-        "lcp",
-        "cls",
-        "tbt"
-      ],
+      "required": ["performance", "lcp", "cls", "tbt"],
       "properties": {
         "performance": {
           "type": "boolean"
@@ -583,12 +495,7 @@
     "performanceCategoryScores": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "performance",
-        "accessibility",
-        "bestPractices",
-        "seo"
-      ],
+      "required": ["performance", "accessibility", "bestPractices", "seo"],
       "properties": {
         "performance": {
           "type": "number",
@@ -615,12 +522,7 @@
     "performanceExtendedMetrics": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "fcpMs",
-        "speedIndexMs",
-        "ttiMs",
-        "ttfbMs"
-      ],
+      "required": ["fcpMs", "speedIndexMs", "ttiMs", "ttfbMs"],
       "properties": {
         "fcpMs": {
           "type": "number",
@@ -667,17 +569,11 @@
           "type": "string"
         },
         "estimatedSavingsMs": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "minimum": 0
         },
         "estimatedSavingsBytes": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "minimum": 0
         }
       }
@@ -732,14 +628,7 @@
     "visualResult": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "name",
-        "currentPath",
-        "baselinePath",
-        "diffPath",
-        "mismatchRatio",
-        "status"
-      ],
+      "required": ["name", "currentPath", "baselinePath", "diffPath", "mismatchRatio", "status"],
       "properties": {
         "name": {
           "type": "string"
@@ -751,25 +640,19 @@
           "type": "string"
         },
         "diffPath": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "mismatchRatio": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "minimum": 0
+        },
+        "engine": {
+          "type": "string",
+          "enum": ["pixelmatch", "native-rust"]
         },
         "status": {
           "type": "string",
-          "enum": [
-            "baseline_created",
-            "baseline_updated",
-            "diffed"
-          ]
+          "enum": ["baseline_created", "baseline_updated", "diffed"]
         }
       }
     },
@@ -781,12 +664,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "results",
-            "threshold",
-            "failed",
-            "maxMismatchRatio"
-          ],
+          "required": ["results", "threshold", "failed", "maxMismatchRatio"],
           "properties": {
             "results": {
               "type": "array",
@@ -813,11 +691,7 @@
     "consoleMessage": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type",
-        "text",
-        "location"
-      ],
+      "required": ["type", "text", "location"],
       "properties": {
         "type": {
           "type": "string"
@@ -827,23 +701,14 @@
           "maxLength": 1001
         },
         "location": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         }
       }
     },
     "consoleSummary": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "total",
-        "errorCount",
-        "warningCount",
-        "dropped",
-        "messages"
-      ],
+      "required": ["total", "errorCount", "warningCount", "dropped", "messages"],
       "properties": {
         "total": {
           "type": "number",
@@ -873,20 +738,14 @@
     "jsError": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "message",
-        "stack"
-      ],
+      "required": ["message", "stack"],
       "properties": {
         "message": {
           "type": "string",
           "maxLength": 1001
         },
         "stack": {
-          "type": [
-            "string",
-            "null"
-          ],
+          "type": ["string", "null"],
           "maxLength": 2001
         }
       }
@@ -894,11 +753,7 @@
     "jsErrorSummary": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "total",
-        "dropped",
-        "errors"
-      ],
+      "required": ["total", "dropped", "errors"],
       "properties": {
         "total": {
           "type": "number",
@@ -920,12 +775,7 @@
     "networkSummary": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "totalRequests",
-        "failedRequests",
-        "transferSizeBytes",
-        "resourceTypeBreakdown"
-      ],
+      "required": ["totalRequests", "failedRequests", "transferSizeBytes", "resourceTypeBreakdown"],
       "properties": {
         "totalRequests": {
           "type": "number",
@@ -951,11 +801,7 @@
     "runtimeSignals": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "console",
-        "jsErrors",
-        "network"
-      ],
+      "required": ["console", "jsErrors", "network"],
       "properties": {
         "console": {
           "$ref": "#/$defs/consoleSummary"
@@ -995,11 +841,11 @@
         },
         "schemaVersion": {
           "type": "string",
-          "const": "2.2.0"
+          "const": "2.3.0"
         },
         "toolVersion": {
           "type": "string",
-          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
         },
         "overallStatus": {
           "$ref": "#/$defs/overallStatus"
@@ -1048,29 +894,16 @@
     "trendNumericDelta": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "current",
-        "previous",
-        "delta"
-      ],
+      "required": ["current", "previous", "delta"],
       "properties": {
         "current": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "previous": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "delta": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         }
       }
     },
@@ -1155,31 +988,16 @@
       "properties": {
         "status": {
           "type": "string",
-          "enum": [
-            "disabled",
-            "no_previous",
-            "incompatible_previous",
-            "corrupt_previous",
-            "ready"
-          ]
+          "enum": ["disabled", "no_previous", "incompatible_previous", "corrupt_previous", "ready"]
         },
         "historyDir": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "previousSnapshotPath": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "message": {
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "metrics": {
           "oneOf": [
@@ -1254,11 +1072,7 @@
         "artifacts": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "summary",
-            "summaryV2",
-            "report"
-          ],
+          "required": ["summary", "summaryV2", "report"],
           "properties": {
             "summary": {
               "type": "string"
@@ -1288,18 +1102,12 @@
               "minimum": 0
             },
             "performanceScore": {
-              "type": [
-                "number",
-                "null"
-              ],
+              "type": ["number", "null"],
               "minimum": 0,
               "maximum": 1
             },
             "maxMismatchRatio": {
-              "type": [
-                "number",
-                "null"
-              ],
+              "type": ["number", "null"],
               "minimum": 0
             },
             "consoleErrors": {
@@ -1323,30 +1131,16 @@
     },
     "insightSeverity": {
       "type": "string",
-      "enum": [
-        "critical",
-        "high",
-        "medium",
-        "low"
-      ]
+      "enum": ["critical", "high", "medium", "low"]
     },
     "insightSource": {
       "type": "string",
-      "enum": [
-        "a11y",
-        "perf",
-        "visual",
-        "runtime",
-        "trend"
-      ]
+      "enum": ["a11y", "perf", "visual", "runtime", "trend"]
     },
     "insightReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "label",
-        "url"
-      ],
+      "required": ["label", "url"],
       "properties": {
         "label": {
           "type": "string"
@@ -1424,9 +1218,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "recommendations"
-          ],
+          "required": ["recommendations"],
           "properties": {
             "recommendations": {
               "type": "array",
@@ -1489,10 +1281,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "window",
-            "points"
-          ],
+          "required": ["window", "points"],
           "properties": {
             "window": {
               "type": "number",
@@ -1512,23 +1301,14 @@
     "trendInsight": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "severity",
-        "title",
-        "recommendation"
-      ],
+      "required": ["id", "severity", "title", "recommendation"],
       "properties": {
         "id": {
           "type": "string"
         },
         "severity": {
           "type": "string",
-          "enum": [
-            "high",
-            "medium",
-            "low"
-          ]
+          "enum": ["high", "medium", "low"]
         },
         "title": {
           "type": "string"

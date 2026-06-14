@@ -238,7 +238,10 @@ async function disconnectPuppeteerBrowser(
   }
 }
 
-async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promise<PortableLighthouseRuntime> {
+async function applyPortableLighthouseEnv(
+  outDir: string,
+  logger: Logger
+): Promise<PortableLighthouseRuntime> {
   const previousLocalAppData = process.env.LOCALAPPDATA;
   const previousTemp = process.env.TEMP;
   const previousTmp = process.env.TMP;
@@ -294,7 +297,7 @@ async function applyPortableLighthouseEnv(outDir: string, logger: Logger): Promi
  */
 function resolveChromePath(): string | undefined {
   if (process.env.CHROME_PATH) {
-    return process.env.CHROME_PATH;
+    return existsSync(process.env.CHROME_PATH) ? process.env.CHROME_PATH : undefined;
   }
 
   // Try Playwright's bundled Chromium
@@ -328,6 +331,24 @@ function buildLighthouseHeaders(auth: AuditAuth | null): Record<string, string> 
   return Object.keys(headers).length > 0 ? headers : null;
 }
 
+function isSameOrigin(left: string, right: string): boolean {
+  try {
+    return new URL(left).origin === new URL(right).origin;
+  } catch {
+    return false;
+  }
+}
+
+function selectAuthScopeUrl(requestUrl: string, authScopeUrls: Iterable<string>): string | null {
+  for (const scopeUrl of authScopeUrls) {
+    if (isSameOrigin(requestUrl, scopeUrl)) {
+      return scopeUrl;
+    }
+  }
+
+  return null;
+}
+
 export async function runLighthouseAudit(
   url: string,
   outDir: string,
@@ -338,15 +359,15 @@ export async function runLighthouseAudit(
 ): Promise<LighthouseSummary> {
   logger.debug("Running Lighthouse audit");
   const runtime = await applyPortableLighthouseEnv(outDir, logger);
-  const initialTarget =
-    options.targetPolicy
-      ? await resolveAuditedTarget(url, logger, options.targetPolicy, {
-          context: "Lighthouse target"
-        })
-      : null;
+  const initialTarget = options.targetPolicy
+    ? await resolveAuditedTarget(url, logger, options.targetPolicy, {
+        context: "Lighthouse target"
+      })
+    : null;
   const authHeaders = buildLighthouseHeaders(auth);
   const authTargetUrl = initialTarget?.url ?? url;
-  const effectiveHostResolverRules = options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
+  const effectiveHostResolverRules =
+    options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
   const chromePath = resolveChromePath();
   if (chromePath) {
     logger.debug(`Using Chrome at: ${chromePath}`);
@@ -364,11 +385,15 @@ export async function runLighthouseAudit(
     let puppeteerBrowser: PuppeteerBrowserLike | null = null;
     let puppeteerPage: PuppeteerPageLike | null = null;
     let blockedRequestError: Error | null = null;
+    const authScopeUrls = new Set<string>([authTargetUrl]);
     try {
       const launchPinnedHostResolverRules = new Map<string, string | null>();
 
       if (initialTarget) {
-        launchPinnedHostResolverRules.set(initialTarget.classification.hostname, effectiveHostResolverRules);
+        launchPinnedHostResolverRules.set(
+          initialTarget.classification.hostname,
+          effectiveHostResolverRules
+        );
       }
 
       const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
@@ -386,16 +411,25 @@ export async function runLighthouseAudit(
         await puppeteerPage.setRequestInterception(true);
         puppeteerPage.on("request", async (request) => {
           try {
+            let requestAuthScopeUrl =
+              selectAuthScopeUrl(request.url(), authScopeUrls) ?? authTargetUrl;
             if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
               const contextLabel = request.isNavigationRequest()
                 ? "Lighthouse navigation target"
                 : "Lighthouse request target";
-              await navigationTargetVerifier.verify(request.url(), contextLabel);
+              const verifiedTarget = await navigationTargetVerifier.verify(
+                request.url(),
+                contextLabel
+              );
+              if (request.isNavigationRequest() && verifiedTarget) {
+                authScopeUrls.add(verifiedTarget.url);
+                requestAuthScopeUrl = verifiedTarget.url;
+              }
             }
 
             const scopedHeaders = applyScopedAuthHeaders({
               requestUrl: request.url(),
-              targetUrl: authTargetUrl,
+              targetUrl: requestAuthScopeUrl,
               requestHeaders: request.headers(),
               authHeaders
             });

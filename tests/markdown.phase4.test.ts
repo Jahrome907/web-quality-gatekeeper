@@ -59,7 +59,8 @@ function createPage(index: number, name: string, status: "pass" | "fail") {
 describe("phase4 markdown rendering", () => {
   it("renders trend ready state and deterministic page section ordering", () => {
     const markdown = formatSummaryAsMarkdown({
-      $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+      $schema:
+        "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
       schemaVersion: "2.1.0",
       mode: "multi",
       overallStatus: "fail",
@@ -102,7 +103,9 @@ describe("phase4 markdown rendering", () => {
 
     expect(markdown).toContain("## Trend");
     expect(markdown).toContain("| Metric | Current | Previous | Delta |");
-    expect(markdown).toContain("| Page | URL | Status Changed | A11y Δ | Perf Score Δ | Visual Mismatch Δ |");
+    expect(markdown).toContain(
+      "| Page | URL | Status Changed | A11y Δ | Perf Score Δ | Visual Mismatch Δ |"
+    );
     expect(markdown).toContain("## 1. landing");
     expect(markdown).toContain("## 2. checkout");
 
@@ -114,7 +117,8 @@ describe("phase4 markdown rendering", () => {
 
   it("renders non-ready trend states compactly for PR-comment readability", () => {
     const markdown = formatSummaryAsMarkdown({
-      $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+      $schema:
+        "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
       schemaVersion: "2.1.0",
       mode: "single",
       overallStatus: "pass",
@@ -140,14 +144,17 @@ describe("phase4 markdown rendering", () => {
     } as never);
 
     expect(markdown).toContain("- **Status**: incompatible_previous");
-    expect(markdown).toContain("- **Details**: No compatible previous snapshot was found in trend history.");
+    expect(markdown).toContain(
+      "- **Details**: No compatible previous snapshot was found in trend history."
+    );
     expect(markdown).not.toContain("### Per-Page Deltas");
     expect(markdown).toContain("https://img.shields.io/badge/");
   });
 
   it("maps legacy trend status aliases to canonical labels for compatibility rendering", () => {
     const markdown = formatSummaryAsMarkdown({
-      $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+      $schema:
+        "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
       schemaVersion: "2.1.0",
       mode: "single",
       overallStatus: "pass",
@@ -178,7 +185,8 @@ describe("phase4 markdown rendering", () => {
 
   it("escapes target-derived Markdown in tables and headings", () => {
     const markdown = formatSummaryAsMarkdown({
-      $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+      $schema:
+        "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
       schemaVersion: "2.1.0",
       mode: "multi",
       overallStatus: "fail",
@@ -277,7 +285,8 @@ describe("phase4 markdown rendering", () => {
 
   it("keeps backticks inside Markdown code spans for artifact paths", () => {
     const markdown = formatSummaryAsMarkdown({
-      $schema: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+      $schema:
+        "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
       schemaVersion: "2.1.0",
       mode: "multi",
       overallStatus: "pass",

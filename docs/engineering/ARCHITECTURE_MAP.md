@@ -6,7 +6,7 @@ main subsystems in `web-quality-gatekeeper`.
 ## Request Flow
 
 1. `src/cli.ts` parses flags, environment-derived defaults, and command-mode
-   behavior for `wqg audit`.
+   behavior for `wqg audit`, `wqg init`, and `wqg doctor`.
 2. `src/index.ts` validates paths, loads config/policy overlays, resolves
    targets, and orchestrates the audit lifecycle.
 3. `src/runner/*` performs the browser-backed work:
@@ -27,6 +27,9 @@ main subsystems in `web-quality-gatekeeper`.
 
 - `src/cli.ts`: CLI flag definitions, environment defaults, and exit-code
   behavior.
+- `src/doctor.ts`: local prerequisite checks for Node.js, config validity, safe
+  paths, browser availability, and native visual diff readiness, including the
+  native engine health probe used by `wqg doctor --strict`.
 - `src/config/*`: default config, schema validation, built-in policies, and
   config inheritance.
 - `src/utils/url.ts`: SSRF-aware target classification, internal-target
@@ -63,7 +66,8 @@ Change here when:
 - `src/report/*`: HTML, Markdown, remediation guidance, summaries, trend
   dashboard, PR Risk Ledger output, and report templating.
 - `schemas/*`: shipped JSON Schema files for summary contracts.
-- `docs/contracts/*`: protected-interface docs and schema ownership notes.
+- `docs/contracts/*`: protected-interface docs, PR Risk Ledger contract notes,
+  and schema ownership notes.
 - `docs/migrations/summary-v2.md`: consumer-facing compatibility guidance.
 
 Change here when:
@@ -90,7 +94,7 @@ Change here when:
 ## Verification Map
 
 - Run `npm run check` for most code changes.
-- Run `npm run contracts:check` whenever summary/runtime/doc alignment changes.
+- Run `npm run contracts:check` whenever summary, PR Risk Ledger, schema, runtime, or contract-doc alignment changes.
 - Run `npm run security:audit` for runtime dependency or security-surface work.
 - Run `npm run smoke:pack` for package or tarball-path changes.
 - Run `npm run smoke:action` for composite Action or workflow-consumer changes.

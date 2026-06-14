@@ -2,7 +2,7 @@
 
 This document freezes the `summary.v2.json` contract emitted by `src/index.ts`.
 
-- Current schema version: `2.2.0`
+- Current schema version: `2.3.0`
 - Schema URI: `https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json`
 - Local schema file: `schemas/summary.v2.json`
 
@@ -26,39 +26,39 @@ Run `npm run contracts:check` to verify that:
 
 ## Top-Level Contract
 
-| Path | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `$schema` | `string` | Yes | Always the v2 schema URI. |
-| `schemaVersion` | `"2.2.0"` | Yes | Contract freeze point for this phase. |
-| `toolVersion` | `string` | Yes | CLI/package semver string. |
-| `mode` | `"single" \| "multi"` | Yes | `single` for one target, `multi` for multiple targets. |
-| `overallStatus` | `"pass" \| "fail"` | Yes | Rollup status across pages. |
-| `startedAt` | `string` | Yes | ISO date-time. |
-| `durationMs` | `number` | Yes | Non-negative total run duration. |
-| `primaryUrl` | `string` | Yes | Primary page URL for the run. |
-| `schemaPointers` | `object` | Yes | Contains `v1` and `v2` schema URIs. |
-| `schemaVersions` | `object` | Yes | Contains `v1` and `v2` schema versions. |
-| `compatibility` | `object` | Yes | Documents v1 compatibility behavior. |
-| `rollup` | `object` | Yes | Aggregate counters across pages. |
-| `pages` | `array` | Yes | Per-page results with canonical details. |
-| `artifacts` | `object` | Yes | Aggregate artifact pointers including trend/action-plan outputs. |
-| `trend` | `object` | Yes | Trend comparison state, history window, and actionable insights. |
-| `insights` | `object \| null` | Yes | Run-level prioritized remediation recommendations. |
+| Path             | Type                  | Required | Notes                                                            |
+| ---------------- | --------------------- | -------- | ---------------------------------------------------------------- |
+| `$schema`        | `string`              | Yes      | Always the v2 schema URI.                                        |
+| `schemaVersion`  | `"2.3.0"`             | Yes      | Contract freeze point for this phase.                            |
+| `toolVersion`    | `string`              | Yes      | CLI/package semver string.                                       |
+| `mode`           | `"single" \| "multi"` | Yes      | `single` for one target, `multi` for multiple targets.           |
+| `overallStatus`  | `"pass" \| "fail"`    | Yes      | Rollup status across pages.                                      |
+| `startedAt`      | `string`              | Yes      | ISO date-time.                                                   |
+| `durationMs`     | `number`              | Yes      | Non-negative total run duration.                                 |
+| `primaryUrl`     | `string`              | Yes      | Primary page URL for the run.                                    |
+| `schemaPointers` | `object`              | Yes      | Contains `v1` and `v2` schema URIs.                              |
+| `schemaVersions` | `object`              | Yes      | Contains `v1` and `v2` schema versions.                          |
+| `compatibility`  | `object`              | Yes      | Documents v1 compatibility behavior.                             |
+| `rollup`         | `object`              | Yes      | Aggregate counters across pages.                                 |
+| `pages`          | `array`               | Yes      | Per-page results with canonical details.                         |
+| `artifacts`      | `object`              | Yes      | Aggregate artifact pointers including review, trend, and action-plan outputs. |
+| `trend`          | `object`              | Yes      | Trend comparison state, history window, and actionable insights. |
+| `insights`       | `object \| null`      | Yes      | Run-level prioritized remediation recommendations.               |
 
 ## Page Entry Contract (`pages[]`)
 
-| Path | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `index` | `number` | Yes | Zero-based target index. |
-| `name` | `string` | Yes | Target display name. |
-| `url` | `string` | Yes | Page URL. |
-| `overallStatus` | `"pass" \| "fail"` | Yes | Per-page status. |
-| `startedAt` | `string` | Yes | ISO date-time. |
-| `durationMs` | `number` | Yes | Non-negative page duration. |
-| `steps` | `object` | Yes | `playwright`, `a11y`, `perf`, `visual`. |
-| `artifacts` | `object` | Yes | `summary`, `summaryV2`, `report` relative paths. |
-| `metrics` | `object` | Yes | Quick rollup metrics for dashboards. |
-| `details` | `object` | Yes | Canonical per-page v2 payload. |
+| Path            | Type               | Required | Notes                                            |
+| --------------- | ------------------ | -------- | ------------------------------------------------ |
+| `index`         | `number`           | Yes      | Zero-based target index.                         |
+| `name`          | `string`           | Yes      | Target display name.                             |
+| `url`           | `string`           | Yes      | Page URL.                                        |
+| `overallStatus` | `"pass" \| "fail"` | Yes      | Per-page status.                                 |
+| `startedAt`     | `string`           | Yes      | ISO date-time.                                   |
+| `durationMs`    | `number`           | Yes      | Non-negative page duration.                      |
+| `steps`         | `object`           | Yes      | `playwright`, `a11y`, `perf`, `visual`.          |
+| `artifacts`     | `object`           | Yes      | `summary`, `summaryV2`, `report` relative paths. |
+| `metrics`       | `object`           | Yes      | Quick rollup metrics for dashboards.             |
+| `details`       | `object`           | Yes      | Canonical per-page v2 payload.                   |
 
 ## Canonical Details Contract (`pages[].details`)
 
@@ -175,16 +175,17 @@ When present, `performance` includes:
 
 ## Backward Compatibility Matrix
 
-| Consumer | Artifact | Status | Migration |
-| --- | --- | --- | --- |
-| Existing v1 consumer | `summary.json` | Retained | No changes required. |
-| New consumer needing richer extraction | `summary.v2.json` | Supported | Read `pages[].details` as canonical per-page payload. |
-| Mixed adoption | Both | Supported | Keep v1 integrations on `summary.json`; add v2 in parallel. |
+| Consumer                               | Artifact          | Status    | Migration                                                   |
+| -------------------------------------- | ----------------- | --------- | ----------------------------------------------------------- |
+| Existing v1 consumer                   | `summary.json`    | Retained  | No changes required.                                        |
+| New consumer needing richer extraction | `summary.v2.json` | Supported | Read `pages[].details` as canonical per-page payload.       |
+| Mixed adoption                         | Both              | Supported | Keep v1 integrations on `summary.json`; add v2 in parallel. |
 
 ## Compatibility and `artifacts.summaryV2`
 
 - `summary.json` remains the compatibility artifact.
 - `summary.v2.json` is the richer aggregate artifact.
+- `artifacts.prRiskLedgerJson` and `artifacts.prRiskLedgerMd` point to the merge-review risk ledger outputs.
 - `pages[].details.artifacts.summaryV2` and `pages[].artifacts.summaryV2`
   point to the per-page v2 summary path.
 
@@ -199,7 +200,7 @@ and `npm run contracts:check` as the authoritative contract gate.
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-  "schemaVersion": "2.2.0",
+  "schemaVersion": "2.3.0",
   "toolVersion": "0.3.0",
   "mode": "single",
   "overallStatus": "pass",
@@ -210,7 +211,7 @@ and `npm run contracts:check` as the authoritative contract gate.
     "v1": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
     "v2": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
   },
-  "schemaVersions": { "v1": "1.1.0", "v2": "2.2.0" },
+  "schemaVersions": { "v1": "1.1.0", "v2": "2.3.0" },
   "compatibility": {
     "v1SummaryPath": "summary.json",
     "v1Schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
@@ -223,6 +224,16 @@ and `npm run contracts:check` as the authoritative contract gate.
     "a11yViolations": 0,
     "performanceBudgetFailures": 0,
     "visualFailures": 0
+  },
+  "artifacts": {
+    "summary": "summary.json",
+    "summaryV2": "summary.v2.json",
+    "report": "report.html",
+    "prRiskLedgerJson": "pr-risk-ledger.json",
+    "prRiskLedgerMd": "pr-risk-ledger.md",
+    "trendDashboardHtml": null,
+    "trendHistoryJson": null,
+    "actionPlanMd": "action-plan.md"
   },
   "pages": [
     {
@@ -253,7 +264,7 @@ and `npm run contracts:check` as the authoritative contract gate.
       },
       "details": {
         "$schema": "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-        "schemaVersion": "2.2.0",
+        "schemaVersion": "2.3.0",
         "toolVersion": "0.3.0",
         "overallStatus": "pass",
         "url": "https://example.com",
@@ -280,9 +291,20 @@ and `npm run contracts:check` as the authoritative contract gate.
         "performance": null,
         "visual": null,
         "runtimeSignals": {
-          "console": { "total": 0, "errorCount": 0, "warningCount": 0, "dropped": 0, "messages": [] },
+          "console": {
+            "total": 0,
+            "errorCount": 0,
+            "warningCount": 0,
+            "dropped": 0,
+            "messages": []
+          },
           "jsErrors": { "total": 0, "dropped": 0, "errors": [] },
-          "network": { "totalRequests": 0, "failedRequests": 0, "transferSizeBytes": 0, "resourceTypeBreakdown": {} }
+          "network": {
+            "totalRequests": 0,
+            "failedRequests": 0,
+            "transferSizeBytes": 0,
+            "resourceTypeBreakdown": {}
+          }
         }
       }
     }
@@ -312,8 +334,85 @@ and `npm run contracts:check` as the authoritative contract gate.
     "visualFailures": 0
   },
   "pages": [
-    { "index": 0, "name": "Landing", "overallStatus": "pass", "metrics": { "a11yViolations": 0, "performanceScore": 0.96, "maxMismatchRatio": 0.0, "consoleErrors": 0, "jsErrors": 0, "failedRequests": 0 }, "details": { "a11y": null, "performance": null, "visual": null, "runtimeSignals": { "console": { "total": 0, "errorCount": 0, "warningCount": 0, "dropped": 0, "messages": [] }, "jsErrors": { "total": 0, "dropped": 0, "errors": [] }, "network": { "totalRequests": 0, "failedRequests": 0, "transferSizeBytes": 0, "resourceTypeBreakdown": {} } } } },
-    { "index": 1, "name": "Checkout", "overallStatus": "fail", "metrics": { "a11yViolations": 2, "performanceScore": 0.62, "maxMismatchRatio": 0.0, "consoleErrors": 1, "jsErrors": 0, "failedRequests": 1 }, "details": { "a11y": { "violations": 2, "countsByImpact": { "critical": 1, "serious": 1, "moderate": 0, "minor": 0 }, "reportPath": "pages/02-checkout/axe.json", "details": [], "metadata": { "totalViolations": 2, "keptViolations": 2, "droppedViolations": 0, "droppedNodes": 0 } }, "performance": null, "visual": null, "runtimeSignals": { "console": { "total": 3, "errorCount": 1, "warningCount": 0, "dropped": 0, "messages": [] }, "jsErrors": { "total": 0, "dropped": 0, "errors": [] }, "network": { "totalRequests": 31, "failedRequests": 1, "transferSizeBytes": 120000, "resourceTypeBreakdown": { "document": 1, "script": 10 } } } } }
+    {
+      "index": 0,
+      "name": "Landing",
+      "overallStatus": "pass",
+      "metrics": {
+        "a11yViolations": 0,
+        "performanceScore": 0.96,
+        "maxMismatchRatio": 0.0,
+        "consoleErrors": 0,
+        "jsErrors": 0,
+        "failedRequests": 0
+      },
+      "details": {
+        "a11y": null,
+        "performance": null,
+        "visual": null,
+        "runtimeSignals": {
+          "console": {
+            "total": 0,
+            "errorCount": 0,
+            "warningCount": 0,
+            "dropped": 0,
+            "messages": []
+          },
+          "jsErrors": { "total": 0, "dropped": 0, "errors": [] },
+          "network": {
+            "totalRequests": 0,
+            "failedRequests": 0,
+            "transferSizeBytes": 0,
+            "resourceTypeBreakdown": {}
+          }
+        }
+      }
+    },
+    {
+      "index": 1,
+      "name": "Checkout",
+      "overallStatus": "fail",
+      "metrics": {
+        "a11yViolations": 2,
+        "performanceScore": 0.62,
+        "maxMismatchRatio": 0.0,
+        "consoleErrors": 1,
+        "jsErrors": 0,
+        "failedRequests": 1
+      },
+      "details": {
+        "a11y": {
+          "violations": 2,
+          "countsByImpact": { "critical": 1, "serious": 1, "moderate": 0, "minor": 0 },
+          "reportPath": "pages/02-checkout/axe.json",
+          "details": [],
+          "metadata": {
+            "totalViolations": 2,
+            "keptViolations": 2,
+            "droppedViolations": 0,
+            "droppedNodes": 0
+          }
+        },
+        "performance": null,
+        "visual": null,
+        "runtimeSignals": {
+          "console": {
+            "total": 3,
+            "errorCount": 1,
+            "warningCount": 0,
+            "dropped": 0,
+            "messages": []
+          },
+          "jsErrors": { "total": 0, "dropped": 0, "errors": [] },
+          "network": {
+            "totalRequests": 31,
+            "failedRequests": 1,
+            "transferSizeBytes": 120000,
+            "resourceTypeBreakdown": { "document": 1, "script": 10 }
+          }
+        }
+      }
+    }
   ]
 }
 ```
@@ -333,9 +432,20 @@ and `npm run contracts:check` as the authoritative contract gate.
         "performance": null,
         "visual": null,
         "runtimeSignals": {
-          "console": { "total": 1, "errorCount": 0, "warningCount": 1, "dropped": 0, "messages": [] },
+          "console": {
+            "total": 1,
+            "errorCount": 0,
+            "warningCount": 1,
+            "dropped": 0,
+            "messages": []
+          },
           "jsErrors": { "total": 0, "dropped": 0, "errors": [] },
-          "network": { "totalRequests": 8, "failedRequests": 0, "transferSizeBytes": 42000, "resourceTypeBreakdown": { "document": 1, "script": 4 } }
+          "network": {
+            "totalRequests": 8,
+            "failedRequests": 0,
+            "transferSizeBytes": 42000,
+            "resourceTypeBreakdown": { "document": 1, "script": 4 }
+          }
         }
       }
     }
@@ -360,24 +470,25 @@ and `npm run contracts:check` as the authoritative contract gate.
 
 ## Semver Policy
 
-- `2.2.0` is the frozen base for this phase.
+- `2.3.0` is the frozen base for this phase.
 - Additive, backward-compatible changes increment minor version (`2.x+1.0`).
 - Breaking field/type/requiredness changes increment major version (`3.0.0`).
 
 ## Extraction Config Keys (Validated)
 
-| Key | Type | Default | Bounds / Validation |
-| --- | --- | --- | --- |
-| `retries.count` | `number` | `1` | Integer, `0..5` |
-| `retries.delayMs` | `number` | `2000` | Integer, `0..10000` |
-| `axe.includeRules[]` | `string[]` | `[]` | Max 50 entries, no duplicates |
-| `axe.excludeRules[]` | `string[]` | `[]` | Max 50 entries, no duplicates |
-| `axe.includeTags[]` | `string[]` | `[]` | Max 50 entries, no duplicates |
-| `axe.excludeTags[]` | `string[]` | `[]` | Max 50 entries, no duplicates |
-| `visual.pixelmatch.includeAA` | `boolean` | `false` | Boolean |
-| `visual.pixelmatch.threshold` | `number` | `0.1` | `0..1` |
-| `visual.ignoreRegions[]` | `array` | `[]` | Max 25 regions; each region has integer `x,y >= 0`, integer `width,height > 0`, each `<= 100000` |
+| Key                           | Type       | Default | Bounds / Validation                                                                              |
+| ----------------------------- | ---------- | ------- | ------------------------------------------------------------------------------------------------ |
+| `retries.count`               | `number`   | `1`     | Integer, `0..5`                                                                                  |
+| `retries.delayMs`             | `number`   | `2000`  | Integer, `0..10000`                                                                              |
+| `axe.includeRules[]`          | `string[]` | `[]`    | Max 50 entries, no duplicates                                                                    |
+| `axe.excludeRules[]`          | `string[]` | `[]`    | Max 50 entries, no duplicates                                                                    |
+| `axe.includeTags[]`           | `string[]` | `[]`    | Max 50 entries, no duplicates                                                                    |
+| `axe.excludeTags[]`           | `string[]` | `[]`    | Max 50 entries, no duplicates                                                                    |
+| `visual.pixelmatch.includeAA` | `boolean`  | `false` | Boolean                                                                                          |
+| `visual.pixelmatch.threshold` | `number`   | `0.1`   | `0..1`                                                                                           |
+| `visual.ignoreRegions[]`      | `array`    | `[]`    | Max 25 regions; each region has integer `x,y >= 0`, integer `width,height > 0`, each `<= 100000` |
 
 Default values are applied by runtime fallback logic (`retries.*` and `visual.pixelmatch.*`).
 `runVisualDiff` applies `visual.pixelmatch.*` to `pixelmatch` options and masks `visual.ignoreRegions`
 before mismatch ratio calculation.
+Visual diff results may include `engine` (`pixelmatch` or `native-rust`) when a comparison ran.

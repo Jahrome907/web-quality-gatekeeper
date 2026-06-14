@@ -7,7 +7,7 @@ export const SCHEMA_VERSION = "1.1.0";
 export const SUMMARY_SCHEMA_URI =
   "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json";
 
-export const SCHEMA_VERSION_V2 = "2.2.0";
+export const SCHEMA_VERSION_V2 = "2.3.0";
 export const SUMMARY_SCHEMA_URI_V2 =
   "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json";
 export const SUMMARY_SCHEMA_POINTERS = {
@@ -176,6 +176,24 @@ function toV1PerformanceSummary(performance: LighthouseSummary | null): Summary[
   };
 }
 
+function toV1VisualSummary(visual: VisualDiffSummary | null): Summary["visual"] {
+  if (!visual) {
+    return null;
+  }
+
+  return {
+    ...visual,
+    results: visual.results.map((result) => ({
+      name: result.name,
+      currentPath: result.currentPath,
+      baselinePath: result.baselinePath,
+      diffPath: result.diffPath,
+      mismatchRatio: result.mismatchRatio,
+      status: result.status
+    }))
+  };
+}
+
 export function buildSummary(params: {
   url: string;
   startedAt: string;
@@ -208,7 +226,7 @@ export function buildSummary(params: {
     screenshots: params.screenshots,
     a11y: toV1A11ySummary(params.a11y),
     performance: toV1PerformanceSummary(params.performance),
-    visual: params.visual
+    visual: toV1VisualSummary(params.visual)
   };
 }
 

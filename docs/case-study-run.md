@@ -8,6 +8,7 @@ server, runs a real audit, and writes a machine-readable provenance manifest.
 ## Prerequisites
 
 ```bash
+npm run engines:check
 npm ci
 npx playwright install chromium
 npm run build
@@ -23,6 +24,9 @@ Default output directory:
 
 - `artifacts/case-study/fixture/artifacts/report.html`
 - `artifacts/case-study/fixture/artifacts/summary.v2.json`
+- `artifacts/case-study/fixture/artifacts/action-plan.md`
+- `artifacts/case-study/fixture/artifacts/pr-risk-ledger.json`
+- `artifacts/case-study/fixture/artifacts/pr-risk-ledger.md`
 - `artifacts/case-study/fixture/fixture-provenance.json`
 
 Override the output directory when you want an isolated run:
@@ -36,15 +40,16 @@ node scripts/case-study/run-fixture-case-study.mjs --out-dir .tmp-case-study
 1. Starts a local static server for `tests/fixtures/site`.
 2. Runs `wqg audit` against that server with `tests/fixtures/integration-config.json`.
 3. Writes the normal artifact bundle under the output directory.
-4. Writes `fixture-provenance.json` with the source fixture path, config path, command, and key result metrics.
+4. Writes `fixture-provenance.json` with the source fixture path, config path, Node engine preflight result, command, and key result metrics.
 
 ## Reproducibility Checklist
 
-- `npm ci` completed without local dependency drift.
-- `npx playwright install chromium` completed for the current machine.
-- `npm run build` completed before running the fixture script.
-- `fixture-provenance.json` exists and records the command, config path, and output paths.
-- `summary.v2.json` and `report.html` exist under the output directory.
+- Confirm `npm run engines:check` passes for the current Node.js runtime before treating the run as release evidence.
+- Confirm `npm ci` completes without local dependency drift.
+- Confirm `npx playwright install chromium` completes for the current machine.
+- Confirm `npm run build` completes before running the fixture script.
+- `fixture-provenance.json` exists and records the Node engine preflight result, command, config path, and output paths.
+- `summary.v2.json`, `report.html`, `action-plan.md`, `pr-risk-ledger.json`, and `pr-risk-ledger.md` exist under the output directory.
 - The fixture run result matches the expected happy path:
   - `overallStatus: "pass"`
   - `a11yViolations: 0`

@@ -711,7 +711,7 @@ describe("playwright runner", () => {
       {
         name: "session_id",
         value: "abc123",
-        url: "https://example.com/"
+        url: "https://www.example.com/"
       }
     ]);
     const redirectedContinue = vi.fn().mockResolvedValue(undefined);
@@ -740,6 +740,7 @@ describe("playwright runner", () => {
     });
     expect(redirectedContinue).toHaveBeenCalledWith({
       headers: {
+        authorization: "Bearer token-123",
         Accept: "text/html"
       }
     });

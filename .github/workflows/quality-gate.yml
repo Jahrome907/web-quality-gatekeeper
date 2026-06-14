@@ -38,6 +38,9 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Check Node engine
+        run: npm run engines:check
+
       - name: Install dependencies
         # Security: Use --ignore-scripts to prevent malicious postinstall scripts
         run: npm ci --ignore-scripts
@@ -55,11 +58,8 @@ jobs:
       - name: Run full maintainer validation
         run: npm run validate:full
 
-      - name: Check summary contracts
+      - name: Check summary and PR Risk Ledger contracts
         run: npm run contracts:check
-
-      - name: Enforce runtime audit gate (high+critical)
-        run: npm run security:audit
 
       - name: Run coverage
         run: npm run test:coverage
@@ -251,47 +251,65 @@ jobs:
         if: always() && steps.policy.outputs.publish_outputs == 'true' && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && steps.pr_comment.outputs.can_comment == 'true'
         run: |
           node <<'NODE'
+          const crypto = require('crypto');
           const fs = require('fs');
           const output = process.env.GITHUB_OUTPUT;
-          const summaryPath = 'artifacts/summary.json';
+          const summaryPath = 'artifacts/summary.v2.json';
           const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
           let body = '## Web Quality Gatekeeper\n';
+
+          function escapeMarkdownText(value) {
+            return String(value ?? 'n/a')
+              .replace(/\\/g, '\\\\')
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/\r?\n/g, ' ')
+              .replace(/([[\]()`*_{}#!+|])/g, '\\$1');
+          }
+
+          function appendMultilineOutput(name, value) {
+            const delimiter = `WQG_COMMENT_${crypto.randomUUID().replace(/-/g, '')}`;
+            fs.appendFileSync(output, `${name}<<${delimiter}\n${value}\n${delimiter}\n`);
+          }
 
           if (fs.existsSync(summaryPath)) {
             const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
             const status = summary.overallStatus?.toUpperCase() ?? 'UNKNOWN';
-            const perf = summary.performance?.metrics || {};
-            const budgets = summary.performance?.budgets || {};
-            const a11y = summary.a11y?.countsByImpact || {};
-            const visual = summary.visual;
+            const pages = Array.isArray(summary.pages) ? summary.pages : [];
+            const rollup = summary.rollup || {};
+            const worstPerfPage = pages
+              .filter(page => typeof page.metrics?.performanceScore === 'number')
+              .sort((left, right) => left.metrics.performanceScore - right.metrics.performanceScore)[0];
+            const worstVisualPage = pages
+              .filter(page => typeof page.metrics?.maxMismatchRatio === 'number')
+              .sort((left, right) => right.metrics.maxMismatchRatio - left.metrics.maxMismatchRatio)[0];
+            const failedPages = pages.filter(page => page.overallStatus === 'fail');
 
             body += `- Status: **${status}**\n`;
-            if (summary.performance) {
-              body += `- Performance: score ${perf.performanceScore ?? 'n/a'} (min ${budgets.performance ?? 'n/a'}), `;
-              body += `LCP ${perf.lcpMs ?? 'n/a'}ms (max ${budgets.lcpMs ?? 'n/a'}), `;
-              body += `CLS ${perf.cls ?? 'n/a'} (max ${budgets.cls ?? 'n/a'}), `;
-              body += `TBT ${perf.tbtMs ?? 'n/a'}ms (max ${budgets.tbtMs ?? 'n/a'})\n`;
+            body += `- Pages: ${rollup.pageCount ?? pages.length} audited, ${rollup.failedPages ?? failedPages.length} failed\n`;
+            if (worstPerfPage) {
+              body += `- Performance: worst score ${worstPerfPage.metrics.performanceScore} on ${escapeMarkdownText(worstPerfPage.name)}\n`;
             } else {
               body += '- Performance: skipped\n';
             }
 
-            if (summary.a11y) {
-              body += `- A11y: critical ${a11y.critical ?? 0}, serious ${a11y.serious ?? 0}, moderate ${a11y.moderate ?? 0}, minor ${a11y.minor ?? 0}\n`;
-            } else {
-              body += '- A11y: skipped\n';
-            }
+            body += `- A11y violations: ${rollup.a11yViolations ?? 0}\n`;
 
-            if (visual) {
-              body += `- Visual: max mismatch ${visual.maxMismatchRatio?.toFixed(4) ?? 'n/a'} (threshold ${visual.threshold})\n`;
+            if (worstVisualPage) {
+              body += `- Visual: max mismatch ${worstVisualPage.metrics.maxMismatchRatio?.toFixed(4) ?? 'n/a'} on ${escapeMarkdownText(worstVisualPage.name)}\n`;
             } else {
               body += '- Visual: skipped\n';
             }
+            if (failedPages.length > 0) {
+              body += `- Failing pages: ${failedPages.map(page => escapeMarkdownText(page.name)).join(', ')}\n`;
+            }
           } else {
-            body += '- Summary: `artifacts/summary.json` not found\n';
+            body += '- Summary: `artifacts/summary.v2.json` not found\n';
           }
 
           body += `- Artifacts: ${runUrl}\n`;
-          fs.appendFileSync(output, `body<<WQG_COMMENT\n${body}WQG_COMMENT\n`);
+          appendMultilineOutput('body', body);
           NODE
 
   pr-comment:

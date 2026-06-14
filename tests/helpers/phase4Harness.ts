@@ -14,6 +14,7 @@ export const mockCaptureScreenshots = vi.fn();
 export const mockRunAxeScan = vi.fn();
 export const mockRunLighthouseAudit = vi.fn();
 export const mockRunVisualDiff = vi.fn();
+const CLEANUP_RETRY_CODES = new Set(["EBUSY", "ENOTEMPTY", "EPERM", "EACCES"]);
 
 vi.mock("../../src/config/loadConfig.js", () => ({
   loadConfig: mockLoadConfig
@@ -117,7 +118,9 @@ export function createA11ySummary(outDir: string, violations: number) {
 }
 
 export function createSummaryV2Validator() {
-  const schema = JSON.parse(readFileSync(path.join(process.cwd(), "schemas", "summary.v2.json"), "utf8"));
+  const schema = JSON.parse(
+    readFileSync(path.join(process.cwd(), "schemas", "summary.v2.json"), "utf8")
+  );
   const ajv = new Ajv2020({ allErrors: true, strict: false });
   addFormats(ajv);
   return ajv.compile(schema);
@@ -135,9 +138,38 @@ export async function createRunDirs(tempDirs: string[]) {
 
 export async function cleanupTempDirs(tempDirs: string[]): Promise<void> {
   for (const dir of tempDirs) {
-    await rm(dir, { recursive: true, force: true });
+    await removeTempDirWithRetry(dir);
   }
   tempDirs.length = 0;
+}
+
+async function removeTempDirWithRetry(dir: string): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      await rm(dir, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableCleanupError(error) || attempt === 5) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 75 * (attempt + 1)));
+    }
+  }
+
+  throw lastError;
+}
+
+function isRetryableCleanupError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    CLEANUP_RETRY_CODES.has(error.code)
+  );
 }
 
 export function resetPhase4Mocks(): void {
@@ -154,16 +186,18 @@ export function resetPhase4Mocks(): void {
     resolvedHostResolverRules: null
   }));
 
-  mockCaptureScreenshots.mockImplementation(async (_page, baseUrl: string, _config, screenshotsDir: string) => {
-    return [
-      {
-        name: "home",
-        path: path.join(screenshotsDir, "home.png"),
-        url: `${baseUrl}`,
-        fullPage: true
-      }
-    ];
-  });
+  mockCaptureScreenshots.mockImplementation(
+    async (_page, baseUrl: string, _config, screenshotsDir: string) => {
+      return [
+        {
+          name: "home",
+          path: path.join(screenshotsDir, "home.png"),
+          url: `${baseUrl}`,
+          fullPage: true
+        }
+      ];
+    }
+  );
 
   mockRunAxeScan.mockImplementation(async (_page, outDir: string) => createA11ySummary(outDir, 0));
   mockRunLighthouseAudit.mockResolvedValue(null);

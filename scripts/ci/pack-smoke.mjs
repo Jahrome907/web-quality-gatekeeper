@@ -1,7 +1,7 @@
 /* global console, process */
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, rename, symlink, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readFile, rename, symlink, writeFile } from "node:fs/promises";
 import {
   ROOT,
   cleanupRepoRootNoise,
@@ -16,8 +16,10 @@ function assertTarballEntries(tarballEntries) {
   const requiredEntries = [
     "package/dist/cli.js",
     "package/dist/index.js",
+    "package/dist/index.d.ts",
     "package/schemas/summary.v1.json",
     "package/schemas/summary.v2.json",
+    "package/schemas/pr-risk-ledger.v1.json",
     "package/configs/default.json",
     "package/configs/policies/docs.json",
     "package/README.md",
@@ -44,25 +46,53 @@ function assertTarballEntries(tarballEntries) {
   }
 }
 
+function parsePackedTarballName(stdout) {
+  const tarballNames = stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.endsWith(".tgz"));
+
+  if (tarballNames.length !== 1) {
+    throw new Error(
+      `Expected npm pack to print exactly one tarball name, found ${tarballNames.length}.`
+    );
+  }
+
+  return tarballNames[0];
+}
+
 async function runPackSmoke() {
   await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-pack-smoke-", ".tmp-pack-debug-"] });
   const smokeRoot = await mkdtemp(path.join(ROOT, ".tmp-pack-smoke-"));
+  const packageSourceDir = path.join(smokeRoot, "package-source");
   const consumerDir = path.join(smokeRoot, "consumer");
   const packageRoot = path.join(consumerDir, "node_modules", "web-quality-gatekeeper");
   const outDir = path.join(consumerDir, "artifacts");
   const baselineDir = path.join(consumerDir, "baselines");
   const configPath = path.join(consumerDir, "consumer-config.json");
+  const typeSmokePath = path.join(consumerDir, "type-smoke.ts");
+  const distDir = path.join(ROOT, "dist");
+  const hadDistBeforePack = existsSync(distDir);
   let fixtureServer = null;
 
   try {
     await ensureRepoBuild();
-    const { stdout: tarballStdout } = await runChecked("npm", [
-      "pack",
-      "--silent",
-      "--pack-destination",
-      smokeRoot
+    await mkdir(packageSourceDir, { recursive: true });
+    await Promise.all([
+      cp(path.join(ROOT, "dist"), path.join(packageSourceDir, "dist"), { recursive: true }),
+      cp(path.join(ROOT, "schemas"), path.join(packageSourceDir, "schemas"), { recursive: true }),
+      cp(path.join(ROOT, "configs"), path.join(packageSourceDir, "configs"), { recursive: true }),
+      cp(path.join(ROOT, "package.json"), path.join(packageSourceDir, "package.json")),
+      cp(path.join(ROOT, "README.md"), path.join(packageSourceDir, "README.md")),
+      cp(path.join(ROOT, "LICENSE"), path.join(packageSourceDir, "LICENSE"))
     ]);
-    const tarballName = tarballStdout.trim();
+
+    const { stdout: tarballStdout } = await runChecked(
+      "npm",
+      ["pack", "--silent", "--ignore-scripts", "--pack-destination", smokeRoot],
+      { cwd: packageSourceDir }
+    );
+    const tarballName = parsePackedTarballName(tarballStdout);
     const tarballPath = path.join(smokeRoot, tarballName);
     const { stdout: tarballList } = await runChecked("tar", ["-tf", tarballPath]);
     assertTarballEntries(
@@ -71,6 +101,14 @@ async function runPackSmoke() {
         .map((entry) => entry.trim())
         .filter(Boolean)
     );
+    const { stdout: packagedCliSource } = await runChecked("tar", [
+      "-xOf",
+      tarballPath,
+      "package/dist/cli.js"
+    ]);
+    if (!packagedCliSource.startsWith("#!/usr/bin/env node")) {
+      throw new Error("Expected packaged CLI entrypoint to start with a Node shebang.");
+    }
 
     await mkdir(consumerDir, { recursive: true });
     await runChecked("npm", ["init", "-y"], { cwd: consumerDir });
@@ -90,11 +128,22 @@ async function runPackSmoke() {
     const { stdout: versionStdout } = await runChecked(installedWqgBin, ["--version"], {
       cwd: consumerDir
     });
-    const installedPackage = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
+    const installedPackage = JSON.parse(
+      await readFile(path.join(packageRoot, "package.json"), "utf8")
+    );
     if (versionStdout.trim() !== installedPackage.version) {
       throw new Error(
         `Expected packaged wqg binary version (${versionStdout.trim()}) to match package.json (${installedPackage.version})`
       );
+    }
+    if (installedPackage.types !== "./dist/index.d.ts") {
+      throw new Error("Expected packaged package.json to advertise dist/index.d.ts types.");
+    }
+    if (
+      installedPackage.exports?.["."]?.types !== "./dist/index.d.ts" ||
+      installedPackage.exports?.["."]?.import !== "./dist/index.js"
+    ) {
+      throw new Error("Expected packaged root export to expose public API types and ESM entry.");
     }
 
     await runChecked(installedWqgBin, ["init", "--profile", "docs"], {
@@ -116,6 +165,35 @@ async function runPackSmoke() {
     if (scaffoldedConfig.extends?.[0] !== "policy:docs") {
       throw new Error("Expected wqg init --profile docs to scaffold the docs policy config.");
     }
+    const scaffoldedWorkflow = await readFile(
+      path.join(consumerDir, ".github", "workflows", "web-quality.yml"),
+      "utf8"
+    );
+    for (const expectedWorkflowText of [
+      "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd",
+      "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "WQG_SENSITIVE_AUDIT",
+      "WQG_ALLOW_SENSITIVE_OUTPUTS",
+      "id: wqg",
+      "path: |",
+      "${{ steps.wqg.outputs.summary-path }}",
+      "${{ steps.wqg.outputs.summary-v2-path }}",
+      "${{ steps.wqg.outputs.report-path }}",
+      "${{ steps.wqg.outputs.action-plan-path }}",
+      "${{ steps.wqg.outputs.pr-risk-ledger-path }}",
+      "${{ steps.wqg.outputs.pr-risk-ledger-md-path }}"
+    ]) {
+      if (!scaffoldedWorkflow.includes(expectedWorkflowText)) {
+        throw new Error(`Expected packaged wqg init workflow to contain ${expectedWorkflowText}.`);
+      }
+    }
+    const scaffoldedReadme = await readFile(
+      path.join(consumerDir, ".github", "web-quality", "README.md"),
+      "utf8"
+    );
+    if (!scaffoldedReadme.includes("The generated workflow uploads the default report artifacts")) {
+      throw new Error("Expected packaged wqg init README to document report artifact uploads.");
+    }
     await expectCommandExit(installedWqgBin, ["init", "--profile", "invalid-profile"], 2, {
       cwd: consumerDir
     });
@@ -133,9 +211,57 @@ async function runPackSmoke() {
         "--eval",
         [
           'const pkg = await import("web-quality-gatekeeper");',
+          'const { createRequire } = await import("node:module");',
+          "const require = createRequire(import.meta.url);",
           'if (typeof pkg.runAudit !== "function") throw new Error("Missing runAudit export");',
-          'if (typeof pkg.SCHEMA_VERSION !== "string") throw new Error("Missing SCHEMA_VERSION export");'
+          'if (typeof pkg.SCHEMA_VERSION !== "string") throw new Error("Missing SCHEMA_VERSION export");',
+          'for (const subpath of ["web-quality-gatekeeper/schemas/summary.v1.json", "web-quality-gatekeeper/schemas/summary.v2.json", "web-quality-gatekeeper/schemas/pr-risk-ledger.v1.json", "web-quality-gatekeeper/configs/default.json"]) require.resolve(subpath);'
         ].join(" ")
+      ],
+      {
+        cwd: consumerDir,
+        shell: false
+      }
+    );
+    await writeFile(
+      typeSmokePath,
+      [
+        'import { SCHEMA_VERSION, runAudit, type AuditSummaryV2, type DetailSummaryV2, type SummaryV2 } from "web-quality-gatekeeper";',
+        "const schemaVersion: string = SCHEMA_VERSION;",
+        'const status: SummaryV2["overallStatus"] = "pass";',
+        'const mode: AuditSummaryV2["mode"] = "single";',
+        'const pageCount: number = null as unknown as AuditSummaryV2["rollup"]["pageCount"];',
+        'const firstPage = null as unknown as AuditSummaryV2["pages"][number];',
+        "const detailSummary: SummaryV2 = firstPage.details;",
+        "const detail: DetailSummaryV2 = firstPage.details;",
+        'const ledgerPath: string = null as unknown as AuditSummaryV2["artifacts"]["prRiskLedgerJson"];',
+        "const audit: typeof runAudit = runAudit;",
+        "void schemaVersion;",
+        "void status;",
+        "void mode;",
+        "void pageCount;",
+        "void detailSummary;",
+        "void detail;",
+        "void ledgerPath;",
+        "void audit;"
+      ].join("\n"),
+      "utf8"
+    );
+    await runChecked(
+      "node",
+      [
+        path.join(ROOT, "node_modules", "typescript", "bin", "tsc"),
+        "--module",
+        "NodeNext",
+        "--moduleResolution",
+        "NodeNext",
+        "--target",
+        "ES2022",
+        "--strict",
+        "--skipLibCheck",
+        "--ignoreConfig",
+        "--noEmit",
+        typeSmokePath
       ],
       {
         cwd: consumerDir,
@@ -146,8 +272,10 @@ async function runPackSmoke() {
     for (const requiredPath of [
       path.join(packageRoot, "dist", "cli.js"),
       path.join(packageRoot, "dist", "index.js"),
+      path.join(packageRoot, "dist", "index.d.ts"),
       path.join(packageRoot, "schemas", "summary.v1.json"),
       path.join(packageRoot, "schemas", "summary.v2.json"),
+      path.join(packageRoot, "schemas", "pr-risk-ledger.v1.json"),
       path.join(packageRoot, "configs", "default.json"),
       path.join(packageRoot, "configs", "policies", "docs.json"),
       path.join(packageRoot, "README.md"),
@@ -231,31 +359,83 @@ async function runPackSmoke() {
 
     const summary = JSON.parse(await readFile(path.join(outDir, "summary.json"), "utf8"));
     const summaryV2 = JSON.parse(await readFile(path.join(outDir, "summary.v2.json"), "utf8"));
-    const summarySchemaV1 = JSON.parse(await readFile(path.join(packageRoot, "schemas", "summary.v1.json"), "utf8"));
-    const summarySchemaV2 = JSON.parse(await readFile(path.join(packageRoot, "schemas", "summary.v2.json"), "utf8"));
+    const prRiskLedger = JSON.parse(
+      await readFile(path.join(outDir, "pr-risk-ledger.json"), "utf8")
+    );
+    const summarySchemaV1 = JSON.parse(
+      await readFile(path.join(packageRoot, "schemas", "summary.v1.json"), "utf8")
+    );
+    const summarySchemaV2 = JSON.parse(
+      await readFile(path.join(packageRoot, "schemas", "summary.v2.json"), "utf8")
+    );
+    const prRiskLedgerSchema = JSON.parse(
+      await readFile(path.join(packageRoot, "schemas", "pr-risk-ledger.v1.json"), "utf8")
+    );
+    for (const requiredArtifact of [
+      "summary.json",
+      "summary.v2.json",
+      "report.html",
+      "action-plan.md",
+      "pr-risk-ledger.json",
+      "pr-risk-ledger.md"
+    ]) {
+      if (!existsSync(path.join(outDir, requiredArtifact))) {
+        throw new Error(`Expected packaged audit artifact to exist: ${requiredArtifact}`);
+      }
+    }
     if (summary.$schema !== summarySchemaV1.properties?.$schema?.const) {
-      throw new Error("Expected emitted summary.json $schema to match packaged summary.v1 schema URI");
+      throw new Error(
+        "Expected emitted summary.json $schema to match packaged summary.v1 schema URI"
+      );
     }
     if (summaryV2.$schema !== summarySchemaV2.properties?.$schema?.const) {
-      throw new Error("Expected emitted summary.v2.json $schema to match packaged summary.v2 schema URI");
+      throw new Error(
+        "Expected emitted summary.v2.json $schema to match packaged summary.v2 schema URI"
+      );
     }
     if (summary.artifacts?.summary !== "summary.json") {
       throw new Error("Expected packaged summary artifact path to remain summary.json");
     }
     if (summaryV2.mode !== "single" || summaryV2.rollup?.pageCount !== 1) {
-      throw new Error("Expected packaged summary.v2 output to preserve single-page rollup semantics");
+      throw new Error(
+        "Expected packaged summary.v2 output to preserve single-page rollup semantics"
+      );
     }
-    if (summaryV2.schemaPointers?.v1 !== summary.$schema || summaryV2.schemaPointers?.v2 !== summaryV2.$schema) {
-      throw new Error("Expected summary.v2 schemaPointers to align with emitted summary schema URIs");
+    if (
+      summaryV2.schemaPointers?.v1 !== summary.$schema ||
+      summaryV2.schemaPointers?.v2 !== summaryV2.$schema
+    ) {
+      throw new Error(
+        "Expected summary.v2 schemaPointers to align with emitted summary schema URIs"
+      );
     }
     if (
       summaryV2.schemaVersions?.v1 !== summary.schemaVersion ||
       summaryV2.schemaVersions?.v2 !== summaryV2.schemaVersion
     ) {
-      throw new Error("Expected summary.v2 schemaVersions to align with emitted summary schema versions");
+      throw new Error(
+        "Expected summary.v2 schemaVersions to align with emitted summary schema versions"
+      );
     }
     if (summaryV2.compatibility?.v1SummaryPath !== "summary.json") {
       throw new Error("Expected summary.v2 compatibility.v1SummaryPath to remain summary.json");
+    }
+    if (
+      summaryV2.artifacts?.prRiskLedgerJson !== "pr-risk-ledger.json" ||
+      summaryV2.artifacts?.prRiskLedgerMd !== "pr-risk-ledger.md"
+    ) {
+      throw new Error("Expected summary.v2 artifact map to expose PR Risk Ledger outputs");
+    }
+    if (prRiskLedger.$schema !== prRiskLedgerSchema.properties?.$schema?.const) {
+      throw new Error(
+        "Expected emitted pr-risk-ledger.json $schema to match packaged PR Risk Ledger schema URI"
+      );
+    }
+    if (
+      prRiskLedger.summaryPath !== summaryV2.artifacts?.summaryV2 ||
+      prRiskLedger.reportPath !== summaryV2.artifacts?.report
+    ) {
+      throw new Error("Expected packaged PR Risk Ledger paths to align with summary.v2 artifacts");
     }
 
     console.log("Pack smoke completed.");
@@ -273,6 +453,9 @@ async function runPackSmoke() {
         `Warning: pack smoke completed but could not remove temporary directory ${smokeRoot}: ${(error && error.message) || error}`
       );
     }
+    if (!hadDistBeforePack && process.env.WQG_PACK_SMOKE_KEEP_DIST !== "true") {
+      await removePathWithRetry(distDir);
+    }
   }
 }
 
@@ -280,31 +463,25 @@ async function installTarballWithRetry(consumerDir, tarballPath) {
   const maxAttempts = 2;
   let lastError;
 
-  if (shouldUseOfflinePackSmokeFallback()) {
-    console.warn("Using offline tarball extraction for local Windows pack smoke; CI still runs npm install.");
-    await installTarballByExtraction(consumerDir, tarballPath);
-    return;
-  }
-
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      await runChecked("npm", [
-        "install",
-        tarballPath,
-        "--ignore-scripts",
-        "--no-audit",
-        "--no-fund"
-      ], {
-        cwd: consumerDir,
-        timeout: 300000
-      });
+      await runChecked(
+        "npm",
+        ["install", tarballPath, "--ignore-scripts", "--no-audit", "--no-fund"],
+        {
+          cwd: consumerDir,
+          timeout: 300000
+        }
+      );
       return;
     } catch (error) {
       lastError = error;
       if (attempt === maxAttempts) {
         break;
       }
-      console.warn(`npm install failed during pack smoke; retrying clean install (${attempt}/${maxAttempts}).`);
+      console.warn(
+        `npm install failed during pack smoke; retrying clean install (${attempt}/${maxAttempts}).`
+      );
       await Promise.all([
         removePathWithRetry(path.join(consumerDir, "node_modules")),
         removePathWithRetry(path.join(consumerDir, "package-lock.json"))
@@ -312,8 +489,10 @@ async function installTarballWithRetry(consumerDir, tarballPath) {
     }
   }
 
-  if (shouldUseOfflinePackSmokeFallback() && isNpmInternalExitHandlerError(lastError)) {
-    console.warn("npm install failed with an npm CLI internal error; using offline tarball extraction fallback.");
+  if (shouldUseOfflinePackSmokeFallback(lastError)) {
+    console.warn(
+      "npm install failed with an npm CLI internal error; using offline tarball extraction fallback."
+    );
     await installTarballByExtraction(consumerDir, tarballPath);
     return;
   }
@@ -338,11 +517,12 @@ function isNpmInternalExitHandlerError(error) {
   return text.includes("Exit handler never called");
 }
 
-function shouldUseOfflinePackSmokeFallback() {
+function shouldUseOfflinePackSmokeFallback(error) {
   return (
     process.platform === "win32" &&
     process.env.CI !== "true" &&
-    process.env.WQG_PACK_SMOKE_FORCE_NPM_INSTALL !== "true"
+    process.env.WQG_PACK_SMOKE_FORCE_NPM_INSTALL !== "true" &&
+    isNpmInternalExitHandlerError(error)
   );
 }
 
@@ -359,7 +539,11 @@ async function createPackageBin(binDir, packageName, packageRoot, binDefinition)
     const packageRelative = path.relative(binDir, path.join(packageRoot, relativeBinPath));
     const normalizedRelative = packageRelative.replaceAll(path.sep, "\\");
     const posixRelative = packageRelative.replaceAll(path.sep, "/");
-    await writeFile(path.join(binDir, `${binName}.cmd`), windowsBinShim(normalizedRelative), "utf8");
+    await writeFile(
+      path.join(binDir, `${binName}.cmd`),
+      windowsBinShim(normalizedRelative),
+      "utf8"
+    );
     const posixShim = path.join(binDir, binName);
     await writeFile(posixShim, posixBinShim(posixRelative), "utf8");
     await chmod(posixShim, 0o755);
@@ -381,13 +565,17 @@ async function installTarballByExtraction(consumerDir, tarballPath) {
   await rename(path.join(stagingDir, "package"), packageRoot);
   await removePathWithRetry(stagingDir);
 
-  const installedPackage = JSON.parse(await readFile(path.join(packageRoot, "package.json"), "utf8"));
+  const installedPackage = JSON.parse(
+    await readFile(path.join(packageRoot, "package.json"), "utf8")
+  );
   const dependencies = Object.keys(installedPackage.dependencies ?? {});
   for (const dependency of dependencies) {
     const source = dependencyPath(ROOT, dependency);
     const destination = dependencyPath(consumerDir, dependency);
     if (!existsSync(source)) {
-      throw new Error(`Cannot create offline pack-smoke install; missing dependency ${dependency} at ${source}`);
+      throw new Error(
+        `Cannot create offline pack-smoke install; missing dependency ${dependency} at ${source}`
+      );
     }
     await mkdir(path.dirname(destination), { recursive: true });
     if (!existsSync(destination)) {
@@ -417,7 +605,9 @@ async function expectCommandExit(command, args, expectedCode, options = {}) {
     );
   }
 
-  throw new Error(`Expected command to fail with exit ${expectedCode}: ${command} ${args.join(" ")}`);
+  throw new Error(
+    `Expected command to fail with exit ${expectedCode}: ${command} ${args.join(" ")}`
+  );
 }
 
 runPackSmoke();

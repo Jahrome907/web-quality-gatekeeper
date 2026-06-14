@@ -227,6 +227,16 @@ describe("ConfigSchema boundaries", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects protocol-relative screenshot paths", () => {
+    for (const shotPath of ["//evil.example/path", "/\\evil.example\\path"]) {
+      const result = ConfigSchema.safeParse({
+        ...createValidConfig(),
+        screenshots: [{ name: "home", path: shotPath, fullPage: true }]
+      });
+      expect(result.success).toBe(false);
+    }
+  });
+
   it("strips unknown fields for migration compatibility", () => {
     const parsed = ConfigSchema.parse({
       ...createValidConfig(),

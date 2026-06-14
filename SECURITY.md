@@ -40,7 +40,7 @@ Internal/private target policy:
 
 The configuration file controls which paths are visited and screenshotted. Security measures in place:
 
-- **Screenshot paths** must be relative paths starting with `/` (no external URLs)
+- **Screenshot paths** must be `@target` or target-relative paths starting with a single `/` (no external or protocol-relative URLs)
 - **Timeouts** are capped at 2 minutes to prevent resource exhaustion
 - **Screenshot count** is limited to 50 per audit
 - **Output directories** must resolve within the current working directory even
@@ -65,6 +65,22 @@ When running in CI environments:
 - On local machines, Chrome runs with sandbox enabled for additional security
 - In CI containers (GitHub Actions, Docker), sandbox is disabled due to container limitations
 - If running locally as root (not recommended), sandbox will be disabled
+
+### Native Visual Diff Engine
+
+- The optional native visual diff engine executes a local binary configured by
+  `visual.nativeBinaryPath` or `WQG_VISUAL_DIFF_NATIVE_BIN`.
+- JavaScript adapters are refused by default; use
+  `WQG_ALLOW_SCRIPT_NATIVE_ENGINE=true` only for trusted test adapters. Shell,
+  batch, PowerShell, and shebang script adapters are refused even with that
+  test opt-in.
+- In CI, native execution is disabled unless
+  `WQG_ALLOW_NATIVE_VISUAL_ENGINE=true` is set explicitly.
+- Native execution falls back to `pixelmatch` unless
+  `visual.pixelmatch.includeAA=true`, because anti-aliased pixel suppression
+  remains in the TypeScript path.
+- Use that opt-in only for trusted repositories and reviewed binaries. Untrusted
+  pull request config should use the default `pixelmatch` engine.
 
 ### Report Content
 

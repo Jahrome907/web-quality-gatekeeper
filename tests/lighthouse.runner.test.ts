@@ -225,7 +225,10 @@ describe("lighthouse runner", () => {
         audits: {
           "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: Number.NaN },
           "cumulative-layout-shift": { id: "cumulative-layout-shift" },
-          "total-blocking-time": { id: "total-blocking-time", numericValue: Number.POSITIVE_INFINITY },
+          "total-blocking-time": {
+            id: "total-blocking-time",
+            numericValue: Number.POSITIVE_INFINITY
+          },
           "first-contentful-paint": { id: "first-contentful-paint" },
           "speed-index": { id: "speed-index", numericValue: undefined },
           interactive: { id: "interactive", numericValue: undefined },
@@ -327,6 +330,70 @@ describe("lighthouse runner", () => {
         Accept: "text/html",
         Authorization: "Bearer token-123",
         Cookie: "already=set"
+      }
+    });
+  });
+
+  it("keeps auth headers on verified Lighthouse navigation redirects", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({
+      connect: puppeteer.connect
+    });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        finalDisplayedUrl: "https://www.example.com/",
+        categories: {
+          performance: { score: 0.95 }
+        },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1700 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.03 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 110 }
+        }
+      }
+    });
+
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await runLighthouseAudit(
+      "https://example.com",
+      "/tmp/artifacts",
+      createBaseConfig() as never,
+      { debug: vi.fn(), warn: vi.fn() } as never,
+      {
+        headers: { Authorization: "Bearer token-123" },
+        cookies: [{ name: "session_id", value: "abc123" }]
+      },
+      {
+        targetPolicy: {
+          allowInternalTargets: false,
+          blockInternalTargets: true
+        }
+      }
+    );
+
+    const requestHandler = puppeteer.getRequestHandler();
+    if (!requestHandler) {
+      throw new Error("request handler not registered");
+    }
+    const continueRequest = vi.fn().mockResolvedValue(undefined);
+    await requestHandler({
+      isNavigationRequest: () => true,
+      url: () => "https://www.example.com/",
+      headers: () => ({
+        Accept: "text/html",
+        authorization: "Bearer stale-token"
+      }),
+      continue: continueRequest,
+      abort: vi.fn().mockResolvedValue(undefined)
+    });
+
+    expect(continueRequest).toHaveBeenCalledWith({
+      headers: {
+        Accept: "text/html",
+        authorization: "Bearer token-123",
+        Cookie: "session_id=abc123"
       }
     });
   });
@@ -825,10 +892,22 @@ describe("lighthouse runner", () => {
         expect(launchLocalAppData).toBeUndefined();
       } else {
         launchUserDataDir = mockLaunch.mock.calls[0]?.[0]?.userDataDir;
-        expect(launchLocalAppData).toMatch(new RegExp(`^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/localappdata$`));
-        expect(launchTemp).toMatch(new RegExp(`^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/temp$`));
+        expect(launchLocalAppData).toMatch(
+          new RegExp(
+            `^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/localappdata$`
+          )
+        );
+        expect(launchTemp).toMatch(
+          new RegExp(
+            `^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/temp$`
+          )
+        );
         expect(launchTmp).toBe(launchTemp);
-        expect(launchUserDataDir).toMatch(new RegExp(`^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/profile$`));
+        expect(launchUserDataDir).toMatch(
+          new RegExp(
+            `^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/profile$`
+          )
+        );
         const entries = await readdir(outDir);
         expect(entries.some((entry) => entry.startsWith(".lighthouse-runtime-"))).toBe(false);
       }

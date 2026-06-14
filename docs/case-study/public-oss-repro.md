@@ -48,6 +48,12 @@ node scripts/case-study/write-provenance-manifest.mjs \
   --improved-summary artifacts/case-study/improved/summary.v2.json \
   --baseline-report artifacts/case-study/baseline/report.html \
   --improved-report artifacts/case-study/improved/report.html \
+  --baseline-action-plan artifacts/case-study/baseline/action-plan.md \
+  --improved-action-plan artifacts/case-study/improved/action-plan.md \
+  --baseline-pr-risk-ledger artifacts/case-study/baseline/pr-risk-ledger.json \
+  --improved-pr-risk-ledger artifacts/case-study/improved/pr-risk-ledger.json \
+  --baseline-pr-risk-ledger-md artifacts/case-study/baseline/pr-risk-ledger.md \
+  --improved-pr-risk-ledger-md artifacts/case-study/improved/pr-risk-ledger.md \
   --roi-output artifacts/case-study/roi.json \
   --config "$CONFIG_PATH" \
   --out artifacts/case-study/provenance.json
@@ -69,6 +75,12 @@ Publish all of the following:
 - `artifacts/case-study/improved/summary.v2.json`
 - `artifacts/case-study/baseline/report.html`
 - `artifacts/case-study/improved/report.html`
+- `artifacts/case-study/baseline/action-plan.md`
+- `artifacts/case-study/improved/action-plan.md`
+- `artifacts/case-study/baseline/pr-risk-ledger.json`
+- `artifacts/case-study/improved/pr-risk-ledger.json`
+- `artifacts/case-study/baseline/pr-risk-ledger.md`
+- `artifacts/case-study/improved/pr-risk-ledger.md`
 - `artifacts/case-study/roi.json`
 - `artifacts/case-study/provenance.json`
 - The exact run commands if they differ from the documented protocol
@@ -77,6 +89,6 @@ Publish all of the following:
 
 - `REPO_URL`, `BASELINE_SHA`, and `IMPROVED_SHA` are recorded in the manifest.
 - The same `CONFIG_PATH` was used for both runs.
-- Both summary paths and both report paths resolve correctly in the manifest.
+- Summary, report, Action Plan, and PR Risk Ledger paths resolve correctly in the manifest.
 - ROI output was computed from `summary.v2.json`, not hand-entered metrics.
 - Published claims match the ROI JSON and the committed artifact set.

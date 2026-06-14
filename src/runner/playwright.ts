@@ -102,6 +102,9 @@ export function validateScreenshotPath(shotPath: string): void {
   if (shotPath.includes("://")) {
     throw new Error(`Screenshot path must be a relative path, not a URL: ${shotPath}`);
   }
+  if (shotPath.startsWith("//") || shotPath.startsWith("/\\")) {
+    throw new Error(`Screenshot path must not be protocol-relative: ${shotPath}`);
+  }
   if (!shotPath.startsWith("/")) {
     throw new Error(`Screenshot path must be @target or start with /: ${shotPath}`);
   }
@@ -116,7 +119,10 @@ export function resolveUrl(baseUrl: string, shotPath: string): string {
 }
 
 function truncateText(value: string, maxLength: number = MAX_MESSAGE_LENGTH): string {
-  const normalized = value.replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+  const normalized = value
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}…` : normalized;
 }
 
@@ -131,12 +137,16 @@ function sanitizeConsoleLocation(message: ConsoleMessage): string | null {
 }
 
 function toSortedBreakdown(source: Map<string, number>): Record<string, number> {
-  const entries = Array.from(source.entries()).sort((left, right) => left[0].localeCompare(right[0]));
+  const entries = Array.from(source.entries()).sort((left, right) =>
+    left[0].localeCompare(right[0])
+  );
   return Object.fromEntries(entries);
 }
 
 function createRuntimeSignalCollector(page: Page): RuntimeSignalCollector {
-  const maybePage = page as unknown as { on?: (event: string, handler: (...args: unknown[]) => void) => void };
+  const maybePage = page as unknown as {
+    on?: (event: string, handler: (...args: unknown[]) => void) => void;
+  };
   if (typeof maybePage.on !== "function") {
     return {
       snapshot: () => ({
@@ -309,10 +319,25 @@ function takeBlockedRequestError(state: BlockedRequestState | null | undefined):
   return blockedError;
 }
 
-async function runWithBlockedRequestHandling<T>(
-  page: Page,
-  action: () => Promise<T>
-): Promise<T> {
+function isSameOrigin(left: string, right: string): boolean {
+  try {
+    return new URL(left).origin === new URL(right).origin;
+  } catch {
+    return false;
+  }
+}
+
+function selectAuthScopeUrl(requestUrl: string, authScopeUrls: Iterable<string>): string | null {
+  for (const scopeUrl of authScopeUrls) {
+    if (isSameOrigin(requestUrl, scopeUrl)) {
+      return scopeUrl;
+    }
+  }
+
+  return null;
+}
+
+async function runWithBlockedRequestHandling<T>(page: Page, action: () => Promise<T>): Promise<T> {
   const state = blockedRequestStates.get(page);
   if (!state) {
     return action();
@@ -368,6 +393,7 @@ async function launchNavigatedPage(
     initialTrustedHosts,
     trustResolvedHosts: true
   });
+  const authScopeUrls = new Set<string>([authScopeUrl]);
 
   try {
     context = await browser.newContext({
@@ -390,23 +416,34 @@ async function launchNavigatedPage(
     if (options.targetPolicy || extraHeaders) {
       await context.route("**", async (route: Route) => {
         const request = route.request() as Request;
-        const scopedHeaders = applyScopedAuthHeaders({
-          requestUrl: request.url(),
-          targetUrl: authScopeUrl,
-          requestHeaders: request.headers(),
-          authHeaders: extraHeaders
-        });
+        let requestAuthScopeUrl = selectAuthScopeUrl(request.url(), authScopeUrls) ?? authScopeUrl;
 
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
           try {
-            const contextLabel = request.isNavigationRequest() ? "navigation target" : "request target";
-            await navigationTargetVerifier.verify(request.url(), contextLabel);
+            const contextLabel = request.isNavigationRequest()
+              ? "navigation target"
+              : "request target";
+            const verifiedTarget = await navigationTargetVerifier.verify(
+              request.url(),
+              contextLabel
+            );
+            if (request.isNavigationRequest() && verifiedTarget) {
+              authScopeUrls.add(verifiedTarget.url);
+              requestAuthScopeUrl = verifiedTarget.url;
+            }
           } catch (error) {
             recordBlockedRequest(blockedRequestState, error);
             await route.abort("blockedbyclient");
             return;
           }
         }
+
+        const scopedHeaders = applyScopedAuthHeaders({
+          requestUrl: request.url(),
+          targetUrl: requestAuthScopeUrl,
+          requestHeaders: request.headers(),
+          authHeaders: extraHeaders
+        });
 
         await route.continue({ headers: scopedHeaders });
       });
@@ -424,7 +461,10 @@ async function launchNavigatedPage(
 
     logger.debug(`Navigating to ${navigationUrl}`);
     await retry(
-      () => runWithBlockedRequestHandling(createdPage, () => createdPage.goto(navigationUrl, { waitUntil: "load" })),
+      () =>
+        runWithBlockedRequestHandling(createdPage, () =>
+          createdPage.goto(navigationUrl, { waitUntil: "load" })
+        ),
       {
         maxRetries: retryCount,
         baseDelayMs: retryDelayMs,
@@ -438,7 +478,10 @@ async function launchNavigatedPage(
       context,
       page: createdPage,
       runtimeSignals,
-      resolvedTarget: await navigationTargetVerifier.verify(createdPage.url(), "final navigation target")
+      resolvedTarget: await navigationTargetVerifier.verify(
+        createdPage.url(),
+        "final navigation target"
+      )
     };
   } catch (error) {
     await closeQuietly(page, logger, "page");
@@ -467,10 +510,10 @@ export async function openPage(
   }
 
   let currentLaunchHostResolverRules = options.hostResolverRules ?? null;
-  const authScopeUrl = new URL(url).toString();
+  let currentAuthScopeUrl = new URL(url).toString();
   let navigation = await launchNavigatedPage(
     url,
-    authScopeUrl,
+    currentAuthScopeUrl,
     currentLaunchHostResolverRules,
     config,
     logger,
@@ -488,7 +531,9 @@ export async function openPage(
     relaunchCount += 1
   ) {
     if (relaunchCount >= MAX_BROWSER_RELAUNCHES) {
-      throw new Error(`Playwright resolver pinning did not stabilize after ${MAX_BROWSER_RELAUNCHES + 1} launches.`);
+      throw new Error(
+        `Playwright resolver pinning did not stabilize after ${MAX_BROWSER_RELAUNCHES + 1} launches.`
+      );
     }
 
     logger.debug("Relaunching Playwright browser with landing host resolver rules");
@@ -496,9 +541,10 @@ export async function openPage(
     await closeQuietly(navigation.context, logger, "context");
     await closeQuietly(navigation.browser, logger, "browser");
     currentLaunchHostResolverRules = resolvedHostResolverRules;
+    currentAuthScopeUrl = new URL(resolvedUrl).toString();
     navigation = await launchNavigatedPage(
       resolvedUrl,
-      authScopeUrl,
+      currentAuthScopeUrl,
       currentLaunchHostResolverRules,
       config,
       logger,
@@ -536,12 +582,15 @@ async function captureScreenshot(
   const url = resolveUrl(baseUrl, shot.path);
   logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
   throwIfBlockedRequest(page);
-  await retry(() => runWithBlockedRequestHandling(page, () => page.goto(url, { waitUntil: "load" })), {
-    maxRetries: retryCount,
-    baseDelayMs: retryDelayMs,
-    logger,
-    isRetryable: (error) => !(error instanceof UsageError)
-  });
+  await retry(
+    () => runWithBlockedRequestHandling(page, () => page.goto(url, { waitUntil: "load" })),
+    {
+      maxRetries: retryCount,
+      baseDelayMs: retryDelayMs,
+      logger,
+      isRetryable: (error) => !(error instanceof UsageError)
+    }
+  );
   await applyStabilityOverrides(page);
 
   if (shot.waitForSelector) {
@@ -576,7 +625,11 @@ async function getScrollHeight(page: Page): Promise<number> {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-function buildSegmentOffsets(totalHeight: number, viewportHeight: number, maxScreenshots: number): number[] {
+function buildSegmentOffsets(
+  totalHeight: number,
+  viewportHeight: number,
+  maxScreenshots: number
+): number[] {
   if (maxScreenshots <= 1 || viewportHeight <= 0) {
     return [];
   }
@@ -602,7 +655,9 @@ function createUniqueScreenshotBaseName(name: string, seen: Map<string, number>)
   const sanitized = sanitizeName(name) || "screenshot";
   const previousCount = seen.get(sanitized) ?? 0;
   seen.set(sanitized, previousCount + 1);
-  return previousCount === 0 ? sanitized : `${sanitized}-${String(previousCount + 1).padStart(2, "0")}`;
+  return previousCount === 0
+    ? sanitized
+    : `${sanitized}-${String(previousCount + 1).padStart(2, "0")}`;
 }
 
 async function captureViewportSegments(

@@ -1,11 +1,8 @@
 import path from "node:path";
 import type { BuiltinPolicyName } from "../config/policies.js";
 import { ensureDir, pathExists, writeText } from "../utils/fs.js";
-import {
-  buildConsumerConfig,
-  buildConsumerReadme,
-  buildConsumerWorkflow
-} from "./templates.js";
+import { validateUrl } from "../utils/url.js";
+import { buildConsumerConfig, buildConsumerReadme, buildConsumerWorkflow } from "./templates.js";
 
 export type InitProfileName = BuiltinPolicyName;
 
@@ -13,6 +10,7 @@ export interface InitScaffoldOptions {
   profile: InitProfileName;
   cwd: string;
   force?: boolean;
+  url?: string;
 }
 
 export interface InitScaffoldResult {
@@ -25,15 +23,16 @@ interface ScaffoldFile {
   content: string;
 }
 
-function buildScaffoldFiles(profile: InitProfileName): ScaffoldFile[] {
+function buildScaffoldFiles(options: InitScaffoldOptions): ScaffoldFile[] {
+  const templateOptions = options.url ? { url: validateUrl(options.url).url } : {};
   return [
     {
       relativePath: ".github/web-quality/config.json",
-      content: buildConsumerConfig(profile)
+      content: buildConsumerConfig(options.profile, templateOptions)
     },
     {
       relativePath: ".github/workflows/web-quality.yml",
-      content: buildConsumerWorkflow()
+      content: buildConsumerWorkflow(templateOptions)
     },
     {
       relativePath: ".github/web-quality/baselines/.gitkeep",
@@ -41,7 +40,7 @@ function buildScaffoldFiles(profile: InitProfileName): ScaffoldFile[] {
     },
     {
       relativePath: ".github/web-quality/README.md",
-      content: buildConsumerReadme(profile)
+      content: buildConsumerReadme(options.profile, templateOptions)
     }
   ];
 }
@@ -50,7 +49,7 @@ export async function scaffoldConsumerProject(
   options: InitScaffoldOptions
 ): Promise<InitScaffoldResult> {
   const root = path.resolve(options.cwd);
-  const files = buildScaffoldFiles(options.profile);
+  const files = buildScaffoldFiles(options);
   const existingFiles: string[] = [];
 
   for (const file of files) {

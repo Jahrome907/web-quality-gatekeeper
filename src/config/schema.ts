@@ -13,8 +13,8 @@ const MAX_URL_TARGETS = 25;
 const MAX_TREND_HISTORY_PATH = 500;
 const MAX_TREND_SNAPSHOTS = 365;
 const MAX_GALLERY_SCREENSHOTS_PER_PATH = 60;
-const MAX_EXTENDS_REFERENCES = 8;
-const MAX_EXTENDS_REFERENCE_LENGTH = 300;
+export const MAX_EXTENDS_REFERENCES = 8;
+export const MAX_EXTENDS_REFERENCE_LENGTH = 300;
 const MAX_TREND_DASHBOARD_WINDOW = 365;
 const WINDOWS_DRIVE_PREFIX = /^[A-Za-z]:/;
 const WINDOWS_UNC_ABSOLUTE_PATH = /^\\\\/;
@@ -34,6 +34,19 @@ function isSafeRelativeTrendHistoryPath(path: string): boolean {
   return path.split(/[\\/]+/).every((segment) => segment.length === 0 || segment !== "..");
 }
 
+function isSafeScreenshotPath(path: string): boolean {
+  if (path === "@target") {
+    return true;
+  }
+
+  return (
+    path.startsWith("/") &&
+    !path.startsWith("//") &&
+    !path.startsWith("/\\") &&
+    !path.includes("://")
+  );
+}
+
 export const VisualIgnoreRegionSchema = z.object({
   x: z.number().int().nonnegative().max(100000),
   y: z.number().int().nonnegative().max(100000),
@@ -50,10 +63,9 @@ const RuleOrTagListSchema = z
 
 export const ScreenshotSchema = z.object({
   name: z.string().min(1).max(100),
-  path: z.string().min(1).max(500).refine(
-    (p) => p === "@target" || (p.startsWith("/") && !p.includes("://")),
-    { message: 'Screenshot path must be "@target" or a relative path starting with /' }
-  ),
+  path: z.string().min(1).max(500).refine(isSafeScreenshotPath, {
+    message: 'Screenshot path must be "@target" or a target-relative path starting with a single /'
+  }),
   fullPage: z.boolean().default(true),
   waitForSelector: z.string().min(1).max(500).optional(),
   waitForTimeoutMs: z.number().int().nonnegative().max(MAX_WAIT_TIMEOUT_MS).optional()
@@ -146,7 +158,9 @@ export const ConfigSchema = z.object({
   }),
   visual: z.object({
     threshold: z.number().min(0).max(1),
-    engine: z.enum(["pixelmatch", "native-rust", "native-rust-spike"]).default(DEFAULT_VISUAL_DIFF_ENGINE),
+    engine: z
+      .enum(["pixelmatch", "native-rust", "native-rust-spike"])
+      .default(DEFAULT_VISUAL_DIFF_ENGINE),
     nativeBinaryPath: z.string().min(1).max(500).optional(),
     pixelmatch: z
       .object({

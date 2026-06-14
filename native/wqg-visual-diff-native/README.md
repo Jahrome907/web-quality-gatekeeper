@@ -1,14 +1,16 @@
 # Native Visual Diff Engine
 
 This crate is an optional Rust-backed visual diff engine for Web Quality Gatekeeper.
-It can be exercised through the benchmark harness or wired into normal audits as an opt-in runtime path.
+It can be exercised through the benchmark harness or wired into source-checkout audits as an opt-in runtime path.
 
 ## What It Does
 
 - Reads two normalized RGBA buffers from disk (`baseline` and `current`).
 - Optionally writes a raw RGBA diff buffer via `--diff-out`.
 - Requires explicit `width` and `height`.
-- Counts per-pixel mismatches when any channel delta exceeds `--threshold`.
+- Counts per-pixel mismatches using the same alpha-aware color threshold used
+  by the JavaScript reference path when anti-aliased pixel suppression is
+  disabled.
 - Emits one JSON object with:
   - `diffPixels`
   - `mismatchRatio`
@@ -17,14 +19,17 @@ It can be exercised through the benchmark harness or wired into normal audits as
 
 ## Runtime Integration
 
-After building the binary, enable it in a config file:
+After building the binary from a source checkout, enable it in a config file:
 
 ```json
 {
   "visual": {
     "threshold": 0.01,
     "engine": "native-rust",
-    "nativeBinaryPath": "native/wqg-visual-diff-native/target/release/wqg-visual-diff-native"
+    "nativeBinaryPath": "native/wqg-visual-diff-native/target/release/wqg-visual-diff-native",
+    "pixelmatch": {
+      "includeAA": true
+    }
   }
 }
 ```
@@ -37,7 +42,16 @@ WQG_VISUAL_DIFF_NATIVE_BIN=native/wqg-visual-diff-native/target/release/wqg-visu
 node dist/cli.js audit https://example.com --config configs/default.json
 ```
 
-If the binary is missing, times out, or the run requests unsupported `includeAA=true` semantics, Web Quality Gatekeeper falls back to `pixelmatch` automatically.
+If the binary is missing, points at a JavaScript adapter without the explicit
+test opt-in, points at a shell/batch/PowerShell/shebang script, times out, or
+the run keeps the default anti-aliased pixel suppression behavior, Web Quality
+Gatekeeper falls back to `pixelmatch` automatically.
+
+CI runs also fall back to `pixelmatch` unless
+`WQG_ALLOW_NATIVE_VISUAL_ENGINE=true` is set. Keep that opt-in limited to
+trusted workflows where the configured binary has been reviewed.
+
+The npm package does not include this crate or prebuilt binaries. Package consumers should keep the default `pixelmatch` engine unless they provide a reviewed native binary themselves.
 
 ## Inputs
 
@@ -47,8 +61,14 @@ If the binary is missing, times out, or the run requests unsupported `includeAA=
 ## Build
 
 ```bash
-cargo build --manifest-path native/wqg-visual-diff-native/Cargo.toml --release
+npm run native:visual-diff:build
+npm run native:visual-diff:smoke
 ```
+
+The build script runs Cargo with `--locked` and resolves the default Windows
+rustup path when `cargo` is installed but not on `PATH`. Set `WQG_CARGO_BIN` to
+an explicit Cargo executable if your Rust install uses a custom location.
+On Windows the release binary is `target/release/wqg-visual-diff-native.exe`.
 
 ## Run
 
@@ -65,5 +85,15 @@ cargo run --manifest-path native/wqg-visual-diff-native/Cargo.toml -- \
 Example output:
 
 ```json
-{"engine":"wqg-native-rust","width":1280,"height":720,"pixelCount":921600,"diffPixels":3200,"comparablePixels":921600,"mismatchRatio":0.00347222,"threshold":0.05000000,"elapsedMs":7.214}
+{
+  "engine": "wqg-native-rust",
+  "width": 1280,
+  "height": 720,
+  "pixelCount": 921600,
+  "diffPixels": 3200,
+  "comparablePixels": 921600,
+  "mismatchRatio": 0.00347222,
+  "threshold": 0.05,
+  "elapsedMs": 7.214
+}
 ```

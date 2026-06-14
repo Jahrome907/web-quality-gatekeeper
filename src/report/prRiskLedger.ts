@@ -6,14 +6,12 @@ export const PR_RISK_LEDGER_ARTIFACT_NAMES = {
   markdown: "pr-risk-ledger.md"
 } as const;
 
+export const PR_RISK_LEDGER_SCHEMA_URI =
+  "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v3/schemas/pr-risk-ledger.v1.json";
+export const PR_RISK_LEDGER_SCHEMA_VERSION = "1.0.0";
+
 export type PrRiskLedgerSeverity = "critical" | "high" | "medium" | "low";
-export type PrRiskLedgerSource =
-  | "a11y"
-  | "perf"
-  | "visual"
-  | "runtime"
-  | "trend"
-  | "aggregate";
+export type PrRiskLedgerSource = "a11y" | "perf" | "visual" | "runtime" | "trend" | "aggregate";
 
 export interface PrRiskLedgerEntry {
   id: string;
@@ -27,6 +25,8 @@ export interface PrRiskLedgerEntry {
 }
 
 export interface PrRiskLedger {
+  $schema: string;
+  schemaVersion: string;
   generatedAt: string;
   toolVersion: string;
   overallStatus: AuditSummaryV2["overallStatus"];
@@ -46,10 +46,46 @@ const SEVERITY_RANK: Record<PrRiskLedgerSeverity, number> = {
   low: 1
 };
 
-function toAffectedSurfaces(summary: AuditSummaryV2, predicate: (page: AuditSummaryV2["pages"][number]) => boolean): string[] {
+function toAffectedSurfaces(
+  summary: AuditSummaryV2,
+  predicate: (page: AuditSummaryV2["pages"][number]) => boolean
+): string[] {
+  const surfaces = summary.pages.filter(predicate).map((page) => `${page.name} (${page.url})`);
+  return surfaces.length > 0 ? surfaces : [summary.primaryUrl];
+}
+
+function toPageSurface(page: AuditSummaryV2["pages"][number]): string {
+  return `${page.name} (${page.url})`;
+}
+
+function affectedSurfacesForInsight(summary: AuditSummaryV2, insightId: string): string[] {
   const surfaces = summary.pages
-    .filter(predicate)
-    .map((page) => `${page.name} (${page.url})`);
+    .filter((page) =>
+      page.details.insights?.recommendations.some((insight) => insight.id === insightId)
+    )
+    .map(toPageSurface);
+
+  return surfaces.length > 0 ? surfaces : [summary.primaryUrl];
+}
+
+function affectedSurfacesForTrend(summary: AuditSummaryV2, insightId: string): string[] {
+  const canonicalId = insightId.replace(/^trend:/, "");
+  const pages = summary.trend.pages.filter((page) => {
+    switch (canonicalId) {
+      case "a11y-regression":
+        return (page.a11yViolations.delta ?? 0) > 0;
+      case "perf-regression":
+        return (page.performanceScore.delta ?? 0) < 0;
+      case "visual-regression":
+        return (page.maxMismatchRatio.delta ?? 0) > 0;
+      case "flaky-gate":
+        return page.statusChanged;
+      default:
+        return false;
+    }
+  });
+
+  const surfaces = pages.map((page) => `${page.name} (${page.url})`);
   return surfaces.length > 0 ? surfaces : [summary.primaryUrl];
 }
 
@@ -84,6 +120,31 @@ function highestSeverity(entries: PrRiskLedgerEntry[]): PrRiskLedger["highestSev
   }, "none");
 }
 
+function escapeMarkdownText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\r?\n/g, " ")
+    .replace(/([[\]()`*_{}#!+|])/g, "\\$1");
+}
+
+function codeSpan(value: string): string {
+  const normalized = value.replace(/\r?\n/g, " ");
+  const longestRun = Math.max(0, ...(normalized.match(/`+/g) ?? []).map((run) => run.length));
+  const delimiter = "`".repeat(longestRun + 1);
+  const escaped = normalized.replace(/\\/g, "\\\\");
+  const needsPadding =
+    escaped.startsWith("`") ||
+    escaped.endsWith("`") ||
+    escaped.startsWith(" ") ||
+    escaped.endsWith(" ");
+  return needsPadding
+    ? `${delimiter} ${escaped} ${delimiter}`
+    : `${delimiter}${escaped}${delimiter}`;
+}
+
 export function buildPrRiskLedger(summary: AuditSummaryV2): PrRiskLedger {
   const entries: PrRiskLedgerEntry[] = [];
 
@@ -111,7 +172,8 @@ export function buildPrRiskLedger(summary: AuditSummaryV2): PrRiskLedger {
       title: "Accessibility violations require triage",
       affectedSurfaces: toAffectedSurfaces(summary, (page) => page.metrics.a11yViolations > 0),
       evidence: [`A11y violations: ${summary.rollup.a11yViolations}`],
-      recommendedAction: "Fix critical and serious accessibility issues first, then rerun the gate.",
+      recommendedAction:
+        "Fix critical and serious accessibility issues first, then rerun the gate.",
       verification: "Confirm the next summary reports zero blocking accessibility violations."
     });
   }
@@ -124,7 +186,8 @@ export function buildPrRiskLedger(summary: AuditSummaryV2): PrRiskLedger {
       title: "Performance budgets failed",
       affectedSurfaces: toAffectedSurfaces(summary, (page) => page.steps.perf === "fail"),
       evidence: [`Performance budget failures: ${summary.rollup.performanceBudgetFailures}`],
-      recommendedAction: "Inspect Lighthouse opportunities and adjust the page before relaxing budgets.",
+      recommendedAction:
+        "Inspect Lighthouse opportunities and adjust the page before relaxing budgets.",
       verification: "Rerun the audit and confirm all performance budget checks pass."
     });
   }
@@ -137,8 +200,10 @@ export function buildPrRiskLedger(summary: AuditSummaryV2): PrRiskLedger {
       title: "Visual regression threshold exceeded",
       affectedSurfaces: toAffectedSurfaces(summary, (page) => page.steps.visual === "fail"),
       evidence: [`Visual failures: ${summary.rollup.visualFailures}`],
-      recommendedAction: "Review diff artifacts and update baselines only for intentional UI changes.",
-      verification: "Confirm the diff artifact matches an approved visual change or rerun after fixing the UI."
+      recommendedAction:
+        "Review diff artifacts and update baselines only for intentional UI changes.",
+      verification:
+        "Confirm the diff artifact matches an approved visual change or rerun after fixing the UI."
     });
   }
 
@@ -163,8 +228,10 @@ export function buildPrRiskLedger(summary: AuditSummaryV2): PrRiskLedger {
         `JavaScript errors: ${jsErrors}`,
         `Failed requests: ${failedRequests}`
       ],
-      recommendedAction: "Resolve runtime errors and failed requests before treating the gate as healthy.",
-      verification: "Rerun the audit and confirm runtime error and failed request counts return to zero."
+      recommendedAction:
+        "Resolve runtime errors and failed requests before treating the gate as healthy.",
+      verification:
+        "Rerun the audit and confirm runtime error and failed request counts return to zero."
     });
   }
 
@@ -174,7 +241,7 @@ export function buildPrRiskLedger(summary: AuditSummaryV2): PrRiskLedger {
       severity: normalizeSeverity(insight.severity),
       source: normalizeSource(insight.source),
       title: insight.title,
-      affectedSurfaces: [summary.primaryUrl],
+      affectedSurfaces: affectedSurfacesForInsight(summary, insight.id),
       evidence: insight.evidence,
       recommendedAction: insight.remediation.join(" "),
       verification: insight.verification.join(" ")
@@ -187,7 +254,7 @@ export function buildPrRiskLedger(summary: AuditSummaryV2): PrRiskLedger {
       severity: insight.severity,
       source: "trend",
       title: insight.title,
-      affectedSurfaces: [summary.primaryUrl],
+      affectedSurfaces: affectedSurfacesForTrend(summary, insight.id),
       evidence: [summary.trend.message ?? `Trend status: ${summary.trend.status}`],
       recommendedAction: insight.recommendation,
       verification: "Rerun with trend history enabled and confirm the trend insight clears."
@@ -196,6 +263,8 @@ export function buildPrRiskLedger(summary: AuditSummaryV2): PrRiskLedger {
 
   const sortedEntries = sortEntries(entries);
   return {
+    $schema: PR_RISK_LEDGER_SCHEMA_URI,
+    schemaVersion: PR_RISK_LEDGER_SCHEMA_VERSION,
     generatedAt: summary.startedAt,
     toolVersion: summary.toolVersion,
     overallStatus: summary.overallStatus,
@@ -216,26 +285,26 @@ export function formatPrRiskLedgerAsMarkdown(ledger: PrRiskLedger): string {
     `- Overall status: **${ledger.overallStatus.toUpperCase()}**`,
     `- Highest severity: **${ledger.highestSeverity}**`,
     `- Risks: ${ledger.riskCount}`,
-    `- Report: \`${ledger.reportPath}\``,
-    `- Summary: \`${ledger.summaryPath}\``,
+    `- Report: ${codeSpan(ledger.reportPath)}`,
+    `- Summary: ${codeSpan(ledger.summaryPath)}`,
     ""
   ];
 
   if (ledger.entries.length === 0) {
-    lines.push("No merge-risk entries were generated for this run.", "");
+    lines.push("No merge-risk entries are present for this run.", "");
     return lines.join("\n");
   }
 
   for (const entry of ledger.entries) {
-    lines.push(`## ${entry.severity.toUpperCase()} - ${entry.title}`);
+    lines.push(`## ${entry.severity.toUpperCase()} - ${escapeMarkdownText(entry.title)}`);
     lines.push("");
-    lines.push(`- Source: ${entry.source}`);
-    lines.push(`- Affected surfaces: ${entry.affectedSurfaces.join("; ")}`);
-    lines.push(`- Recommended action: ${entry.recommendedAction}`);
-    lines.push(`- Verification: ${entry.verification}`);
+    lines.push(`- Source: ${escapeMarkdownText(entry.source)}`);
+    lines.push(`- Affected surfaces: ${entry.affectedSurfaces.map(escapeMarkdownText).join("; ")}`);
+    lines.push(`- Recommended action: ${escapeMarkdownText(entry.recommendedAction)}`);
+    lines.push(`- Verification: ${escapeMarkdownText(entry.verification)}`);
     lines.push("- Evidence:");
     for (const evidence of entry.evidence) {
-      lines.push(`  - ${evidence}`);
+      lines.push(`  - ${escapeMarkdownText(evidence)}`);
     }
     lines.push("");
   }

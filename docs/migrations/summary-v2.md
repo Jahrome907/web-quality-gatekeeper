@@ -9,6 +9,8 @@ This guide covers the summary contract changes introduced with summary v2 output
 - New aggregate artifact: `summary.v2.json`.
 - Multi-page rollup fields (`mode`, `rollup`, `pages[]`) added in v2.
 - Trend delta block (`trend`) added in v2.
+- Aggregate artifact pointers include the v1 summary, v2 summary, HTML report,
+  Action Plan, PR Risk Ledger, and optional trend outputs.
 - Per-page v2 artifacts emitted in multi-page mode.
 
 ## What Stayed Stable
@@ -28,6 +30,11 @@ This guide covers the summary contract changes introduced with summary v2 output
 - `summary.v2.json`: aggregate run summary with per-page sections and trend deltas.
 - `pages/*/summary.v2.json`: page-level v2 detail files in multi-page mode.
 - `.wqg-history/*.summary.v2.json`: historical snapshots when trend tracking is enabled.
+- `action-plan.md`: Markdown remediation plan referenced by
+  `summary.v2.json#artifacts.actionPlanMd`.
+- `pr-risk-ledger.json` and `pr-risk-ledger.md`: merge-review risk outputs
+  referenced by `summary.v2.json#artifacts.prRiskLedgerJson` and
+  `summary.v2.json#artifacts.prRiskLedgerMd`.
 
 ## New Config Keys
 
@@ -54,6 +61,8 @@ This guide covers the summary contract changes introduced with summary v2 output
 - `mode`: `single` or `multi`.
 - `rollup`: aggregate counts across pages.
 - `pages[]`: per-page status, metrics, artifact paths, and v2 detail payload.
+- `artifacts`: aggregate relative paths for summary, report, action-plan, PR
+  Risk Ledger, and trend outputs.
 - `trend`: run-over-run deltas and guardrail states (`disabled`, `no_previous`, `incompatible_previous`, `corrupt_previous`, or `ready`).
 - `compatibility`: explicit pointer to v1 compatibility contract.
 - Page identity matching for trend deltas uses `name::url`.

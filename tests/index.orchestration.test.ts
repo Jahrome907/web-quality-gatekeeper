@@ -40,14 +40,14 @@ vi.mock("../src/report/summary.js", () => ({
   buildSummary: mockBuildSummary,
   buildSummaryV2: mockBuildSummaryV2,
   SCHEMA_VERSION: "1.1.0",
-  SCHEMA_VERSION_V2: "2.2.0",
+  SCHEMA_VERSION_V2: "2.3.0",
   SUMMARY_SCHEMA_POINTERS: {
     v1: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v1/schemas/summary.v1.json",
     v2: "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json"
   },
   SUMMARY_SCHEMA_VERSIONS: {
     v1: "1.1.0",
-    v2: "2.2.0"
+    v2: "2.3.0"
   },
   SUMMARY_ARTIFACT_NAMES: {
     summary: "summary.json",
@@ -149,7 +149,7 @@ function createSummaryV2(overallStatus: "pass" | "fail"): SummaryV2 {
     ...createSummary(overallStatus),
     $schema:
       "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
-    schemaVersion: "2.2.0",
+    schemaVersion: "2.3.0",
     artifacts: {
       ...createSummary(overallStatus).artifacts,
       summaryV2: "summary.v2.json"
@@ -174,7 +174,9 @@ function createFullConfig() {
 
 function isCiLike(): boolean {
   const values = [process.env.CI, process.env.GITHUB_ACTIONS];
-  return values.some((value) => ["1", "true", "yes", "on"].includes(`${value ?? ""}`.toLowerCase()));
+  return values.some((value) =>
+    ["1", "true", "yes", "on"].includes(`${value ?? ""}`.toLowerCase())
+  );
 }
 
 describe("runAudit orchestration", () => {
@@ -183,8 +185,17 @@ describe("runAudit orchestration", () => {
     vi.clearAllMocks();
     mockLookup.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
     mockBuildHtmlReport.mockReturnValue("<html>report</html>");
-    mockBuildSummary.mockReturnValue(createSummary("pass"));
-    mockBuildSummaryV2.mockReturnValue(createSummaryV2("pass"));
+    mockBuildSummary.mockImplementation((params) => ({
+      ...createSummary("pass"),
+      url: params.url,
+      artifacts: params.artifacts
+    }));
+    mockBuildSummaryV2.mockImplementation((params) => ({
+      ...createSummaryV2("pass"),
+      url: params.url,
+      artifacts: params.artifacts,
+      runtimeSignals: params.runtimeSignals
+    }));
   });
 
   it("treats GitHub Actions as sensitive mode when CI is explicitly false", async () => {
@@ -286,6 +297,7 @@ describe("runAudit orchestration", () => {
     });
     mockBuildSummaryV2.mockImplementation((params) => ({
       ...createSummaryV2("pass"),
+      url: params.url,
       performance: params.performance,
       runtimeSignals: params.runtimeSignals,
       artifacts: params.artifacts
@@ -307,7 +319,12 @@ describe("runAudit orchestration", () => {
 
     expect(result.exitCode).toBe(0);
     expect(mockValidateOutputDirectory).toHaveBeenCalledTimes(2);
-    expect(mockRunAxeScan).toHaveBeenCalledWith(expect.anything(), outDir, expect.anything(), expect.anything());
+    expect(mockRunAxeScan).toHaveBeenCalledWith(
+      expect.anything(),
+      outDir,
+      expect.anything(),
+      expect.anything()
+    );
     expect(mockRunLighthouseAudit).toHaveBeenCalledTimes(1);
     expect(mockRunLighthouseAudit).toHaveBeenCalledWith(
       "https://www.example.com/",
@@ -344,16 +361,19 @@ describe("runAudit orchestration", () => {
     expect(mockWriteJson).toHaveBeenCalledWith(
       path.join(outDir, "summary.v2.json"),
       expect.objectContaining({
-        schemaVersion: "2.2.0",
+        schemaVersion: "2.3.0",
         mode: "single",
         overallStatus: "pass",
         pages: expect.any(Array)
       })
     );
-    expect(mockWriteText).toHaveBeenCalledWith(path.join(outDir, "report.html"), "<html>report</html>");
+    expect(mockWriteText).toHaveBeenCalledWith(
+      path.join(outDir, "report.html"),
+      "<html>report</html>"
+    );
 
     const summaryArgs = mockBuildSummary.mock.calls[0]![0];
-    expect(summaryArgs.url).toBe("https://example.com/");
+    expect(summaryArgs.url).toBe("https://www.example.com/");
     expect(summaryArgs.screenshots[0].path).toBe("screenshots/home.png");
     expect(summaryArgs.a11y.reportPath).toBe("axe.json");
     expect(summaryArgs.performance.reportPath).toBe("lighthouse.json");
@@ -363,6 +383,7 @@ describe("runAudit orchestration", () => {
     expect(summaryArgs.artifacts.baselineDir).toBe("../baselines");
 
     const summaryV2Args = mockBuildSummaryV2.mock.calls[0]![0];
+    expect(summaryV2Args.url).toBe("https://www.example.com/");
     expect(summaryV2Args.runtimeSignals).toEqual(createRuntimeSignals());
     expect(summaryV2Args.artifacts.summaryV2).toBe("summary.v2.json");
 
@@ -370,16 +391,25 @@ describe("runAudit orchestration", () => {
       kind: string;
       summary: {
         mode: string;
+        primaryUrl: string;
         trend: { insights: unknown[] };
-        pages: Array<{ details?: SummaryV2 }>;
+        pages: Array<{ url?: string; details?: SummaryV2 }>;
       };
     };
     expect(reportSummaryArg.kind).toBe("aggregate");
     expect(reportSummaryArg.summary.mode).toBe("single");
+    expect(reportSummaryArg.summary.primaryUrl).toBe("https://www.example.com/");
+    expect(reportSummaryArg.summary.pages[0]?.url).toBe("https://www.example.com/");
     expect(reportSummaryArg.summary.trend.insights).toEqual([]);
-    expect(reportSummaryArg.summary.pages[0]?.details?.performance?.extendedMetrics?.fcpMs).toBe(900);
-    expect(reportSummaryArg.summary.pages[0]?.details?.performance?.categoryScores?.performance).toBe(0.95);
-    expect(reportSummaryArg.summary.pages[0]?.details?.runtimeSignals).toEqual(createRuntimeSignals());
+    expect(reportSummaryArg.summary.pages[0]?.details?.performance?.extendedMetrics?.fcpMs).toBe(
+      900
+    );
+    expect(
+      reportSummaryArg.summary.pages[0]?.details?.performance?.categoryScores?.performance
+    ).toBe(0.95);
+    expect(reportSummaryArg.summary.pages[0]?.details?.runtimeSignals).toEqual(
+      createRuntimeSignals()
+    );
   });
 
   it("skips disabled checks and passes null summaries", async () => {

@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-// @ts-expect-error -- Vitest executes the ESM helper directly from source.
 import { readActionRunBlock } from "../scripts/ci/_shared.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");

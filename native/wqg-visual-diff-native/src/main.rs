@@ -113,20 +113,48 @@ fn expected_rgba_len(width: usize, height: usize) -> Result<usize, String> {
         .ok_or_else(|| "Image dimensions overflowed size calculation".to_string())
 }
 
-fn channel_delta_exceeds_threshold(
+fn checkerboard_background(offset: usize) -> (f64, f64, f64) {
+    let byte_offset = offset as f64;
+    (
+        48.0 + 159.0 * (offset % 2) as f64,
+        48.0 + 159.0 * ((byte_offset / 1.618_033_988_749_895).floor() as usize % 2) as f64,
+        48.0 + 159.0 * ((byte_offset / 2.618_033_988_749_895).floor() as usize % 2) as f64,
+    )
+}
+
+fn color_delta_exceeds_threshold(
     baseline: &[u8],
     current: &[u8],
     offset: usize,
     threshold: f64,
 ) -> bool {
-    let d0 = (baseline[offset] as i16 - current[offset] as i16).unsigned_abs() as f64 / 255.0;
-    let d1 =
-        (baseline[offset + 1] as i16 - current[offset + 1] as i16).unsigned_abs() as f64 / 255.0;
-    let d2 =
-        (baseline[offset + 2] as i16 - current[offset + 2] as i16).unsigned_abs() as f64 / 255.0;
-    let d3 =
-        (baseline[offset + 3] as i16 - current[offset + 3] as i16).unsigned_abs() as f64 / 255.0;
-    d0 > threshold || d1 > threshold || d2 > threshold || d3 > threshold
+    let r1 = baseline[offset] as f64;
+    let g1 = baseline[offset + 1] as f64;
+    let b1 = baseline[offset + 2] as f64;
+    let a1 = baseline[offset + 3] as f64;
+    let r2 = current[offset] as f64;
+    let g2 = current[offset + 1] as f64;
+    let b2 = current[offset + 2] as f64;
+    let a2 = current[offset + 3] as f64;
+
+    let mut dr = r1 - r2;
+    let mut dg = g1 - g2;
+    let mut db = b1 - b2;
+    let da = a1 - a2;
+
+    if a1 < 255.0 || a2 < 255.0 {
+        let (rb, gb, bb) = checkerboard_background(offset);
+        dr = (r1 * a1 - r2 * a2 - rb * da) / 255.0;
+        dg = (g1 * a1 - g2 * a2 - gb * da) / 255.0;
+        db = (b1 * a1 - b2 * a2 - bb * da) / 255.0;
+    }
+
+    let y = dr * 0.298_895_31 + dg * 0.586_622_47 + db * 0.114_482_23;
+    let i = dr * 0.595_977_99 - dg * 0.274_176_10 - db * 0.321_801_89;
+    let q = dr * 0.211_470_17 - dg * 0.522_617_11 + db * 0.311_146_94;
+    let delta = 0.5053 * y * y + 0.299 * i * i + 0.1957 * q * q;
+    let max_delta = 35_215.0 * threshold * threshold;
+    delta > max_delta
 }
 
 fn run(config: Config) -> Result<(), String> {
@@ -159,7 +187,7 @@ fn run(config: Config) -> Result<(), String> {
         .map(|_| vec![0u8; expected_len]);
     for i in 0..pixel_count {
         let offset = i * 4;
-        if channel_delta_exceeds_threshold(&baseline, &current, offset, config.threshold) {
+        if color_delta_exceeds_threshold(&baseline, &current, offset, config.threshold) {
             diff_pixels += 1;
             if let Some(buffer) = diff_buffer.as_mut() {
                 buffer[offset] = 255;
@@ -220,10 +248,25 @@ mod tests {
     }
 
     #[test]
-    fn detects_channel_delta_above_threshold() {
+    fn ignores_rgb_changes_when_both_pixels_are_transparent() {
+        let baseline = [0, 0, 0, 0];
+        let current = [255, 0, 0, 0];
+        assert!(!color_delta_exceeds_threshold(&baseline, &current, 0, 0.0));
+    }
+
+    #[test]
+    fn follows_reference_color_threshold_edges() {
         let baseline = [255, 255, 255, 255];
         let current = [255, 200, 255, 255];
-        assert!(channel_delta_exceeds_threshold(&baseline, &current, 0, 0.1));
-        assert!(!channel_delta_exceeds_threshold(&baseline, &current, 0, 0.25));
+        assert!(color_delta_exceeds_threshold(&baseline, &current, 0, 0.1));
+        assert!(!color_delta_exceeds_threshold(&baseline, &current, 0, 0.2));
+    }
+
+    #[test]
+    fn follows_reference_checkerboard_alpha_blending() {
+        let baseline = [0, 50, 200, 0];
+        let current = [0, 100, 20, 17];
+        assert!(!color_delta_exceeds_threshold(&baseline, &current, 0, 0.02));
+        assert!(color_delta_exceeds_threshold(&baseline, &current, 0, 0.01));
     }
 }

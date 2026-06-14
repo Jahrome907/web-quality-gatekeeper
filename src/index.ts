@@ -16,12 +16,7 @@ import {
 } from "./report/prRiskLedger.js";
 import { buildTrendDashboardHtml } from "./report/trendDashboard.js";
 import type { AggregateHtmlReport } from "./report/viewModel.js";
-import {
-  ensureDir,
-  validateOutputDirectory,
-  writeJson,
-  writeText
-} from "./utils/fs.js";
+import { ensureDir, validateOutputDirectory, writeJson, writeText } from "./utils/fs.js";
 import { createLogger } from "./utils/logger.js";
 import { durationMs, nowIso } from "./utils/timing.js";
 import type { Config } from "./config/schema.js";
@@ -31,7 +26,7 @@ import type { VisualDiffSummary } from "./runner/visualDiff.js";
 import type { RuntimeSignalSummary } from "./runner/playwright.js";
 import type { AuditAuth } from "./utils/auth.js";
 import type { TargetResolutionPolicy } from "./utils/url.js";
-import type { Summary, SummaryV2 } from "./report/summary.js";
+import type { Summary, SummaryV2 as DetailSummaryV2 } from "./report/summary.js";
 import {
   type AuditSummaryV2,
   type ResolvedAuditTarget,
@@ -53,7 +48,7 @@ const pkg = require("../package.json") as { version: string };
 
 type OverallStatus = "pass" | "fail";
 
-export type { Summary, SummaryV2 } from "./report/summary.js";
+export type { Summary, SummaryV2, SummaryV2 as DetailSummaryV2 } from "./report/summary.js";
 export { SCHEMA_VERSION } from "./report/summary.js";
 export {
   PR_RISK_LEDGER_ARTIFACT_NAMES,
@@ -111,7 +106,7 @@ function severityWeight(value: string): number {
   }
 }
 
-function aggregateRunInsights(results: TargetAuditResult[]): SummaryV2["insights"] {
+function aggregateRunInsights(results: TargetAuditResult[]): DetailSummaryV2["insights"] {
   const combined = results.flatMap((result) => result.summaryV2.insights?.recommendations ?? []);
   if (combined.length === 0) {
     return null;
@@ -134,6 +129,26 @@ function aggregateRunInsights(results: TargetAuditResult[]): SummaryV2["insights
 
   return {
     recommendations
+  };
+}
+
+function buildCompatibilitySummary(params: {
+  results: TargetAuditResult[];
+  overallStatus: OverallStatus;
+  durationMs: number;
+}): Summary {
+  const { results, overallStatus, durationMs } = params;
+  const first = results[0]!.summary;
+  return {
+    ...first,
+    overallStatus,
+    durationMs,
+    steps: aggregateSteps(results),
+    artifacts: {
+      ...first.artifacts,
+      summary: summaryReport.SUMMARY_ARTIFACT_NAMES.summary,
+      report: summaryReport.SUMMARY_ARTIFACT_NAMES.report
+    }
   };
 }
 
@@ -164,13 +179,7 @@ async function runTargetAudit(params: {
   let lighthouseSummary: LighthouseSummary | null = null;
   let visualSummary: VisualDiffSummary | null = null;
 
-  const {
-    browser,
-    page,
-    runtimeSignals,
-    resolvedUrl,
-    resolvedHostResolverRules
-  } = await openPage(
+  const { browser, page, runtimeSignals, resolvedUrl, resolvedHostResolverRules } = await openPage(
     target.url,
     config,
     logger,
@@ -181,6 +190,7 @@ async function runTargetAudit(params: {
     }
   );
   try {
+    const auditedUrl = resolvedUrl;
     if (config.toggles.a11y) {
       axeSummary = await runAxeScan(page, target.outDir, logger, config);
     }
@@ -273,7 +283,7 @@ async function runTargetAudit(params: {
 
     const runDurationMs = durationMs(startTime);
     const summary = summaryReport.buildSummary({
-      url: target.url,
+      url: auditedUrl,
       startedAt,
       durationMs: runDurationMs,
       toolVersion: pkg.version,
@@ -291,7 +301,7 @@ async function runTargetAudit(params: {
 
     const summaryV2Base = summaryReport.buildSummaryV2
       ? summaryReport.buildSummaryV2({
-          url: target.url,
+          url: auditedUrl,
           startedAt,
           durationMs: runDurationMs,
           toolVersion: pkg.version,
@@ -317,9 +327,9 @@ async function runTargetAudit(params: {
             summaryV2: toRelative(outDir, summaryV2Path)
           },
           runtimeSignals: runtimeSignals.snapshot() as RuntimeSignalSummary
-        } as SummaryV2);
+        } as DetailSummaryV2);
 
-    const summaryV2: SummaryV2 =
+    const summaryV2: DetailSummaryV2 =
       config.insights?.enabled === false
         ? summaryV2Base
         : {
@@ -369,7 +379,9 @@ export async function runAudit(
   const results: TargetAuditResult[] = [];
 
   for (const target of targets) {
-    logger.debug(`Running audit target ${target.index + 1}/${targets.length}: ${target.name} (${target.url})`);
+    logger.debug(
+      `Running audit target ${target.index + 1}/${targets.length}: ${target.name} (${target.url})`
+    );
     const result = await runTargetAudit({
       target,
       outDir,
@@ -381,26 +393,25 @@ export async function runAudit(
     results.push(result);
   }
 
-  const overallStatus: OverallStatus = results.some((result) => result.summary.overallStatus === "fail")
+  const overallStatus: OverallStatus = results.some(
+    (result) => result.summary.overallStatus === "fail"
+  )
     ? "fail"
     : "pass";
   const runInsights = aggregateRunInsights(results);
   const pages = results.map((result) => buildPageEntry(result));
   const rollup = buildRollup(pages);
 
-  const compatibilitySummary: Summary = {
-    ...results[0]!.summary,
+  const compatibilitySummary = buildCompatibilitySummary({
+    results,
     overallStatus,
-    durationMs: durationMs(startTime),
-    steps: aggregateSteps(results),
-    artifacts: {
-      ...results[0]!.summary.artifacts,
-      summary: summaryReport.SUMMARY_ARTIFACT_NAMES.summary,
-      report: summaryReport.SUMMARY_ARTIFACT_NAMES.report
-    }
-  };
+    durationMs: durationMs(startTime)
+  });
 
-  await writeJson(path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summary), compatibilitySummary);
+  await writeJson(
+    path.join(outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summary),
+    compatibilitySummary
+  );
 
   const trendSettings = resolveTrendSettings(config);
   const trendHistoryDir = path.isAbsolute(trendSettings.historyDir)
@@ -435,6 +446,8 @@ export async function runAudit(
       summary: summaryReport.SUMMARY_ARTIFACT_NAMES.summary,
       summaryV2: summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2,
       report: summaryReport.SUMMARY_ARTIFACT_NAMES.report,
+      prRiskLedgerJson: PR_RISK_LEDGER_ARTIFACT_NAMES.json,
+      prRiskLedgerMd: PR_RISK_LEDGER_ARTIFACT_NAMES.markdown,
       trendDashboardHtml: null,
       trendHistoryJson: null,
       actionPlanMd: summaryReport.SUMMARY_ARTIFACT_NAMES.actionPlan

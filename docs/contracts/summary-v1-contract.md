@@ -25,21 +25,21 @@ Run `npm run contracts:check` to verify that:
 
 ## Top-Level Contract
 
-| Path | Type | Required | Notes |
-| --- | --- | --- | --- |
-| `$schema` | `string` | Yes | Always the v1 schema URI. |
-| `schemaVersion` | `"1.x.x"` | Yes | Current runtime value is `1.1.0`. |
-| `toolVersion` | `string` | Yes | Package semver string. |
-| `overallStatus` | `"pass" \| "fail"` | Yes | Rollup status across enabled checks. |
-| `url` | `string` | Yes | Primary audited URL. |
-| `startedAt` | `string` | Yes | ISO date-time. |
-| `durationMs` | `number` | Yes | Non-negative total duration. |
-| `steps` | `object` | Yes | Contains `playwright`, `a11y`, `perf`, `visual`. |
-| `artifacts` | `object` | Yes | Relative artifact paths for the run. |
-| `screenshots` | `array` | Yes | Captured screenshot metadata. |
-| `a11y` | `object \| null` | Yes | Explicit `null` when a11y is disabled. |
-| `performance` | `object \| null` | Yes | Explicit `null` when perf is disabled. |
-| `visual` | `object \| null` | Yes | Explicit `null` when visual diff is disabled. |
+| Path            | Type               | Required | Notes                                            |
+| --------------- | ------------------ | -------- | ------------------------------------------------ |
+| `$schema`       | `string`           | Yes      | Always the v1 schema URI.                        |
+| `schemaVersion` | `"1.x.x"`          | Yes      | Current runtime value is `1.1.0`.                |
+| `toolVersion`   | `string`           | Yes      | Package semver string.                           |
+| `overallStatus` | `"pass" \| "fail"` | Yes      | Rollup status across enabled checks.             |
+| `url`           | `string`           | Yes      | Primary audited URL.                             |
+| `startedAt`     | `string`           | Yes      | ISO date-time.                                   |
+| `durationMs`    | `number`           | Yes      | Non-negative total duration.                     |
+| `steps`         | `object`           | Yes      | Contains `playwright`, `a11y`, `perf`, `visual`. |
+| `artifacts`     | `object`           | Yes      | Relative artifact paths for the run.             |
+| `screenshots`   | `array`            | Yes      | Captured screenshot metadata.                    |
+| `a11y`          | `object \| null`   | Yes      | Explicit `null` when a11y is disabled.           |
+| `performance`   | `object \| null`   | Yes      | Explicit `null` when perf is disabled.           |
+| `visual`        | `object \| null`   | Yes      | Explicit `null` when visual diff is disabled.    |
 
 ## Step Status Contract
 
@@ -68,12 +68,18 @@ Each value is one of:
 - `diffsDir`
 - `baselineDir`
 
-Current defaults exposed to consumers:
+Current single-page defaults exposed to consumers:
 
 - `summary`: `summary.json`
 - `report`: `report.html`
 - `screenshotsDir`: `screenshots`
 - `diffsDir`: `diffs`
+
+In multipage runs, the top-level `summary.json` remains a v1 compatibility
+view of the primary target. `summary` and `report` point at the top-level
+compatibility artifacts, while page-owned artifacts such as `screenshotsDir`,
+`diffsDir`, and screenshot paths stay relative to the run root and include the
+primary page directory, for example `pages/01-landing/screenshots`.
 
 `axe` and `lighthouse` are nullable when their corresponding checks are disabled.
 
@@ -133,6 +139,8 @@ Each visual result contains:
 - Top-level contract fields are always present.
 - Optional check payloads are represented with explicit `null`.
 - Additional properties are not part of the v1 compatibility contract.
+- In multipage runs, `summary.json` preserves the v1-compatible primary-target
+  shape. Use `summary.v2.json` for aggregate and per-page multipage data.
 
 ## Semver Policy
 

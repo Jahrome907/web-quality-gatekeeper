@@ -149,13 +149,14 @@ function codeSpan(value: string): string {
     normalized.endsWith("`") ||
     normalized.startsWith(" ") ||
     normalized.endsWith(" ");
-  return needsPadding ? `${delimiter} ${normalized} ${delimiter}` : `${delimiter}${normalized}${delimiter}`;
+  return needsPadding
+    ? `${delimiter} ${normalized} ${delimiter}`
+    : `${delimiter}${normalized}${delimiter}`;
 }
 
-function normalizeTrendStatus(status: TrendDeltaSummary["status"]): Exclude<
-  TrendDeltaSummary["status"],
-  "no_previous_snapshot" | "previous_snapshot_invalid"
-> {
+function normalizeTrendStatus(
+  status: TrendDeltaSummary["status"]
+): Exclude<TrendDeltaSummary["status"], "no_previous_snapshot" | "previous_snapshot_invalid"> {
   switch (status) {
     case "no_previous_snapshot":
       return "no_previous";
@@ -357,7 +358,9 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
         "Page",
         page.overallStatus
       )} | ${page.metrics.a11yViolations} | ${page.metrics.performanceScore ?? "n/a"} | ${
-        page.metrics.maxMismatchRatio === null ? "n/a" : formatNumber(page.metrics.maxMismatchRatio, 4)
+        page.metrics.maxMismatchRatio === null
+          ? "n/a"
+          : formatNumber(page.metrics.maxMismatchRatio, 4)
       } | ${page.durationMs} |`
     );
   }
@@ -434,11 +437,13 @@ function renderAggregateSummary(summary: AggregateSummaryV2Like): string {
       lines.push(`- **Max mismatch ratio**: ${formatNumber(details.visual.maxMismatchRatio, 4)}`);
       lines.push(`- **Visual gate failed**: ${details.visual.failed ? "yes" : "no"}`);
       lines.push("");
-      lines.push("| View | Status | Mismatch Ratio | Current | Baseline | Diff |");
-      lines.push("|---|---|---:|---|---|---|");
+      lines.push("| View | Status | Engine | Mismatch Ratio | Current | Baseline | Diff |");
+      lines.push("|---|---|---|---:|---|---|---|");
       for (const result of details.visual.results) {
         lines.push(
-          `| ${escapeTableCell(result.name)} | ${escapeTableCell(result.status)} | ${
+          `| ${escapeTableCell(result.name)} | ${escapeTableCell(result.status)} | ${escapeTableCell(
+            result.engine ?? "n/a"
+          )} | ${
             result.mismatchRatio === null ? "n/a" : formatNumber(result.mismatchRatio, 4)
           } | ${codeSpan(result.currentPath)} | ${codeSpan(result.baselinePath)} | ${codeSpan(
             result.diffPath ?? "n/a"

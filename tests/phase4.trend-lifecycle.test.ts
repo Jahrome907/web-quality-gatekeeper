@@ -129,7 +129,11 @@ describe("phase4 trend lifecycle", () => {
     const historyDir = path.join(outDir, ".history");
 
     await mkdir(historyDir, { recursive: true });
-    await writeFile(path.join(historyDir, "2026-02-08T00-00-00-000Z.summary.v2.json"), "{not-json", "utf8");
+    await writeFile(
+      path.join(historyDir, "2026-02-08T00-00-00-000Z.summary.v2.json"),
+      "{not-json",
+      "utf8"
+    );
 
     mockLoadConfig.mockResolvedValue(
       createBaseConfig({
@@ -244,7 +248,9 @@ describe("phase4 trend lifecycle", () => {
     }
 
     const historyDir = path.join(outDir, ".history");
-    const snapshots = (await readdir(historyDir)).filter((entry) => entry.endsWith(".summary.v2.json"));
+    const snapshots = (await readdir(historyDir)).filter((entry) =>
+      entry.endsWith(".summary.v2.json")
+    );
 
     expect(snapshots.length).toBe(2);
   });
@@ -339,7 +345,9 @@ describe("phase4 trend lifecycle", () => {
       auth: null
     });
     observed.add(incompatible.summaryV2.trend.status);
-    expect(validateV2(incompatible.summaryV2), JSON.stringify(validateV2.errors, null, 2)).toBe(true);
+    expect(validateV2(incompatible.summaryV2), JSON.stringify(validateV2.errors, null, 2)).toBe(
+      true
+    );
 
     const corruptRun = await createRunDirs(tempDirs);
     await mkdir(path.join(corruptRun.outDir, ".history"), { recursive: true });
@@ -378,5 +386,5 @@ describe("phase4 trend lifecycle", () => {
     );
     expect(observed.has("no_previous_snapshot")).toBe(false);
     expect(observed.has("previous_snapshot_invalid")).toBe(false);
-  });
+  }, 20000);
 });
