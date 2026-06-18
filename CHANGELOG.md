@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Re-resolve newly discovered Playwright subresource hosts on repeated requests so DNS rebinding protections remain active beyond the first resolution.
+- Reject script wrappers in the native visual diff smoke path so `WQG_VISUAL_DIFF_NATIVE_BIN` must point at a reviewed native binary.
+
+### Changed
+
+- Move stable major tag updates before GitHub Release creation so a failed `v3` alias update stops the release workflow before the public release is created.
+- Make `wqg doctor` verify that `CHROME_PATH` can launch as a browser-like executable instead of treating file existence alone as a pass.
+- Fail the manual npm publish workflow early when the package owner record is not visible on npm, with explicit trusted-publisher setup guidance.
+- Strengthen package smoke coverage by packing from the real repository lifecycle into an isolated temp consumer project.
+
 ## [3.2.2] - 2026-06-14
 
 ### Changed

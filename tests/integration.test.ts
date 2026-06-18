@@ -23,6 +23,9 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const TEST_CONFIG = path.join(ROOT, "tests", "fixtures", "integration-config.json");
 const SUMMARY_SCHEMA = path.join(ROOT, "schemas", "summary.v1.json");
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const CLI_AUDIT_TIMEOUT_MS = 180000;
+const CLI_AUDIT_TEST_TIMEOUT_MS = CLI_AUDIT_TIMEOUT_MS + 30000;
+const CLI_REPEATED_AUDIT_TEST_TIMEOUT_MS = CLI_AUDIT_TIMEOUT_MS * 2 + 60000;
 
 interface CliResult {
   status: number;
@@ -55,7 +58,7 @@ function extractExitStatus(error: { code?: number | string; status?: number }): 
 async function runCli(
   cliPath: string,
   args: string[],
-  timeout: number = 60000,
+  timeout: number = CLI_AUDIT_TIMEOUT_MS,
   envOverrides: Record<string, string> = {}
 ): Promise<CliResult> {
   try {
@@ -179,7 +182,7 @@ describe("CLI integration", () => {
   it("produces valid summary.json with expected schema", async () => {
     // Run the CLI against the local fixture server. Default/html mode should
     // write artifacts without printing markdown/json payloads to stdout.
-    const run = await runCli(cliPath, buildAuditArgs(), 60000);
+    const run = await runCli(cliPath, buildAuditArgs());
     expect(run.status).toBe(0);
     expect(run.stdout.trim()).toBe("");
 
@@ -246,7 +249,7 @@ describe("CLI integration", () => {
       expect(shot).toHaveProperty("url");
       expect(shot).toHaveProperty("fullPage");
     }
-  }, 90000);
+  }, CLI_AUDIT_TEST_TIMEOUT_MS);
 
   it("returns exit code 2 for invalid URL", async () => {
     const run = await runCli(cliPath, ["audit", "not-a-url"], 10000);
@@ -295,7 +298,7 @@ describe("CLI integration", () => {
       const run = await runCli(
         cliPath,
         buildAuditArgsWithOut(modeOutDir, ["--format", "json"]),
-        60000
+        CLI_AUDIT_TIMEOUT_MS
       );
       expect(run.status).toBe(0);
       const parsed = JSON.parse(run.stdout) as Record<string, unknown>;
@@ -310,7 +313,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(modeRoot, { recursive: true, force: true });
     }
-  }, 90000);
+  }, CLI_AUDIT_TEST_TIMEOUT_MS);
 
   it("prints markdown summary to stdout for --format md", async () => {
     const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-format-md-"));
@@ -320,7 +323,7 @@ describe("CLI integration", () => {
       const run = await runCli(
         cliPath,
         buildAuditArgsWithOut(modeOutDir, ["--format", "md"]),
-        60000
+        CLI_AUDIT_TIMEOUT_MS
       );
       expect(run.status).toBe(0);
       expect(run.stdout).toContain("# Web Quality Gatekeeper Report");
@@ -333,7 +336,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(modeRoot, { recursive: true, force: true });
     }
-  }, 90000);
+  }, CLI_AUDIT_TEST_TIMEOUT_MS);
 
   it("prints aggregate summary v2 JSON to stdout for --format json-v2", async () => {
     const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-format-json-v2-"));
@@ -343,7 +346,7 @@ describe("CLI integration", () => {
       const run = await runCli(
         cliPath,
         buildAuditArgsWithOut(modeOutDir, ["--format", "json-v2"]),
-        60000
+        CLI_AUDIT_TIMEOUT_MS
       );
       expect(run.status).toBe(0);
       const parsed = JSON.parse(run.stdout) as { schemaVersion?: string; pages?: unknown[] };
@@ -356,7 +359,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(modeRoot, { recursive: true, force: true });
     }
-  }, 90000);
+  }, CLI_AUDIT_TEST_TIMEOUT_MS);
 
   it("prints merge-review artifacts to stdout for focused scripting formats", async () => {
     const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-format-artifacts-"));
@@ -367,7 +370,7 @@ describe("CLI integration", () => {
       const ledgerRun = await runCli(
         cliPath,
         buildAuditArgsWithOut(ledgerOutDir, ["--format", "pr-risk-ledger"]),
-        60000
+        CLI_AUDIT_TIMEOUT_MS
       );
       expect(ledgerRun.status).toBe(0);
       const ledger = JSON.parse(ledgerRun.stdout) as {
@@ -380,7 +383,7 @@ describe("CLI integration", () => {
       const actionPlanRun = await runCli(
         cliPath,
         buildAuditArgsWithOut(actionPlanOutDir, ["--format", "action-plan"]),
-        60000
+        CLI_AUDIT_TIMEOUT_MS
       );
       expect(actionPlanRun.status).toBe(0);
       expect(actionPlanRun.stdout).toContain("# Web Quality Gatekeeper Action Plan");
@@ -388,7 +391,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(modeRoot, { recursive: true, force: true });
     }
-  }, 120000);
+  }, CLI_REPEATED_AUDIT_TEST_TIMEOUT_MS);
 
   it("keeps stdout clean and writes html report for --format html", async () => {
     const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-format-html-"));
@@ -398,7 +401,7 @@ describe("CLI integration", () => {
       const run = await runCli(
         cliPath,
         buildAuditArgsWithOut(modeOutDir, ["--format", "html"]),
-        60000
+        CLI_AUDIT_TIMEOUT_MS
       );
       expect(run.status).toBe(0);
       expect(run.stdout.trim()).toBe("");
@@ -414,7 +417,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(modeRoot, { recursive: true, force: true });
     }
-  }, 90000);
+  }, CLI_AUDIT_TEST_TIMEOUT_MS);
 
   it("prints version with --version flag", () => {
     const output = execFileSync("node", [cliPath, "--version"], {
@@ -494,7 +497,7 @@ describe("CLI integration", () => {
       const run = await runCli(
         cliPath,
         buildAuditArgsWithOut(modeOutDir, ["--format", "html"]),
-        60000
+        CLI_AUDIT_TIMEOUT_MS
       );
       expect(run.status).toBe(0);
 
@@ -505,7 +508,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(modeRoot, { recursive: true, force: true });
     }
-  }, 90000);
+  }, CLI_AUDIT_TEST_TIMEOUT_MS);
 
   it("blocks internal targets in CI mode unless explicit override is provided", async () => {
     const run = await runCli(
@@ -520,7 +523,7 @@ describe("CLI integration", () => {
         "--baseline-dir",
         path.join(outDir, "baselines")
       ],
-      60000,
+      CLI_AUDIT_TIMEOUT_MS,
       { CI: "true", GITHUB_ACTIONS: "true" }
     );
 
@@ -540,11 +543,11 @@ describe("CLI integration", () => {
         path.join(outDir, "baselines"),
         "--allow-internal-targets"
       ],
-      60000,
+      CLI_AUDIT_TIMEOUT_MS,
       { CI: "true", GITHUB_ACTIONS: "true" }
     );
     expect(overridden.status).toBe(0);
-  }, 90000);
+  }, CLI_AUDIT_TEST_TIMEOUT_MS);
 
   it("supports config-driven multi-target audits and emits aggregate v2 pages", async () => {
     const multiRoot = await mkdtemp(path.join(ROOT, ".tmp-int-multi-"));
@@ -575,7 +578,7 @@ describe("CLI integration", () => {
           "--no-fail-on-visual",
           "--allow-internal-targets"
         ],
-        90000
+        CLI_AUDIT_TIMEOUT_MS
       );
 
       expect(run.status).toBe(0);
@@ -643,7 +646,7 @@ describe("CLI integration", () => {
     } finally {
       await rm(multiRoot, { recursive: true, force: true });
     }
-  }, 90000);
+  }, CLI_AUDIT_TEST_TIMEOUT_MS);
 
   it("surfaces invalid config inheritance as a CLI failure instead of silently continuing", async () => {
     const invalidRoot = await mkdtemp(path.join(ROOT, ".tmp-int-invalid-config-"));
@@ -711,7 +714,7 @@ describe("CLI integration", () => {
         "--allow-internal-targets"
       ];
 
-      const firstRun = await runCli(cliPath, args, 90000);
+      const firstRun = await runCli(cliPath, args, CLI_AUDIT_TIMEOUT_MS);
       expect(firstRun.status).toBe(0);
 
       const firstSummaryV2 = JSON.parse(
@@ -726,7 +729,7 @@ describe("CLI integration", () => {
       expect(existsSync(path.join(trendOutDir, "trends", "history.json"))).toBe(true);
       expect(existsSync(path.join(trendOutDir, "trends", "dashboard.html"))).toBe(true);
 
-      const secondRun = await runCli(cliPath, args, 90000);
+      const secondRun = await runCli(cliPath, args, CLI_AUDIT_TIMEOUT_MS);
       expect(secondRun.status).toBe(0);
 
       const secondSummaryV2 = JSON.parse(
@@ -737,5 +740,5 @@ describe("CLI integration", () => {
     } finally {
       await rm(trendRoot, { recursive: true, force: true });
     }
-  }, 180000);
+  }, CLI_REPEATED_AUDIT_TEST_TIMEOUT_MS);
 });

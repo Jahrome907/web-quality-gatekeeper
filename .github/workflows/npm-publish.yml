@@ -91,6 +91,27 @@ jobs:
             exit 1
           fi
 
+      - name: Verify npm package trusted-publisher setup
+        run: |
+          VIEW_OUTPUT="$(npm view "web-quality-gatekeeper" name --registry=https://registry.npmjs.org/ 2>&1)" && {
+            if [ "$VIEW_OUTPUT" = "web-quality-gatekeeper" ]; then
+              exit 0
+            fi
+            echo "::error::Unexpected npm package lookup response."
+            printf '%s\n' "$VIEW_OUTPUT"
+            exit 1
+          }
+          VIEW_STATUS=$?
+
+          if printf '%s\n' "$VIEW_OUTPUT" | grep -Eq "(E404|404 Not Found|is not in this registry)"; then
+            echo "::error::web-quality-gatekeeper is not visible on npm. Publish the package owner record and configure .github/workflows/npm-publish.yml as a trusted publisher on npmjs.com before running this workflow."
+            exit 1
+          fi
+
+          echo "::error::Unable to confirm npm package trusted-publisher setup."
+          printf '%s\n' "$VIEW_OUTPUT"
+          exit "$VIEW_STATUS"
+
       - name: Ensure package version is unpublished
         env:
           RELEASE_VERSION: ${{ needs.validate-input.outputs.release_version }}

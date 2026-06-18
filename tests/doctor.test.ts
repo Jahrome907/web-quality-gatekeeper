@@ -17,8 +17,9 @@ describe("doctor diagnostics", () => {
       config: "configs/default.json",
       out: "artifacts",
       baselineDir: "baselines",
-      env: { ...process.env, CHROME_PATH: process.execPath },
-      nodeVersion: "24.0.0"
+      env: { ...process.env, CHROME_PATH: undefined },
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: process.execPath
     });
 
     expect(result.status).toBe("pass");
@@ -44,10 +45,11 @@ describe("doctor diagnostics", () => {
       strict: true,
       env: {
         ...process.env,
-        CHROME_PATH: process.execPath,
+        CHROME_PATH: undefined,
         WQG_VISUAL_DIFF_ENGINE: "native-rust"
       },
-      nodeVersion: "24.0.0"
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: process.execPath
     });
 
     expect(result.status).toBe("fail");
@@ -65,7 +67,7 @@ describe("doctor diagnostics", () => {
       baselineDir: "baselines",
       env: {
         ...process.env,
-        CHROME_PATH: process.execPath,
+        CHROME_PATH: undefined,
         WQG_VISUAL_DIFF_ENGINE: "native-rust",
         WQG_VISUAL_DIFF_NATIVE_BIN: path.join(
           process.cwd(),
@@ -74,7 +76,8 @@ describe("doctor diagnostics", () => {
           "resolve-chrome-path.mjs"
         )
       },
-      nodeVersion: "24.0.0"
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: process.execPath
     });
 
     expect(result.status).toBe("warn");
@@ -105,12 +108,13 @@ describe("doctor diagnostics", () => {
         baselineDir: "baselines",
         env: {
           ...process.env,
-          CHROME_PATH: process.execPath,
+          CHROME_PATH: undefined,
           WQG_ALLOW_NATIVE_VISUAL_ENGINE: "true",
           WQG_VISUAL_DIFF_ENGINE: "native-rust",
           WQG_VISUAL_DIFF_NATIVE_BIN: process.execPath
         },
-        nodeVersion: "24.0.0"
+        nodeVersion: "24.0.0",
+        playwrightChromiumPath: process.execPath
       });
 
       expect(result.status).toBe("warn");
@@ -165,12 +169,13 @@ process.stdout.write(JSON.stringify({ diffPixels: 0 }));
           baselineDir: "baselines",
           env: {
             ...process.env,
-            CHROME_PATH: process.execPath,
+            CHROME_PATH: undefined,
             WQG_ALLOW_NATIVE_VISUAL_ENGINE: "true",
             WQG_ALLOW_SCRIPT_NATIVE_ENGINE: "true",
             WQG_VISUAL_DIFF_NATIVE_BIN: stubPath
           },
-          nodeVersion: "24.0.0"
+          nodeVersion: "24.0.0",
+          playwrightChromiumPath: process.execPath
         });
 
         expect(result.checks.find((check) => check.id === "native-visual-engine")).toMatchObject({
@@ -225,6 +230,42 @@ process.stdout.write(JSON.stringify({ diffPixels: 0 }));
       status: "warn",
       message:
         "CHROME_PATH is set but the file does not exist; Playwright Chromium is available as a fallback."
+    });
+  });
+
+  it("warns when CHROME_PATH exists but does not launch as a browser", async () => {
+    const result = await runDoctor({
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      env: { ...process.env, CHROME_PATH: process.execPath },
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: process.execPath
+    });
+
+    expect(result.status).toBe("warn");
+    expect(result.checks.find((check) => check.id === "browser")).toMatchObject({
+      status: "warn",
+      message:
+        "CHROME_PATH exists but did not identify itself as a browser executable. Playwright Chromium is available as a fallback."
+    });
+  });
+
+  it("fails strict diagnostics when CHROME_PATH exists but is not launchable as a browser", async () => {
+    const result = await runDoctor({
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      strict: true,
+      env: { ...process.env, CHROME_PATH: process.execPath },
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: null
+    });
+
+    expect(result.status).toBe("fail");
+    expect(result.checks.find((check) => check.id === "browser")).toMatchObject({
+      status: "fail",
+      message: "CHROME_PATH exists but did not identify itself as a browser executable."
     });
   });
 });

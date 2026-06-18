@@ -1,12 +1,12 @@
 /* global console, process */
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { chmod, cp, mkdir, mkdtemp, readFile, rename, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rename, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import {
   ROOT,
   cleanupRepoRootNoise,
   closeFixtureServer,
-  ensureRepoBuild,
   removePathWithRetry,
   runChecked,
   startFixtureServer
@@ -63,8 +63,7 @@ function parsePackedTarballName(stdout) {
 
 async function runPackSmoke() {
   await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-pack-smoke-", ".tmp-pack-debug-"] });
-  const smokeRoot = await mkdtemp(path.join(ROOT, ".tmp-pack-smoke-"));
-  const packageSourceDir = path.join(smokeRoot, "package-source");
+  const smokeRoot = await mkdtemp(path.join(tmpdir(), "wqg-pack-smoke-"));
   const consumerDir = path.join(smokeRoot, "consumer");
   const packageRoot = path.join(consumerDir, "node_modules", "web-quality-gatekeeper");
   const outDir = path.join(consumerDir, "artifacts");
@@ -76,21 +75,10 @@ async function runPackSmoke() {
   let fixtureServer = null;
 
   try {
-    await ensureRepoBuild();
-    await mkdir(packageSourceDir, { recursive: true });
-    await Promise.all([
-      cp(path.join(ROOT, "dist"), path.join(packageSourceDir, "dist"), { recursive: true }),
-      cp(path.join(ROOT, "schemas"), path.join(packageSourceDir, "schemas"), { recursive: true }),
-      cp(path.join(ROOT, "configs"), path.join(packageSourceDir, "configs"), { recursive: true }),
-      cp(path.join(ROOT, "package.json"), path.join(packageSourceDir, "package.json")),
-      cp(path.join(ROOT, "README.md"), path.join(packageSourceDir, "README.md")),
-      cp(path.join(ROOT, "LICENSE"), path.join(packageSourceDir, "LICENSE"))
-    ]);
-
     const { stdout: tarballStdout } = await runChecked(
       "npm",
-      ["pack", "--silent", "--ignore-scripts", "--pack-destination", smokeRoot],
-      { cwd: packageSourceDir }
+      ["pack", "--silent", "--pack-destination", smokeRoot],
+      { cwd: ROOT }
     );
     const tarballName = parsePackedTarballName(tarballStdout);
     const tarballPath = path.join(smokeRoot, tarballName);
