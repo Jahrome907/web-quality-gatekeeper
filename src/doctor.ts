@@ -24,6 +24,7 @@ const pkg = require("../package.json") as {
   engines?: { node?: string };
 };
 const NATIVE_PROBE_TIMEOUT_MS = 3000;
+const BROWSER_PROBE_TIMEOUT_MS = 3000;
 
 export type DoctorCheckStatus = "pass" | "warn" | "fail";
 
@@ -132,6 +133,21 @@ function strictStatus(strict: boolean): DoctorCheckStatus {
   return strict ? "fail" : "warn";
 }
 
+async function probeBrowserExecutable(browserPath: string): Promise<string | null> {
+  try {
+    const { stdout, stderr } = await execFileAsync(browserPath, ["--version"], {
+      timeout: BROWSER_PROBE_TIMEOUT_MS,
+      windowsHide: true
+    });
+    const output = `${stdout} ${stderr}`;
+    return /\b(chrome|chromium|edge|brave|browser)\b/i.test(output)
+      ? null
+      : "CHROME_PATH exists but did not identify itself as a browser executable.";
+  } catch {
+    return "CHROME_PATH exists but could not be launched with --version.";
+  }
+}
+
 async function probeNativeVisualEngine(
   binaryPath: string,
   env: NodeJS.ProcessEnv
@@ -184,20 +200,37 @@ async function probeNativeVisualEngine(
   }
 }
 
-function checkBrowser(
+async function checkBrowser(
   env: NodeJS.ProcessEnv,
   strict: boolean,
   playwrightChromiumPath?: string | null
-): DoctorCheck {
+): Promise<DoctorCheck> {
   const chromePath = env.CHROME_PATH;
   const playwrightChromium = resolvePlaywrightChromiumPath(playwrightChromiumPath);
 
   if (chromePath) {
     if (existsSync(chromePath)) {
+      const probeFailure = await probeBrowserExecutable(chromePath);
+      if (probeFailure) {
+        if (playwrightChromium) {
+          return {
+            id: "browser",
+            status: "warn",
+            message: `${probeFailure} Playwright Chromium is available as a fallback.`,
+            details: { chromePath, playwrightChromium }
+          };
+        }
+        return {
+          id: "browser",
+          status: strictStatus(strict),
+          message: probeFailure,
+          details: { chromePath }
+        };
+      }
       return {
         id: "browser",
         status: "pass",
-        message: "CHROME_PATH points to an existing browser executable.",
+        message: "CHROME_PATH points to a launchable browser executable.",
         details: { chromePath }
       };
     }
@@ -399,7 +432,7 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorResult> {
   checks.push(
     checkDirectory("baseline", "Baseline directory", path.resolve(cwd, options.baselineDir))
   );
-  checks.push(checkBrowser(env, strict, options.playwrightChromiumPath));
+  checks.push(await checkBrowser(env, strict, options.playwrightChromiumPath));
 
   return {
     status: aggregateStatus(checks),

@@ -314,6 +314,13 @@ describe("workflow invariants", () => {
     expect(source).toContain("Smoke test packed tarball");
     expect(source).toContain("npm run smoke:pack");
     expect(source).toContain("Enforce requested tag and package version parity");
+    expect(source).toContain("Verify npm package trusted-publisher setup");
+    expect(source).toContain(
+      'npm view "web-quality-gatekeeper" name --registry=https://registry.npmjs.org/'
+    );
+    expect(source).toContain(
+      "web-quality-gatekeeper is not visible on npm. Publish the package owner record and configure .github/workflows/npm-publish.yml as a trusted publisher on npmjs.com before running this workflow."
+    );
     expect(source).toContain(
       'npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org/'
     );
@@ -369,7 +376,7 @@ describe("workflow invariants", () => {
     expect(releaseIndex).toBeGreaterThanOrEqual(0);
     expect(majorTagIndex).toBeGreaterThanOrEqual(0);
     expect(guardIndex).toBeLessThan(releaseIndex);
-    expect(releaseIndex).toBeLessThan(majorTagIndex);
+    expect(majorTagIndex).toBeLessThan(releaseIndex);
   });
 
   it("uses maintainer helper commands in validation-heavy workflows", () => {

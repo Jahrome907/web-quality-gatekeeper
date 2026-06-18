@@ -373,7 +373,7 @@ async function launchNavigatedPage(
   const blockedRequestState: BlockedRequestState = { error: null };
   const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
     initialTrustedHosts,
-    trustResolvedHosts: true
+    trustResolvedHosts: false
   });
 
   try {

@@ -1,11 +1,7 @@
 import path from "node:path";
-import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { defaultConfig } from "../src/config/defaultConfig.js";
-
-const execFileAsync = promisify(execFile);
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
@@ -18,22 +14,12 @@ describe("packaged CLI smoke", () => {
     expect(source).not.toMatch(/actionMs:\s*5000\b/);
   });
 
-  it("installs the tarball in a clean project and runs a real audit with shipped assets", async () => {
-    const { stdout } = await execFileAsync(
-      "node",
-      [path.join(ROOT, "scripts", "ci", "pack-smoke.mjs")],
-      {
-        cwd: ROOT,
-        encoding: "utf8",
-        timeout: 720000,
-        env: {
-          ...process.env,
-          NO_COLOR: "1",
-          WQG_PACK_SMOKE_KEEP_DIST: "true"
-        }
-      }
-    );
+  it("uses the real repo pack lifecycle and an external clean consumer project", () => {
+    const source = readFileSync(path.join(ROOT, "scripts", "ci", "pack-smoke.mjs"), "utf8");
 
-    expect(stdout).toContain("Pack smoke completed.");
-  }, 720000);
+    expect(source).toContain('mkdtemp(path.join(tmpdir(), "wqg-pack-smoke-"))');
+    expect(source).toContain('["pack", "--silent", "--pack-destination", smokeRoot]');
+    expect(source).not.toContain('"--ignore-scripts", "--pack-destination"');
+    expect(source).not.toContain("package-source");
+  });
 });

@@ -150,15 +150,6 @@ jobs:
           }
           NODE
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          body: ${{ needs.validate.outputs.changelog_body }}
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-
       - name: Update major version tag
         if: needs.validate.outputs.should_update_major == 'true'
         env:
@@ -168,3 +159,12 @@ jobs:
           RELEASE_COMMIT="$(git rev-list -n 1 "${GITHUB_REF_NAME}^{commit}")"
           git tag -f "$MAJOR" "$RELEASE_COMMIT"
           git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/$MAJOR" --force
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: ${{ needs.validate.outputs.changelog_body }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

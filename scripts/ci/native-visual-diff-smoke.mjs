@@ -1,10 +1,13 @@
 /* global Buffer, console, process */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, readSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const NATIVE_VISUAL_DIFF_SMOKE_TIMEOUT_MS = 10000;
+const JAVASCRIPT_NATIVE_ADAPTER_EXTENSIONS = new Set([".js", ".mjs", ".cjs"]);
+const SCRIPT_EXTENSIONS = new Set([".sh", ".bash", ".cmd", ".bat", ".ps1"]);
 
 function resolveBinaryPath(root) {
   const configuredBinaryPath = process.env.WQG_VISUAL_DIFF_NATIVE_BIN?.trim();
@@ -24,13 +27,52 @@ function resolveBinaryPath(root) {
   );
 }
 
-function runNativeVisualDiffSmoke() {
+export function classifyNativeSmokeBinaryPath(binaryPath) {
+  const extension = path.extname(binaryPath).toLowerCase();
+  if (JAVASCRIPT_NATIVE_ADAPTER_EXTENSIONS.has(extension)) {
+    return "javascript-adapter";
+  }
+  if (SCRIPT_EXTENSIONS.has(extension)) {
+    return "script";
+  }
+
+  let fd = null;
+  try {
+    fd = openSync(binaryPath, "r");
+    const header = Buffer.alloc(2);
+    const bytesRead = readSync(fd, header, 0, 2, 0);
+    return bytesRead === 2 && header.toString("utf8") === "#!" ? "script" : "native";
+  } catch {
+    return "native";
+  } finally {
+    if (fd !== null) {
+      closeSync(fd);
+    }
+  }
+}
+
+export function assertNativeSmokeBinaryPath(binaryPath) {
+  const pathType = classifyNativeSmokeBinaryPath(binaryPath);
+  if (pathType === "javascript-adapter") {
+    throw new Error(
+      "Native visual diff smoke requires a reviewed native binary; JavaScript adapter paths are not allowed."
+    );
+  }
+  if (pathType === "script") {
+    throw new Error(
+      "Native visual diff smoke requires a reviewed native binary; shell, batch, PowerShell, and shebang script paths are not allowed."
+    );
+  }
+}
+
+export function runNativeVisualDiffSmoke() {
   const root = process.cwd();
   const binaryPath = resolveBinaryPath(root);
 
   if (!existsSync(binaryPath)) {
     throw new Error(`Native visual diff binary was not built: ${binaryPath}`);
   }
+  assertNativeSmokeBinaryPath(binaryPath);
 
   const tempDir = mkdtempSync(path.join(tmpdir(), "wqg-native-smoke-"));
   try {
@@ -96,9 +138,11 @@ function runNativeVisualDiffSmoke() {
   }
 }
 
-try {
-  runNativeVisualDiffSmoke();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  try {
+    runNativeVisualDiffSmoke();
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
 }
