@@ -164,6 +164,9 @@ function collectHeaderInputs(cliHeaders: string[], env: NodeJS.ProcessEnv): stri
   if (env.WQG_AUTH_HEADERS) {
     values.push(...parseHeaderEnv(env.WQG_AUTH_HEADERS));
   }
+  if (env.WQG_AUTH_HEADERS_APPEND) {
+    values.push(...parseHeaderEnv(env.WQG_AUTH_HEADERS_APPEND));
+  }
   values.push(...cliHeaders);
   return values;
 }
@@ -175,6 +178,9 @@ function collectCookieInputs(cliCookies: string[], env: NodeJS.ProcessEnv): stri
   }
   if (env.WQG_AUTH_COOKIES) {
     values.push(...parseCookieEnv(env.WQG_AUTH_COOKIES));
+  }
+  if (env.WQG_AUTH_COOKIES_APPEND) {
+    values.push(...parseCookieEnv(env.WQG_AUTH_COOKIES_APPEND));
   }
   values.push(...cliCookies);
   return values;

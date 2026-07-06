@@ -49,6 +49,26 @@ describe("parseAuditAuth", () => {
     });
   });
 
+  it("appends action input auth env after aggregate auth env", () => {
+    const auth = parseAuditAuth(["X-WQG-Auth: Token cli-token"], [], {
+      WQG_AUTH_HEADERS: '{"x-wqg-auth":"Token env-token","X-Trace":"trace-1"}',
+      WQG_AUTH_HEADERS_APPEND: "X-WQG-Auth: Token input-token\nX-Input: input-1",
+      WQG_AUTH_COOKIES: '{"env_session":"env-cookie"}',
+      WQG_AUTH_COOKIES_APPEND: "input_session=input-cookie"
+    });
+
+    expect(auth).toEqual({
+      headers: {
+        "X-Trace": "trace-1",
+        "X-Input": "input-1",
+        "X-WQG-Auth": "Token cli-token"
+      },
+      cookies: [
+        { name: "env_session", value: "env-cookie" },
+        { name: "input_session", value: "input-cookie" }
+      ]
+    });
+  });
   it("returns null when no auth inputs are provided", () => {
     expect(parseAuditAuth([], [], {})).toBeNull();
   });

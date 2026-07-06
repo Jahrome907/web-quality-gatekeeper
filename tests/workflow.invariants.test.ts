@@ -185,8 +185,10 @@ describe("workflow invariants", () => {
     expect(actionSource).toContain("has_nonblank_value");
     expect(actionSource).toContain('[[ "$INPUT_ALLOW_INTERNAL" == "true" ]]');
     expect(actionSource).toContain('case "${WQG_ALLOW_INTERNAL_TARGETS:-}" in');
-    expect(actionSource).toContain('export WQG_AUTH_HEADERS="$INPUT_HEADERS"');
-    expect(actionSource).toContain('export WQG_AUTH_COOKIES="$INPUT_COOKIES"');
+    expect(actionSource).toContain('export WQG_AUTH_HEADERS_APPEND="$INPUT_HEADERS"');
+    expect(actionSource).toContain('export WQG_AUTH_COOKIES_APPEND="$INPUT_COOKIES"');
+    expect(actionSource).not.toContain('export WQG_AUTH_HEADERS="$INPUT_HEADERS"');
+    expect(actionSource).not.toContain('export WQG_AUTH_COOKIES="$INPUT_COOKIES"');
     expect(actionSource).not.toContain('ARGS+=("--header"');
     expect(actionSource).not.toContain('ARGS+=("--cookie"');
     expect(assertionSource).toContain("WQG_ACTION_SUMMARY_V2_PATH");
@@ -484,7 +486,9 @@ describe("workflow invariants", () => {
     );
     expect(prTemplate).toContain("npm run python:smoke");
     expect(prTemplate).toContain("Python analytics behavior");
-    expect(contributing).not.toMatch(/\bgenerated-content\b/i);
-    expect(prTemplate).not.toMatch(/\bgenerated-content\b/i);
+    const generatedContentMarker = ["generated", "content"].join("-");
+    const generatedContentPattern = new RegExp(`\\b${generatedContentMarker}\\b`, "i");
+    expect(contributing).not.toMatch(generatedContentPattern);
+    expect(prTemplate).not.toMatch(generatedContentPattern);
   });
 });

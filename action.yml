@@ -295,10 +295,10 @@ runs:
           echo "sensitive-audit=$SENSITIVE_AUDIT" >> "$GITHUB_OUTPUT_PATH"
         fi
         if [[ -n "$INPUT_HEADERS" ]]; then
-          export WQG_AUTH_HEADERS="$INPUT_HEADERS"
+          export WQG_AUTH_HEADERS_APPEND="$INPUT_HEADERS"
         fi
         if [[ -n "$INPUT_COOKIES" ]]; then
-          export WQG_AUTH_COOKIES="$INPUT_COOKIES"
+          export WQG_AUTH_COOKIES_APPEND="$INPUT_COOKIES"
         fi
 
         ARGS=(
