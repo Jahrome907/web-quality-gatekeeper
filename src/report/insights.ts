@@ -7,7 +7,7 @@ const A11Y_GUIDANCE: Record<string, { title: string; remediation: string[] }> = 
     title: "Add meaningful alternative text",
     remediation: [
       "Add an `alt` attribute that communicates the image intent.",
-      "Use `alt=\"\"` for decorative-only images to avoid noisy announcements."
+      'Use `alt=""` for decorative-only images to avoid noisy announcements.'
     ]
   },
   "color-contrast": {
@@ -81,7 +81,10 @@ function toA11ySeverity(impact: string | null): InsightSeverity {
   }
 }
 
-export function buildInsights(summary: SummaryV2, maxRecommendations: number = DEFAULT_LIMIT): InsightsSummary {
+export function buildInsights(
+  summary: SummaryV2,
+  maxRecommendations: number = DEFAULT_LIMIT
+): InsightsSummary {
   const recommendations: RemediationInsight[] = [];
 
   if (summary.a11y?.details) {
@@ -98,15 +101,15 @@ export function buildInsights(summary: SummaryV2, maxRecommendations: number = D
           `Impacted nodes: ${violation.nodes.length}`,
           ...(violation.wcagTags.length > 0 ? [`WCAG tags: ${violation.wcagTags.join(", ")}`] : [])
         ],
-        remediation: guidance?.remediation ?? [violation.help || "Follow axe guidance for this rule."],
+        remediation: guidance?.remediation ?? [
+          violation.help || "Follow axe guidance for this rule."
+        ],
         verification: [
           "Re-run WQG and confirm a11y violations decreased for this page.",
           "Validate impacted elements with keyboard + screen reader spot checks."
         ],
         expectedImpact: "Lower accessibility violation counts and improved audit pass rate.",
-        references: violation.helpUrl
-          ? [{ label: "Rule reference", url: violation.helpUrl }]
-          : []
+        references: violation.helpUrl ? [{ label: "Rule reference", url: violation.helpUrl }] : []
       });
     }
   }
@@ -115,7 +118,9 @@ export function buildInsights(summary: SummaryV2, maxRecommendations: number = D
     for (const opportunity of summary.performance.opportunities) {
       const guidance = PERF_GUIDANCE[opportunity.id];
       const estimatedMs =
-        opportunity.estimatedSavingsMs !== null ? `${Math.round(opportunity.estimatedSavingsMs)}ms` : "unknown";
+        opportunity.estimatedSavingsMs !== null
+          ? `${Math.round(opportunity.estimatedSavingsMs)}ms`
+          : "unknown";
       recommendations.push({
         id: `perf:${opportunity.id}`,
         source: "perf",
@@ -127,7 +132,9 @@ export function buildInsights(summary: SummaryV2, maxRecommendations: number = D
           `Estimated savings: ${estimatedMs}`,
           ...(opportunity.displayValue ? [`Display value: ${opportunity.displayValue}`] : [])
         ],
-        remediation: guidance?.remediation ?? ["Apply the Lighthouse recommendation for this opportunity."],
+        remediation: guidance?.remediation ?? [
+          "Apply the Lighthouse recommendation for this opportunity."
+        ],
         verification: [
           "Re-run WQG and verify Lighthouse opportunity savings are reduced.",
           "Confirm performance score and LCP trend improves over subsequent runs."
@@ -169,7 +176,10 @@ export function buildInsights(summary: SummaryV2, maxRecommendations: number = D
     }
   }
 
-  const runtimeIssues = summary.runtimeSignals.console.errorCount + summary.runtimeSignals.jsErrors.total;
+  const runtimeIssues =
+    summary.runtimeSignals.console.errorCount +
+    summary.runtimeSignals.jsErrors.total +
+    summary.runtimeSignals.network.failedRequests;
   if (runtimeIssues > 0) {
     recommendations.push({
       id: "runtime:errors",
@@ -197,7 +207,9 @@ export function buildInsights(summary: SummaryV2, maxRecommendations: number = D
   }
 
   const ranked = [...recommendations]
-    .sort((left, right) => scoreInsight(right) - scoreInsight(left) || left.id.localeCompare(right.id))
+    .sort(
+      (left, right) => scoreInsight(right) - scoreInsight(left) || left.id.localeCompare(right.id)
+    )
     .slice(0, Math.max(1, maxRecommendations));
 
   return { recommendations: ranked };

@@ -64,8 +64,18 @@ jobs:
       - name: Run coverage
         run: npm run test:coverage
 
+      - name: Check coverage report
+        id: coverage_report
+        run: |
+          if [ -f coverage/lcov.info ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          echo "::warning::coverage/lcov.info was not produced; skipping Codecov upload."
+
       - name: Upload coverage to Codecov
-        if: always()
+        if: steps.coverage_report.outputs.found == 'true'
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: coverage/lcov.info

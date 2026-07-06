@@ -1,0 +1,352 @@
+/* global console, process */
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+const ROOT = process.cwd();
+const DEFAULT_OUT_DIR = path.join(ROOT, "artifacts", "release");
+const VALIDATION_PROFILES = {
+  release: ["npm run engines:check", "npm run release:dry-run", "npm pack --ignore-scripts --json"],
+  "npm-publish": [
+    "node scripts/ci/assert-publish-runtime.mjs",
+    "npm run engines:check",
+    "npm run validate:full",
+    "npm run contracts:check",
+    "npm run smoke:pack",
+    "npm pack --ignore-scripts --json"
+  ]
+};
+
+function readJsonFile(filePath) {
+  return JSON.parse(readFileSync(filePath, "utf8"));
+}
+
+function writeJsonFile(filePath, value) {
+  writeFileSync(filePath, JSON.stringify(value, null, 2) + "\n");
+}
+
+function parseArgs() {
+  const options = {
+    outDir: DEFAULT_OUT_DIR,
+    releaseTag: process.env.GITHUB_REF_NAME ? process.env.GITHUB_REF_NAME : null,
+    commit: process.env.GITHUB_SHA ? process.env.GITHUB_SHA : null,
+    packJson: null,
+    validationProfile: "release",
+    validationCommands: []
+  };
+
+  const args = process.argv;
+  for (let index = 2; index !== args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--out-dir") {
+      index += 1;
+      options.outDir = path.resolve(args[index]);
+      continue;
+    }
+    if (arg === "--out") {
+      index += 1;
+      options.outDir = path.resolve(args[index]);
+      continue;
+    }
+    if (arg === "--release-tag") {
+      index += 1;
+      options.releaseTag = args[index];
+      continue;
+    }
+    if (arg === "--commit") {
+      index += 1;
+      options.commit = args[index];
+      continue;
+    }
+    if (arg === "--pack-json") {
+      index += 1;
+      options.packJson = path.resolve(args[index]);
+      continue;
+    }
+    if (arg === "--validation-profile") {
+      index += 1;
+      options.validationProfile = args[index];
+      continue;
+    }
+    if (arg === "--validation-command") {
+      index += 1;
+      options.validationCommands.push(args[index]);
+      continue;
+    }
+    throw new Error("Unknown argument: " + arg);
+  }
+
+  return options;
+}
+
+function validationCommandsForOptions(options) {
+  if (options.validationCommands.length) {
+    return options.validationCommands;
+  }
+
+  const commands = VALIDATION_PROFILES[options.validationProfile];
+  if (!commands) {
+    throw new Error(
+      "Unknown validation profile " +
+        options.validationProfile +
+        ". Expected one of: " +
+        Object.keys(VALIDATION_PROFILES).join(", ")
+    );
+  }
+
+  return commands;
+}
+
+function sha256File(filePath) {
+  return createHash("sha256").update(readFileSync(filePath)).digest("hex");
+}
+
+function resolvePackArtifact(options) {
+  if (!options.packJson) {
+    return null;
+  }
+
+  const payload = readJsonFile(options.packJson);
+  if (!Array.isArray(payload)) {
+    return null;
+  }
+  if (!payload[0]) {
+    return null;
+  }
+
+  const filename = payload[0].filename ? payload[0].filename : null;
+  if (!filename) {
+    return null;
+  }
+
+  const tarballPath = path.isAbsolute(filename)
+    ? filename
+    : path.join(path.dirname(options.packJson), filename);
+  const size = payload[0].size ? payload[0].size : null;
+
+  return {
+    filename: path.basename(tarballPath),
+    sha256: sha256File(tarballPath),
+    size
+  };
+}
+
+function toSpdxId(name) {
+  return "SPDXRef-Package-" + name.replace(/[^A-Za-z0-9.-]+/g, "-");
+}
+
+function packageLicense(packageInfo) {
+  if (typeof packageInfo.license === "string") {
+    return packageInfo.license;
+  }
+  return "NOASSERTION";
+}
+
+function spdxPackage(name, version, packageInfo) {
+  const license = packageLicense(packageInfo);
+  return {
+    name,
+    SPDXID: toSpdxId(name),
+    versionInfo: version,
+    downloadLocation: "NOASSERTION",
+    filesAnalyzed: false,
+    licenseConcluded: license,
+    licenseDeclared: license,
+    copyrightText: "NOASSERTION"
+  };
+}
+
+function packageLocationForName(name) {
+  return "node_modules/" + name;
+}
+
+function findPackageLocation(name, lockPackages) {
+  const directLocation = packageLocationForName(name);
+  if (lockPackages[directLocation]) {
+    return directLocation;
+  }
+
+  const suffix = "/node_modules/" + name;
+  for (const location of Object.keys(lockPackages)) {
+    if (location.endsWith(suffix)) {
+      return location;
+    }
+  }
+
+  return null;
+}
+
+function runtimeDependencyNames(pkg, lock) {
+  const lockPackages = lock.packages ? lock.packages : {};
+  const rootPackage = lockPackages[""] ? lockPackages[""] : pkg;
+  const queue = Object.keys(rootPackage.dependencies ? rootPackage.dependencies : {});
+  const seen = new Set();
+
+  while (queue.length) {
+    const name = queue.shift();
+    if (!name) {
+      continue;
+    }
+    if (seen.has(name)) {
+      continue;
+    }
+
+    const location = findPackageLocation(name, lockPackages);
+    if (!location) {
+      continue;
+    }
+    const packageInfo = lockPackages[location];
+    if (!packageInfo) {
+      continue;
+    }
+    if (packageInfo.dev === true) {
+      continue;
+    }
+
+    seen.add(name);
+    const dependencyEdges = Object.assign(
+      {},
+      packageInfo.dependencies ? packageInfo.dependencies : {},
+      packageInfo.optionalDependencies ? packageInfo.optionalDependencies : {}
+    );
+    for (const dependencyName of Object.keys(dependencyEdges)) {
+      if (!seen.has(dependencyName)) {
+        queue.push(dependencyName);
+      }
+    }
+  }
+
+  return seen;
+}
+
+function dependencyPackages(pkg, lock) {
+  const lockPackages = lock.packages ? lock.packages : {};
+  const packages = [spdxPackage(pkg.name, pkg.version, pkg)];
+  const runtimeNames = Array.from(runtimeDependencyNames(pkg, lock)).sort(function (left, right) {
+    return left.localeCompare(right);
+  });
+
+  for (const name of runtimeNames) {
+    const location = findPackageLocation(name, lockPackages);
+    const packageInfo = location ? lockPackages[location] : null;
+    if (!packageInfo) {
+      continue;
+    }
+    if (!packageInfo.version) {
+      continue;
+    }
+    packages.push(spdxPackage(name, packageInfo.version, packageInfo));
+  }
+
+  packages.sort(function (left, right) {
+    return left.name.localeCompare(right.name);
+  });
+  return packages;
+}
+
+function buildSbom(pkg, lock, context) {
+  const packages = dependencyPackages(pkg, lock);
+  const rootId = toSpdxId(pkg.name);
+  return {
+    spdxVersion: "SPDX-2.3",
+    dataLicense: "CC0-1.0",
+    SPDXID: "SPDXRef-DOCUMENT",
+    name: pkg.name + "-" + pkg.version,
+    documentNamespace:
+      context.repository + "/releases/download/" + context.releaseTag + "/sbom.spdx.json",
+    creationInfo: {
+      created: context.createdAt,
+      creators: ["Tool: web-quality-gatekeeper release evidence"]
+    },
+    packages,
+    relationships: [
+      {
+        spdxElementId: "SPDXRef-DOCUMENT",
+        relationshipType: "DESCRIBES",
+        relatedSpdxElement: rootId
+      }
+    ]
+  };
+}
+
+function buildProvenance(pkg, context, packArtifact) {
+  return {
+    schemaVersion:
+      "https://github.com/Jahrome907/web-quality-gatekeeper/schemas/release-provenance.v1.json",
+    generatedAt: context.createdAt,
+    repository: context.repository,
+    release: {
+      tag: context.releaseTag,
+      version: pkg.version,
+      commit: context.commit
+    },
+    package: {
+      name: pkg.name,
+      version: pkg.version,
+      node: pkg.engines ? pkg.engines.node : null
+    },
+    validation: {
+      profile: context.validationProfile,
+      commands: context.validationCommands
+    },
+    npm: {
+      manualTrustedPublishingWorkflow: ".github/workflows/npm-publish.yml",
+      provenanceFlag: "npm publish --provenance"
+    },
+    tarball: packArtifact,
+    artifacts: [
+      { name: "release-provenance.json", mediaType: "application/json" },
+      { name: "sbom.spdx.json", mediaType: "application/spdx+json" }
+    ],
+    workflow: {
+      name: process.env.GITHUB_WORKFLOW ? process.env.GITHUB_WORKFLOW : null,
+      runId: process.env.GITHUB_RUN_ID ? process.env.GITHUB_RUN_ID : null,
+      runAttempt: process.env.GITHUB_RUN_ATTEMPT ? process.env.GITHUB_RUN_ATTEMPT : null
+    }
+  };
+}
+
+function repositoryUrl(pkg) {
+  if (pkg.repository) {
+    if (typeof pkg.repository === "string") {
+      return pkg.repository.replace(/^git\+/, "").replace(/\.git$/, "");
+    }
+    if (pkg.repository.url) {
+      return pkg.repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
+    }
+  }
+  return "https://github.com/Jahrome907/web-quality-gatekeeper";
+}
+
+function main() {
+  const options = parseArgs();
+  const pkg = readJsonFile(path.join(ROOT, "package.json"));
+  const lock = readJsonFile(path.join(ROOT, "package-lock.json"));
+  const releaseTag = options.releaseTag ? options.releaseTag : "v" + pkg.version;
+  const createdAt = process.env.WQG_RELEASE_EVIDENCE_NOW
+    ? process.env.WQG_RELEASE_EVIDENCE_NOW
+    : new Date().toISOString();
+  const validationCommands = validationCommandsForOptions(options);
+  const context = {
+    createdAt,
+    releaseTag,
+    commit: options.commit ? options.commit : "unknown",
+    repository: repositoryUrl(pkg),
+    validationProfile: options.validationProfile,
+    validationCommands
+  };
+  const packArtifact = resolvePackArtifact(options);
+
+  mkdirSync(options.outDir, { recursive: true });
+  writeJsonFile(
+    path.join(options.outDir, "release-provenance.json"),
+    buildProvenance(pkg, context, packArtifact)
+  );
+  writeJsonFile(path.join(options.outDir, "sbom.spdx.json"), buildSbom(pkg, lock, context));
+
+  console.log("Wrote release evidence artifacts:");
+  console.log("- " + path.join(options.outDir, "release-provenance.json"));
+  console.log("- " + path.join(options.outDir, "sbom.spdx.json"));
+}
+
+main();

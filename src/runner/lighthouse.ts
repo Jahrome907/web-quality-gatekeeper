@@ -1,7 +1,6 @@
 import lighthouse from "lighthouse";
 import { launch } from "chrome-launcher";
 import path from "node:path";
-import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import type { Config } from "../config/schema.js";
@@ -10,6 +9,10 @@ import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
 import { applyScopedAuthHeaders, toCookieHeader } from "../utils/auth.js";
+import {
+  isBrowserExecutableFile,
+  resolveBrowserExecutablePath
+} from "../utils/browserExecutable.js";
 import {
   loadLighthousePuppeteer,
   type PuppeteerBrowserLike,
@@ -305,24 +308,53 @@ async function applyPortableLighthouseEnv(
  *  3. undefined — let chrome-launcher search system defaults
  */
 function resolveChromePath(): string | undefined {
-  if (process.env.CHROME_PATH) {
-    return existsSync(process.env.CHROME_PATH) ? process.env.CHROME_PATH : undefined;
+  const systemChromePath = resolveBrowserExecutablePath(process.env.CHROME_PATH);
+  if (systemChromePath) {
+    return systemChromePath;
   }
 
   // Try Playwright's bundled Chromium
   try {
     const pw = requireSync("playwright") as { chromium: { executablePath: () => string } };
     const execPath = pw.chromium.executablePath();
-    if (execPath && existsSync(execPath)) {
+    if (execPath && isBrowserExecutableFile(execPath)) {
       return execPath;
     }
   } catch {
-    // Playwright not installed — fall through
+    // Playwright not installed - fall through
   }
 
   return undefined;
 }
 
+async function killChromeQuietly(
+  chrome: { kill: () => void | Promise<void> } | null,
+  logger: Logger
+): Promise<void> {
+  if (!chrome) {
+    return;
+  }
+  try {
+    await chrome.kill();
+  } catch (error) {
+    logger.debug(
+      `Ignoring Lighthouse Chrome cleanup failure: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
+
+async function restoreRuntimeQuietly(
+  runtime: { restore: () => Promise<void> },
+  logger: Logger
+): Promise<void> {
+  try {
+    await runtime.restore();
+  } catch (error) {
+    logger.debug(
+      `Ignoring Lighthouse runtime cleanup failure: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+}
 function buildLighthouseHeaders(auth: AuditAuth | null): Record<string, string> | null {
   if (!auth) {
     return null;
@@ -533,7 +565,7 @@ export async function runLighthouseAudit(
     } finally {
       await closePuppeteerPage(puppeteerPage, logger);
       await disconnectPuppeteerBrowser(puppeteerBrowser, logger);
-      await chrome.kill();
+      await killChromeQuietly(chrome, logger);
     }
   }
 
@@ -580,6 +612,6 @@ export async function runLighthouseAudit(
       ]);
     }
   } finally {
-    await runtime.restore();
+    await restoreRuntimeQuietly(runtime, logger);
   }
 }

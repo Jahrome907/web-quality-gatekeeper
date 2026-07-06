@@ -402,25 +402,23 @@
         border-radius: var(--radius);
         overflow: hidden;
       }
+      .metric-row > div {
+        padding: 12px 14px 14px;
+        border-right: 1px solid var(--line-soft);
+      }
       .metric-row dt {
-        grid-row: 1;
-        padding: 12px 14px 4px;
+        margin: 0 0 4px;
         font-size: 0.78rem;
         color: var(--muted);
         font-weight: 600;
-        border-right: 1px solid var(--line-soft);
       }
       .metric-row dd {
-        grid-row: 2;
         margin: 0;
-        padding: 0 14px 14px;
         font-size: 1.25rem;
         font-weight: 600;
         color: var(--ink);
-        border-right: 1px solid var(--line-soft);
       }
-      .metric-row dt:last-of-type,
-      .metric-row dd:last-of-type {
+      .metric-row > div:last-child {
         border-right: 0;
       }
 
@@ -580,8 +578,7 @@
         .metric-row {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
-        .metric-row dt:nth-of-type(2),
-        .metric-row dd:nth-of-type(2) {
+        .metric-row > div:nth-of-type(2) {
           border-right: 0;
         }
       }
@@ -643,12 +640,12 @@
 
           <ul class="facts" aria-label="Key project facts">
             <li>
-              <strong><code>wqg audit</code></strong>
-              <span>Primary CLI entrypoint for local runs and CI gating.</span>
+              <strong><code>node dist/cli.js audit</code></strong>
+              <span>Supported source-checkout entrypoint for local runs and CI gating.</span>
             </li>
             <li>
-              <strong><code>summary.json</code> + <code>summary.v2.json</code></strong>
-              <span>Human report plus contract-checked machine outputs.</span>
+              <strong><code>report.html</code> + JSON summaries</strong>
+              <span>Human report plus contract-checked machine-readable outputs.</span>
             </li>
             <li>
               <strong>CLI + Action</strong>
@@ -669,14 +666,22 @@
           </header>
 
           <dl class="metric-row" aria-label="Sample proof run metrics">
-            <dt>Runtime</dt>
-            <dt>Lighthouse performance</dt>
-            <dt>Accessibility violations</dt>
-            <dt>Steps</dt>
-            <dd>11.5&nbsp;s</dd>
-            <dd>0.99</dd>
-            <dd>0</dd>
-            <dd>4</dd>
+            <div>
+              <dt>Runtime</dt>
+              <dd>11.5&nbsp;s</dd>
+            </div>
+            <div>
+              <dt>Lighthouse performance</dt>
+              <dd>0.99</dd>
+            </div>
+            <div>
+              <dt>Accessibility violations</dt>
+              <dd>0</dd>
+            </div>
+            <div>
+              <dt>Steps</dt>
+              <dd>4</dd>
+            </div>
           </dl>
 
           <div class="proof-meta">
@@ -692,7 +697,7 @@
               <a href="proof/fixture-pr-risk-ledger.json">PR Risk Ledger</a>.
             </p>
             <p>
-              <strong>Proof bundle version:</strong> 3.2.2. <strong>Release source:</strong> GitHub
+              <strong>Proof bundle version:</strong> 3.2.3. <strong>Release source:</strong> GitHub
               tags and Releases, not a working-branch package field.
             </p>
           </div>
@@ -859,9 +864,9 @@
         uses: Jahrome907/web-quality-gatekeeper@v3
         with:
           url: https://your-site.example
-          baseline-dir: baselines
+          baseline-dir: .github/web-quality/baselines
       - name: Upload artifacts
-        if: always() &amp;&amp; (env.WQG_SENSITIVE_AUDIT != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() &amp;&amp; (steps.wqg.outputs.sensitive-audit != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
@@ -975,8 +980,8 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
                   repository.
                 </li>
                 <li>
-                  The HTML report on this page is the same artifact <code>wqg audit</code> emits
-                  locally.
+                  The HTML report on this page is the same artifact
+                  <code>node dist/cli.js audit</code> emits from a source checkout.
                 </li>
                 <li>Roadmap, provenance, and SBOM notes are published under <code>docs/</code>.</li>
               </ul>

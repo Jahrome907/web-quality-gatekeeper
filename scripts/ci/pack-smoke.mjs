@@ -1,7 +1,7 @@
 /* global console, process */
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { chmod, cp, mkdir, mkdtemp, readFile, rename, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rename, symlink, writeFile } from "node:fs/promises";
 import {
   ROOT,
   cleanupRepoRootNoise,
@@ -13,58 +13,70 @@ import {
 } from "./_shared.mjs";
 
 function assertTarballEntries(tarballEntries) {
-  const requiredEntries = [
-    "package/dist/cli.js",
-    "package/dist/index.js",
-    "package/dist/index.d.ts",
-    "package/schemas/summary.v1.json",
-    "package/schemas/summary.v2.json",
-    "package/schemas/pr-risk-ledger.v1.json",
-    "package/configs/default.json",
-    "package/configs/policies/docs.json",
+  const expectedEntries = [
+    "package/LICENSE",
     "package/README.md",
-    "package/LICENSE"
-  ];
+    "package/configs/default.json",
+    "package/configs/docs-preview.ci.json",
+    "package/configs/policies/docs.json",
+    "package/configs/policies/ecommerce.json",
+    "package/configs/policies/marketing.json",
+    "package/configs/policies/saas.json",
+    "package/configs/security/audit-exceptions.json",
+    "package/dist/cli.js",
+    "package/dist/cli.js.map",
+    "package/dist/index.d.ts",
+    "package/dist/index.js",
+    "package/dist/index.js.map",
+    "package/package.json",
+    "package/schemas/pr-risk-ledger.v1.json",
+    "package/schemas/summary.v1.json",
+    "package/schemas/summary.v2.json"
+  ].sort();
+  const actualEntries = [...tarballEntries].sort();
 
-  for (const entry of requiredEntries) {
-    if (!tarballEntries.includes(entry)) {
-      throw new Error(`Expected tarball entry to exist: ${entry}`);
-    }
+  if (actualEntries.length !== expectedEntries.length) {
+    throw new Error(
+      [
+        `Unexpected tarball entry count. Expected ${expectedEntries.length}, got ${actualEntries.length}.`,
+        `Expected: ${expectedEntries.join(", ")}`,
+        `Actual: ${actualEntries.join(", ")}`
+      ].join("\n")
+    );
   }
 
-  for (const forbiddenPrefix of [
-    "package/native/",
-    "package/benchmarks/",
-    "package/tools/",
-    "package/tests/",
-    "package/.github/",
-    "package/artifacts/"
-  ]) {
-    if (tarballEntries.some((entry) => entry.startsWith(forbiddenPrefix))) {
-      throw new Error(`Unexpected tarball entry under ${forbiddenPrefix}`);
+  for (const [index, entry] of expectedEntries.entries()) {
+    if (actualEntries[index] !== entry) {
+      throw new Error(
+        [
+          "Unexpected tarball entry surface.",
+          `Expected: ${expectedEntries.join(", ")}`,
+          `Actual: ${actualEntries.join(", ")}`
+        ].join("\n")
+      );
     }
   }
 }
 
 function parsePackedTarballName(stdout) {
-  const tarballNames = stdout
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.endsWith(".tgz"));
+  let payload;
 
-  if (tarballNames.length !== 1) {
-    throw new Error(
-      `Expected npm pack to print exactly one tarball name, found ${tarballNames.length}.`
-    );
+  try {
+    payload = JSON.parse(stdout);
+  } catch (error) {
+    throw new Error("Expected npm pack --json to emit valid JSON.", { cause: error });
   }
 
-  return tarballNames[0];
+  if (!Array.isArray(payload) || payload.length !== 1 || typeof payload[0]?.filename !== "string") {
+    throw new Error("Expected npm pack --json to describe exactly one tarball filename.");
+  }
+
+  return payload[0].filename;
 }
 
 async function runPackSmoke() {
   await cleanupRepoRootNoise({ scratchPrefixes: [".tmp-pack-smoke-", ".tmp-pack-debug-"] });
   const smokeRoot = await mkdtemp(path.join(ROOT, ".tmp-pack-smoke-"));
-  const packageSourceDir = path.join(smokeRoot, "package-source");
   const consumerDir = path.join(smokeRoot, "consumer");
   const packageRoot = path.join(consumerDir, "node_modules", "web-quality-gatekeeper");
   const outDir = path.join(consumerDir, "artifacts");
@@ -77,20 +89,10 @@ async function runPackSmoke() {
 
   try {
     await ensureRepoBuild();
-    await mkdir(packageSourceDir, { recursive: true });
-    await Promise.all([
-      cp(path.join(ROOT, "dist"), path.join(packageSourceDir, "dist"), { recursive: true }),
-      cp(path.join(ROOT, "schemas"), path.join(packageSourceDir, "schemas"), { recursive: true }),
-      cp(path.join(ROOT, "configs"), path.join(packageSourceDir, "configs"), { recursive: true }),
-      cp(path.join(ROOT, "package.json"), path.join(packageSourceDir, "package.json")),
-      cp(path.join(ROOT, "README.md"), path.join(packageSourceDir, "README.md")),
-      cp(path.join(ROOT, "LICENSE"), path.join(packageSourceDir, "LICENSE"))
-    ]);
-
     const { stdout: tarballStdout } = await runChecked(
       "npm",
-      ["pack", "--silent", "--ignore-scripts", "--pack-destination", smokeRoot],
-      { cwd: packageSourceDir }
+      ["pack", "--ignore-scripts", "--json", "--pack-destination", smokeRoot],
+      { cwd: ROOT }
     );
     const tarballName = parsePackedTarballName(tarballStdout);
     const tarballPath = path.join(smokeRoot, tarballName);

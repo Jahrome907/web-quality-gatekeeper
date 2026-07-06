@@ -1,16 +1,20 @@
 /* global console, process */
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
-const GHSA_ID_PATTERN = /GHSA-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}/i;
+const GHSA_ID_PATTERN =
+  /GHSA-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}/i;
 
 function parseArgs(argv) {
-  const args = { exceptionsPath: "configs/security/audit-exceptions.json" };
+  const args = { exceptionsPath: "configs/security/audit-exceptions.json", includeDev: false };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === "--exceptions") {
       args.exceptionsPath = argv[i + 1] ?? args.exceptionsPath;
       i += 1;
+    } else if (token === "--include-dev") {
+      args.includeDev = true;
     }
   }
   return args;
@@ -57,7 +61,9 @@ function readExceptions(filePath) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to read audit exceptions from ${filePath}: ${message}`, { cause: error });
+    throw new Error(`Unable to read audit exceptions from ${filePath}: ${message}`, {
+      cause: error
+    });
   }
 }
 
@@ -83,8 +89,7 @@ function extractAdvisoryRecords(vulnName, vulnerability) {
       continue;
     }
 
-    const advisoryIdMatch =
-      typeof item.url === "string" ? item.url.match(GHSA_ID_PATTERN) : null;
+    const advisoryIdMatch = typeof item.url === "string" ? item.url.match(GHSA_ID_PATTERN) : null;
     const advisoryId =
       advisoryIdMatch?.[0]?.toUpperCase() ??
       (typeof item.source === "number"
@@ -142,22 +147,32 @@ function assertNoExpiredExceptions(exceptions, now) {
   process.exit(1);
 }
 
+export function buildAuditCommand({ includeDev, npmExecPath, platform = process.platform }) {
+  return npmExecPath
+    ? {
+        file: process.execPath,
+        args: [npmExecPath, "audit", ...(includeDev ? [] : ["--omit=dev"]), "--json"]
+      }
+    : {
+        file: platform === "win32" ? "npm.cmd" : "npm",
+        args: ["audit", ...(includeDev ? [] : ["--omit=dev"]), "--json"]
+      };
+}
+
+export function auditScopeLabel(includeDev) {
+  return includeDev ? "Toolchain audit" : "Runtime audit";
+}
+
 function main() {
-  const { exceptionsPath } = parseArgs(process.argv.slice(2));
+  const { exceptionsPath, includeDev } = parseArgs(process.argv.slice(2));
   const now = new Date();
   const exceptions = readExceptions(exceptionsPath);
   assertNoExpiredExceptions(exceptions, now);
 
-  const npmExecPath = process.env.npm_execpath;
-  const auditCommand = npmExecPath
-    ? {
-        file: process.execPath,
-        args: [npmExecPath, "audit", "--omit=dev", "--json"]
-      }
-    : {
-        file: process.platform === "win32" ? "npm.cmd" : "npm",
-        args: ["audit", "--omit=dev", "--json"]
-      };
+  const auditCommand = buildAuditCommand({
+    includeDev,
+    npmExecPath: process.env.npm_execpath
+  });
 
   const run = spawnSync(auditCommand.file, auditCommand.args, {
     encoding: "utf8",
@@ -194,8 +209,9 @@ function main() {
 
   const vulnerabilities = parsed.vulnerabilities;
 
-  const rawFindings = Object.entries(vulnerabilities)
-    .flatMap(([name, details]) => extractAdvisoryRecords(name, details));
+  const rawFindings = Object.entries(vulnerabilities).flatMap(([name, details]) =>
+    extractAdvisoryRecords(name, details)
+  );
 
   const deduped = new Map();
   for (const finding of rawFindings) {
@@ -226,15 +242,22 @@ function main() {
   }
 
   if (unresolved.length > 0) {
-    console.error("Unresolved runtime vulnerabilities (high/critical):");
+    console.error(
+      `${includeDev ? "Unresolved toolchain" : "Unresolved runtime"} vulnerabilities (high/critical):`
+    );
     for (const finding of unresolved) {
       const suffix = finding.url ? ` (${finding.url})` : "";
-      console.error(`- ${finding.severity.toUpperCase()} ${finding.package} / ${finding.id}${suffix}`);
+      console.error(
+        `- ${finding.severity.toUpperCase()} ${finding.package} / ${finding.id}${suffix}`
+      );
     }
     process.exit(1);
   }
 
-  console.log("Runtime audit gate passed (no unexcepted high/critical vulnerabilities).");
+  const auditScope = auditScopeLabel(includeDev);
+  console.log(`${auditScope} gate passed (no unexcepted high/critical vulnerabilities).`);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

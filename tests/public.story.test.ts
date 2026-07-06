@@ -36,7 +36,7 @@ describe("public story surface", () => {
     expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
     expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
     expect(source).toContain("# v6.0.3");
-    expect(source).toContain("baseline-dir: baselines");
+    expect(source).toContain("baseline-dir: .github/web-quality/baselines");
     expect(source).toContain('WQG_SENSITIVE_AUDIT: "false"');
     expect(source).toContain('WQG_ALLOW_SENSITIVE_OUTPUTS: "false"');
     expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
@@ -45,8 +45,13 @@ describe("public story surface", () => {
     expect(source).toContain("- id: wqg");
     expect(source).toContain("steps.wqg.outputs.report-path");
     expect(source).toContain("steps.wqg.outputs.pr-risk-ledger-md-path");
+    expect(source).toContain("steps.wqg.outputs.sensitive-audit");
     expect(source).toMatch(/tabindex="0"\s+aria-label="Source CLI adoption example"/);
     expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action adoption example"/);
+    expect(source).toContain("<strong><code>node dist/cli.js audit</code></strong>");
+    expect(source).toContain("<strong><code>report.html</code> + JSON summaries</strong>");
+    expect(source).toContain("Human report plus contract-checked machine-readable outputs.");
+    expect(source).not.toContain("<strong><code>wqg audit</code></strong>");
     expect(source).not.toContain("output-dir: artifacts");
     expect(source).not.toContain("source commit");
     expect(source).not.toMatch(GENERATED_FROM_PATTERN);
@@ -74,6 +79,8 @@ describe("public story surface", () => {
 
     expect(source).toContain(`${expectedDurationSeconds}&nbsp;s`);
     expect(source).toContain(`"durationMs": ${proof.durationMs}`);
+    expect(source).toMatch(/<div>\s*<dt>Runtime<\/dt>\s*<dd>11\.5&nbsp;s<\/dd>\s*<\/div>/);
+    expect(source).toMatch(/<div>\s*<dt>Lighthouse performance<\/dt>\s*<dd>0\.99<\/dd>\s*<\/div>/);
     expect(source).not.toContain("7.6&nbsp;s");
     expect(source).not.toContain('"durationMs": 7621');
   });
@@ -132,6 +139,7 @@ describe("public story surface", () => {
     expect(source).toContain("- id: wqg");
     expect(source).toContain("steps.wqg.outputs.summary-path");
     expect(source).toContain("steps.wqg.outputs.pr-risk-ledger-md-path");
+    expect(source).toContain("steps.wqg.outputs.sensitive-audit");
     expect(source).toContain("Proof & Reproducibility");
     expect(source).toContain("blob/main/docs/proof/fixture-report.html");
     expect(source).toContain("blob/main/docs/proof/fixture-summary.v2.json");
@@ -139,6 +147,9 @@ describe("public story surface", () => {
     expect(source).toContain("blob/main/docs/proof/fixture-proof-config.json");
     expect(source).toContain("blob/main/docs/case-study-run.md");
     expect(source).toContain("blob/main/docs/case-study/public-oss-repro.md");
+    expect(source).toContain("On successful runs, `node dist/cli.js audit` writes artifact files");
+    expect(source).toContain("`sensitive-audit`");
+    expect(source).not.toContain("On successful runs, `wqg audit` writes artifact files");
     expect(source).toContain("Screenshot paths must be `@target`");
     expect(source).toContain("Protocol-relative paths such as `//example.com/path` are rejected");
   });

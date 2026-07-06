@@ -9,11 +9,7 @@ Web Quality Gatekeeper is focused on practical CI evidence for web teams. The pr
 - Keep consumer scaffolds useful for first-run setup without making them the release blocker.
 - Promote the Rust visual diff engine behind an optional, documented runtime path.
 - Keep published proof artifacts reproducible from repository-owned fixtures.
-
-## Near-Term Work
-
-- Add release provenance artifacts to the GitHub Release workflow when the release surface is ready.
-- Publish a maintained SBOM alongside release artifacts once dependency metadata is stable across the package and Action paths.
+- Keep release evidence artifacts reproducible from package metadata, lockfile state, and release workflow inputs.
 
 ## Boundaries
 

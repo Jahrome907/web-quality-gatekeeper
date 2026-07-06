@@ -10,10 +10,7 @@ describe("retry", () => {
   });
 
   it("retries on failure then succeeds", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("fail"))
-      .mockResolvedValue("ok");
+    const fn = vi.fn().mockRejectedValueOnce(new Error("fail")).mockResolvedValue("ok");
     const result = await retry(fn, { maxRetries: 1, baseDelayMs: 0 });
     expect(result).toBe("ok");
     expect(fn).toHaveBeenCalledTimes(2);
@@ -32,15 +29,10 @@ describe("retry", () => {
       error: vi.fn(),
       debug: vi.fn()
     };
-    const fn = vi
-      .fn()
-      .mockRejectedValueOnce(new Error("transient"))
-      .mockResolvedValue("ok");
+    const fn = vi.fn().mockRejectedValueOnce(new Error("transient")).mockResolvedValue("ok");
     await retry(fn, { maxRetries: 1, baseDelayMs: 0, logger });
     expect(logger.warn).toHaveBeenCalledTimes(1);
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("Attempt 1/1 failed")
-    );
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("Attempt 1/1 failed"));
   });
 
   it("skips retry when isRetryable returns false", async () => {
@@ -85,6 +77,13 @@ describe("computeDelay", () => {
     for (let i = 0; i < 50; i++) {
       const delay = computeDelay("decorrelated-jitter", 100, 300, 5, 5000);
       expect(delay).toBeLessThanOrEqual(300);
+    }
+  });
+
+  it("caps decorrelated-jitter even when baseDelayMs is above maxDelayMs", () => {
+    for (let i = 0; i < 50; i++) {
+      const delay = computeDelay("decorrelated-jitter", 500, 300, 1, 500);
+      expect(delay).toBe(300);
     }
   });
 });

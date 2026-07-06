@@ -73,6 +73,22 @@ jobs:
       - name: Run release consumer smoke
         run: npm run release:dry-run
 
+      - name: Generate release evidence
+        run: |
+          mkdir -p artifacts/release
+          npm pack --ignore-scripts --json --pack-destination artifacts/release > artifacts/release/pack.json
+          npm run release:evidence -- --release-tag "$GITHUB_REF_NAME" --commit "$GITHUB_SHA" --validation-profile release --out-dir artifacts/release --pack-json artifacts/release/pack.json
+
+      - name: Upload release evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-evidence
+          path: |
+            artifacts/release/release-provenance.json
+            artifacts/release/sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Extract changelog section
         id: changelog
         run: |
@@ -105,6 +121,7 @@ jobs:
       group: release-major-${{ needs.validate.outputs.major || github.ref_name }}
       cancel-in-progress: false
     permissions:
+      actions: read
       contents: write
     steps:
       - name: Checkout for tag update
@@ -150,6 +167,12 @@ jobs:
           }
           NODE
 
+      - name: Download release evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-evidence
+          path: artifacts/release
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
@@ -158,6 +181,9 @@ jobs:
           body: ${{ needs.validate.outputs.changelog_body }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            artifacts/release/release-provenance.json
+            artifacts/release/sbom.spdx.json
 
       - name: Update major version tag
         if: needs.validate.outputs.should_update_major == 'true'

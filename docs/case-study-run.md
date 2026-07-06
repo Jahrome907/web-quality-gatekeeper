@@ -38,7 +38,7 @@ node scripts/case-study/run-fixture-case-study.mjs --out-dir .tmp-case-study
 ## What The Script Does
 
 1. Starts a local static server for `tests/fixtures/site`.
-2. Runs `wqg audit` against that server with `tests/fixtures/integration-config.json`.
+2. Runs the source-checkout CLI (`npx tsx src/cli.ts audit` when dependencies are installed, otherwise `node dist/cli.js audit`) against that server with `tests/fixtures/integration-config.json`.
 3. Writes the normal artifact bundle under the output directory.
 4. Writes `fixture-provenance.json` with the source fixture path, config path, Node engine preflight result, command, and key result metrics.
 
@@ -58,5 +58,5 @@ node scripts/case-study/run-fixture-case-study.mjs --out-dir .tmp-case-study
 ## Notes
 
 - This fixture run is for reproducibility and evidence verification, not ROI comparison across two commits.
-- The fixture happy path intentionally keeps performance and visual checks off so the clean-clone script remains stable across machines.
+- The fixture happy path keeps visual checks off for machine-stable screenshots while still running the performance budget check.
 - For public baseline/improved case studies, use the stricter protocol in `docs/case-study/public-oss-repro.md`.

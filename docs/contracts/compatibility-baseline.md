@@ -16,7 +16,7 @@ This document freezes the consumer-facing contract surface. Future changes may a
 | Package distribution     | `dist`, `schemas`, `configs`, `README.md`, `LICENSE` ship in tarball, with root API types advertised through `package.json#types` and `package.json#exports["."].types`        | Preserve these install-time assets and type metadata.                           |
 | Action usage             | `uses: Jahrome907/web-quality-gatekeeper@v3`                                                                                                                                   | Keep stable major tag consumption valid.                                        |
 | Action inputs            | `url`, `config-path`, `baseline-dir`, `policy`, `fail-on-a11y`, `fail-on-perf`, `fail-on-visual`, `allow-internal-targets`, `headers`, `cookies`                               | Preserve names and current semantics; additive-only inputs.                     |
-| Action outputs           | `status`, `summary-path`, `summary-v2-path`, `report-path`, `action-plan-path`, `pr-risk-ledger-path`, `pr-risk-ledger-md-path`                                                | Preserve names and current meanings.                                            |
+| Action outputs           | `status`, `summary-path`, `summary-v2-path`, `report-path`, `action-plan-path`, `pr-risk-ledger-path`, `pr-risk-ledger-md-path`, `sensitive-audit`                             | Preserve names and current meanings.                                            |
 
 ## Source Of Truth Order
 
@@ -110,6 +110,7 @@ Current composite Action contract:
   - `action-plan-path`
   - `pr-risk-ledger-path`
   - `pr-risk-ledger-md-path`
+  - `sensitive-audit`
 
 Current behavioral assumptions to preserve:
 
@@ -118,6 +119,7 @@ Current behavioral assumptions to preserve:
 - `summary-path` currently resolves to `artifacts/summary.json`.
 - The richer artifact path outputs currently resolve to `artifacts/summary.v2.json`, `artifacts/report.html`, `artifacts/action-plan.md`, `artifacts/pr-risk-ledger.json`, and `artifacts/pr-risk-ledger.md`.
 - `status` is read from `overallStatus` in that file.
+- `sensitive-audit` is `true` when auth headers, cookies, internal-target overrides, or explicit sensitive-audit controls are present.
 
 ## Workflow Baseline
 
@@ -139,7 +141,8 @@ Current repo workflow behaviors worth freezing before later hardening:
 - `release.yml`
   - triggers on version-like `v*.*.*` tags, not stable major aliases such as `v3`
   - treats any hyphenated tag as a prerelease
-  - creates the GitHub Release without requiring npm publication
+  - generates `release-provenance.json` and `sbom.spdx.json` with `npm run release:evidence`
+  - attaches release evidence artifacts to the GitHub Release without requiring npm publication
   - validates stable major-tag movement before creating the GitHub Release
   - moves the stable major tag only after release validation and GitHub Release creation
 
@@ -208,4 +211,4 @@ Current smoke depth:
 ## Remaining Follow-ups
 
 - Keep consumer confidence checks expanding as new release surfaces are added.
-- Add release provenance artifacts and SBOM publication once those release surfaces are ready.
+- Continue validating the manual npm trusted-publishing backfill path before treating npm distribution as part of the automated GitHub Release path.

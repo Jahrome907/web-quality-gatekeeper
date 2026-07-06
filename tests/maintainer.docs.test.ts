@@ -75,6 +75,10 @@ describe("maintainer documentation", () => {
     expect(caseStudyRun).toContain(
       "Confirm `npm run engines:check` passes for the current Node.js runtime before treating the run as release evidence."
     );
+    expect(caseStudyRun).toContain("Runs the source-checkout CLI");
+    expect(caseStudyRun).toContain("npx tsx src/cli.ts audit");
+    expect(caseStudyRun).toContain("node dist/cli.js audit");
+    expect(caseStudyRun).not.toContain("Runs `wqg audit`");
   });
 
   it("publishes architecture doc with maintainer gate references", () => {
@@ -265,6 +269,9 @@ describe("maintainer documentation", () => {
     expect(unreleased).toContain("Stable major Action tag publication");
     expect(unreleased).toContain("composite Action no longer checks out");
     expect(unreleased).toContain("trusted-publishing runtime preflight now resolves `npm.cmd`");
+    expect(unreleased).toContain("Release evidence artifacts");
+    expect(unreleased).toContain("sensitive-audit");
+    expect(unreleased).toContain("consumer workflow examples gate artifact upload");
   });
 
   it("keeps summary v2 migration guidance aligned with current aggregate artifacts", () => {
@@ -303,11 +310,39 @@ describe("maintainer documentation", () => {
     expect(compatibility).toContain("PR Risk Ledger schema/docs");
     expect(compatibility).toContain("summary or PR Risk Ledger contract edits");
     expect(compatibility).toContain("Remaining Follow-ups");
-    expect(compatibility).toContain("release provenance artifacts and SBOM publication");
+    expect(compatibility).toContain("sensitive-audit");
+    expect(compatibility).toContain(" - `sensitive-audit`");
+    expect(compatibility).toContain("explicit sensitive-audit controls");
+    expect(compatibility).toContain("release-provenance.json");
+    expect(compatibility).toContain("sbom.spdx.json");
+    expect(compatibility).not.toContain("release provenance artifacts and SBOM publication");
     expect(compatibility).not.toContain(
       "Correctness bugs in config loading, trend handling, action path resolution, and case-study ROI calculation"
     );
     expect(compatibility).not.toContain("Automated schema/doc/runtime drift detection");
     expect(qualityGate).toContain("Check summary and PR Risk Ledger contracts");
+  });
+  it("documents release evidence as implemented release behavior", function () {
+    const sbom = readRepoFile("docs/sbom.md");
+    const provenance = readRepoFile("docs/provenance.md");
+    const roadmap = readRepoFile("docs/roadmap.md");
+    const compatibility = readRepoFile("docs/contracts/compatibility-baseline.md");
+
+    for (const source of [sbom, provenance, roadmap, compatibility]) {
+      expect(source).not.toContain("does not currently publish a standalone release SBOM artifact");
+      expect(source).not.toContain("Planned SBOM Path");
+      expect(source).not.toContain("Until that is available");
+      expect(source).not.toContain(
+        "Add release provenance artifacts to the GitHub Release workflow"
+      );
+      expect(source).not.toContain("Publish a maintained SBOM alongside release artifacts");
+    }
+
+    expect(sbom).toContain("Web Quality Gatekeeper publishes a release-scoped SPDX 2.3 SBOM");
+    expect(sbom).toContain("npm run release:evidence");
+    expect(provenance).toContain("release-provenance.json");
+    expect(provenance).toContain("sbom.spdx.json");
+    expect(roadmap).toContain("release evidence artifacts");
+    expect(compatibility).toContain("manual npm trusted-publishing backfill path");
   });
 });

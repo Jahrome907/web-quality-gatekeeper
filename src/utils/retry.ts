@@ -43,15 +43,13 @@ export function computeDelay(
 ): number {
   switch (strategy) {
     case "fixed":
-      return baseDelayMs;
+      return Math.min(baseDelayMs, maxDelayMs);
     case "exponential":
       return Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
     case "decorrelated-jitter": {
-      const ceiling = Math.min(maxDelayMs, previousDelay * 3);
-      return Math.max(
-        baseDelayMs,
-        Math.floor(Math.random() * (ceiling - baseDelayMs + 1) + baseDelayMs)
-      );
+      const floor = Math.min(baseDelayMs, maxDelayMs);
+      const ceiling = Math.max(floor, Math.min(maxDelayMs, previousDelay * 3));
+      return Math.floor(Math.random() * (ceiling - floor + 1) + floor);
     }
   }
 }
@@ -62,10 +60,7 @@ export function computeDelay(
  * The default strategy (`decorrelated-jitter`) is production-grade and
  * prevents thundering-herd problems in distributed CI environments.
  */
-export async function retry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions
-): Promise<T> {
+export async function retry<T>(fn: () => Promise<T>, options: RetryOptions): Promise<T> {
   const {
     maxRetries,
     baseDelayMs,

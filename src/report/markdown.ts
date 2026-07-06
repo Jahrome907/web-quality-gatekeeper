@@ -182,6 +182,80 @@ function isAggregateSummary(summary: MarkdownSummary): summary is AggregateSumma
   );
 }
 
+function isSingleSummaryV2(summary: MarkdownSummary): summary is SummaryV2 {
+  const candidate = summary as Partial<SummaryV2>;
+  return (
+    Boolean(candidate) &&
+    typeof candidate.schemaVersion === "string" &&
+    candidate.schemaVersion.startsWith("2.") &&
+    typeof candidate.url === "string" &&
+    Boolean(candidate.runtimeSignals) &&
+    !Array.isArray((candidate as Partial<AggregateSummaryV2Like>).pages)
+  );
+}
+
+function countFailedPerformanceBudgets(summary: SummaryV2): number {
+  if (!summary.performance) {
+    return 0;
+  }
+  return Object.values(summary.performance.budgetResults).filter((passed) => !passed).length;
+}
+
+function toSinglePageAggregate(summary: SummaryV2): AggregateSummaryV2Like {
+  const maxMismatchRatio = summary.visual?.maxMismatchRatio ?? null;
+  return {
+    $schema: summary.$schema,
+    schemaVersion: summary.schemaVersion,
+    mode: "single",
+    overallStatus: summary.overallStatus,
+    startedAt: summary.startedAt,
+    durationMs: summary.durationMs,
+    primaryUrl: summary.url,
+    rollup: {
+      pageCount: 1,
+      failedPages: summary.overallStatus === "fail" ? 1 : 0,
+      a11yViolations: summary.a11y?.violations ?? 0,
+      performanceBudgetFailures: countFailedPerformanceBudgets(summary),
+      visualFailures: summary.visual?.failed ? 1 : 0
+    },
+    pages: [
+      {
+        index: 0,
+        name: "page",
+        url: summary.url,
+        overallStatus: summary.overallStatus,
+        startedAt: summary.startedAt,
+        durationMs: summary.durationMs,
+        steps: summary.steps,
+        artifacts: {
+          summary: summary.artifacts.summary,
+          summaryV2: summary.artifacts.summaryV2,
+          report: summary.artifacts.report
+        },
+        metrics: {
+          a11yViolations: summary.a11y?.violations ?? 0,
+          performanceScore: summary.performance?.metrics.performanceScore ?? null,
+          maxMismatchRatio,
+          consoleErrors: summary.runtimeSignals.console.errorCount,
+          jsErrors: summary.runtimeSignals.jsErrors.total,
+          failedRequests: summary.runtimeSignals.network.failedRequests
+        },
+        details: summary
+      }
+    ],
+    trend: {
+      status: "disabled",
+      historyDir: null,
+      previousSnapshotPath: null,
+      message: "Trend data is only emitted by aggregate summary.v2 artifacts.",
+      metrics: null,
+      pages: [],
+      insights: []
+    },
+    insights: undefined
+  };
+}
+
 function renderStepTable(lines: string[], steps: Summary["steps"]): void {
   lines.push("| Step | Status | Badge |");
   lines.push("|---|---|---|");
@@ -553,6 +627,9 @@ type MarkdownSummary = Summary | SummaryV2 | AggregateSummaryV2Like;
 export function formatSummaryAsMarkdown(summary: MarkdownSummary): string {
   if (isAggregateSummary(summary)) {
     return renderAggregateSummary(summary);
+  }
+  if (isSingleSummaryV2(summary)) {
+    return renderAggregateSummary(toSinglePageAggregate(summary));
   }
   return renderLegacySummary(summary as Summary);
 }

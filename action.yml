@@ -68,6 +68,9 @@ outputs:
   pr-risk-ledger-md-path:
     description: "Path to the PR Risk Ledger Markdown file"
     value: ${{ steps.audit.outputs.pr-risk-ledger-md-path }}
+  sensitive-audit:
+    description: "Whether auth headers, cookies, internal-target overrides, or sensitive-audit controls were present"
+    value: ${{ steps.audit.outputs.sensitive-audit }}
 
 runs:
   using: "composite"
@@ -271,6 +274,33 @@ runs:
         POLICY_REFERENCE="$(resolve_policy_reference "$INPUT_POLICY")"
         OUT_DIR="${WORKSPACE_ROOT_RUNTIME}/artifacts"
 
+        SENSITIVE_AUDIT=false
+        has_nonblank_value() {
+          local value="${1:-}"
+          [[ -n "${value//[[:space:]]/}" ]]
+        }
+        case "${WQG_SENSITIVE_AUDIT:-}" in
+          1|true|TRUE|yes|YES|on|ON) SENSITIVE_AUDIT=true ;;
+        esac
+        case "${WQG_ALLOW_INTERNAL_TARGETS:-}" in
+          1|true|TRUE|yes|YES|on|ON) SENSITIVE_AUDIT=true ;;
+        esac
+        if [[ "$INPUT_ALLOW_INTERNAL" == "true" ]]; then
+          SENSITIVE_AUDIT=true
+        fi
+        if has_nonblank_value "$INPUT_HEADERS" || has_nonblank_value "$INPUT_COOKIES" || has_nonblank_value "${WQG_AUTH_HEADER:-}" || has_nonblank_value "${WQG_AUTH_HEADERS:-}" || has_nonblank_value "${WQG_AUTH_COOKIE:-}" || has_nonblank_value "${WQG_AUTH_COOKIES:-}"; then
+          SENSITIVE_AUDIT=true
+        fi
+        if [[ -n "$GITHUB_OUTPUT_PATH" ]]; then
+          echo "sensitive-audit=$SENSITIVE_AUDIT" >> "$GITHUB_OUTPUT_PATH"
+        fi
+        if [[ -n "$INPUT_HEADERS" ]]; then
+          export WQG_AUTH_HEADERS="$INPUT_HEADERS"
+        fi
+        if [[ -n "$INPUT_COOKIES" ]]; then
+          export WQG_AUTH_COOKIES="$INPUT_COOKIES"
+        fi
+
         ARGS=(
           "$INPUT_URL"
           "--config" "$CONFIG_PATH"
@@ -282,22 +312,6 @@ runs:
         [[ "$INPUT_PERF" != "true" ]] && ARGS+=("--no-fail-on-perf")
         [[ "$INPUT_VISUAL" != "true" ]] && ARGS+=("--no-fail-on-visual")
         [[ "$INPUT_ALLOW_INTERNAL" == "true" ]] && ARGS+=("--allow-internal-targets")
-        if [[ -n "$INPUT_HEADERS" ]]; then
-          while IFS= read -r header; do
-            [[ -z "${header// }" ]] && continue
-            ARGS+=("--header" "$header")
-          done <<< "$INPUT_HEADERS"
-        fi
-        if [[ -n "$INPUT_COOKIES" ]]; then
-          COOKIES_NORMALIZED="${INPUT_COOKIES//$'\n'/;}"
-          IFS=';' read -ra COOKIE_PARTS <<< "$COOKIES_NORMALIZED"
-          for cookie in "${COOKIE_PARTS[@]}"; do
-            cookie="${cookie#"${cookie%%[![:space:]]*}"}"
-            cookie="${cookie%"${cookie##*[![:space:]]}"}"
-            [[ -z "$cookie" ]] && continue
-            ARGS+=("--cookie" "$cookie")
-          done
-        fi
 
         set +e
         node "${ACTION_ROOT_RUNTIME}/dist/cli.js" audit "${ARGS[@]}"

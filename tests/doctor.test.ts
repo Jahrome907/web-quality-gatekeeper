@@ -1,10 +1,21 @@
 import path from "node:path";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { mockResolveBrowserExecutablePath } = vi.hoisted(() => ({
+  mockResolveBrowserExecutablePath: vi.fn()
+}));
+
+vi.mock("../src/utils/browserExecutable.js", () => ({
+  resolveBrowserExecutablePath: mockResolveBrowserExecutablePath
+}));
 import { formatDoctorText, runDoctor, satisfiesMinimumNode } from "../src/doctor.js";
 
 describe("doctor diagnostics", () => {
+  beforeEach(() => {
+    mockResolveBrowserExecutablePath.mockReturnValue(undefined);
+  });
   it("checks Node.js against the package engine floor", () => {
     expect(satisfiesMinimumNode("22.19.0", ">=22.19.0")).toBe(true);
     expect(satisfiesMinimumNode("22.19.0", ">=22.19")).toBe(true);
@@ -18,7 +29,8 @@ describe("doctor diagnostics", () => {
       out: "artifacts",
       baselineDir: "baselines",
       env: { ...process.env, CHROME_PATH: process.execPath },
-      nodeVersion: "24.0.0"
+      nodeVersion: "24.0.0",
+      browserProbe: async () => ({ ok: true, version: "Google Chrome 120.0.0.0" })
     });
 
     expect(result.status).toBe("pass");
@@ -208,6 +220,105 @@ process.stdout.write(JSON.stringify({ diffPixels: 0 }));
     expect(result.checks.find((check) => check.id === "browser")).toMatchObject({
       status: "fail"
     });
+  });
+
+  it("passes when standard system Chrome is available without CHROME_PATH or Playwright Chromium", async () => {
+    mockResolveBrowserExecutablePath.mockReturnValue(
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+    );
+
+    const result = await runDoctor({
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      env: { ...process.env, CHROME_PATH: undefined },
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: null
+    });
+
+    expect(result.status).toBe("pass");
+    expect(result.checks.find((check) => check.id === "browser")).toMatchObject({
+      status: "pass",
+      message: "System Chrome/Chromium browser was found and is available.",
+      details: { chromePath: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" }
+    });
+  });
+  it("warns or fails when CHROME_PATH points to a non-browser executable", async () => {
+    const result = await runDoctor({
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      env: { ...process.env, CHROME_PATH: process.execPath },
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: null,
+      browserProbe: async () => ({
+        ok: false,
+        message: "CHROME_PATH exists but does not identify as a Chrome/Chromium browser."
+      })
+    });
+
+    expect(result.status).toBe("warn");
+    expect(result.checks.find((check) => check.id === "browser")).toMatchObject({
+      status: "warn",
+      message: "CHROME_PATH exists but does not identify as a Chrome/Chromium browser."
+    });
+
+    const strictResult = await runDoctor({
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      env: { ...process.env, CHROME_PATH: process.execPath },
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: null,
+      strict: true,
+      browserProbe: async () => ({
+        ok: false,
+        message: "CHROME_PATH exists but does not identify as a Chrome/Chromium browser."
+      })
+    });
+
+    expect(strictResult.status).toBe("fail");
+    expect(strictResult.checks.find((check) => check.id === "browser")).toMatchObject({
+      status: "fail",
+      message: "CHROME_PATH exists but does not identify as a Chrome/Chromium browser."
+    });
+  });
+  it("warns or fails when CHROME_PATH points to an existing directory", async () => {
+    const chromePath = await mkdtemp(path.join(tmpdir(), "wqg-chrome-path-"));
+    try {
+      const result = await runDoctor({
+        config: "configs/default.json",
+        out: "artifacts",
+        baselineDir: "baselines",
+        env: { ...process.env, CHROME_PATH: chromePath },
+        nodeVersion: "24.0.0",
+        playwrightChromiumPath: process.execPath
+      });
+
+      expect(result.status).toBe("warn");
+      expect(result.checks.find((check) => check.id === "browser")).toMatchObject({
+        status: "warn",
+        message: "CHROME_PATH exists but is not a browser executable file."
+      });
+
+      const strictResult = await runDoctor({
+        config: "configs/default.json",
+        out: "artifacts",
+        baselineDir: "baselines",
+        env: { ...process.env, CHROME_PATH: chromePath },
+        nodeVersion: "24.0.0",
+        playwrightChromiumPath: process.execPath,
+        strict: true
+      });
+
+      expect(strictResult.status).toBe("fail");
+      expect(strictResult.checks.find((check) => check.id === "browser")).toMatchObject({
+        status: "fail",
+        message: "CHROME_PATH exists but is not a browser executable file."
+      });
+    } finally {
+      await rm(chromePath, { recursive: true, force: true });
+    }
   });
 
   it("warns on a stale CHROME_PATH when Playwright Chromium can be used instead", async () => {

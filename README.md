@@ -3,7 +3,7 @@
 [![Quality Gate](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/quality-gate.yml)
 [![Pack Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/npm-pack-smoke.yml)
 [![Action Smoke](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/Jahrome907/web-quality-gatekeeper/actions/workflows/action-smoke.yml)
-[![Source Version 3.2.2](https://img.shields.io/badge/source-3.2.2-17355c?logo=git&logoColor=white)](./package.json)
+[![Source Version 3.2.3](https://img.shields.io/badge/source-3.2.3-17355c?logo=git&logoColor=white)](./package.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
 [![Node.js 22.19+](https://img.shields.io/badge/Node.js-22.19%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
@@ -135,7 +135,7 @@ jobs:
           url: https://your-site.example
           baseline-dir: .github/web-quality/baselines
       - name: Upload artifacts
-        if: always() && (env.WQG_SENSITIVE_AUDIT != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && (steps.wqg.outputs.sensitive-audit != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
@@ -167,11 +167,13 @@ Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` / 
 
 ## CLI Usage
 
-The examples in this section use the installed binary name, `wqg`. From a
-source checkout, build first and substitute `node dist/cli.js` for `wqg`.
+The npm package is not published yet, so public CLI usage currently starts from
+a source checkout. Build first, then run the compiled CLI with `node dist/cli.js`.
+The binary name `wqg` is reserved for installed-package usage once that
+publication path is available.
 
 ```bash
-wqg audit [url] [options]
+node dist/cli.js audit [url] [options]
 ```
 
 The positional URL is optional when your config supplies `urls`.
@@ -179,7 +181,7 @@ The positional URL is optional when your config supplies `urls`.
 Initialize a consumer repository:
 
 ```bash
-wqg init --profile marketing --url https://your-site.example
+node dist/cli.js init --profile marketing --url https://your-site.example
 ```
 
 The init command writes `.github/web-quality/config.json`, `.github/workflows/web-quality.yml`, `.github/web-quality/baselines/.gitkeep`, and `.github/web-quality/README.md` with profile-specific coverage, baseline guidance, and a report artifact upload step. It refuses to overwrite existing scaffold files unless `--force` is provided.
@@ -187,15 +189,15 @@ The init command writes `.github/web-quality/config.json`, `.github/workflows/we
 Check a local setup before running a heavier audit:
 
 ```bash
-wqg doctor --config .github/web-quality/config.json --out artifacts --baseline-dir .github/web-quality/baselines
+node dist/cli.js doctor --config .github/web-quality/config.json --out artifacts --baseline-dir .github/web-quality/baselines
 ```
 
-Use `wqg doctor --json` when you want machine-readable diagnostics for local setup scripts, and `wqg doctor --strict` when warnings should fail a CI/bootstrap preflight.
+Use `node dist/cli.js doctor --json` when you want machine-readable diagnostics for local setup scripts, and `node dist/cli.js doctor --strict` when warnings should fail a CI/bootstrap preflight.
 
 Common options:
 
 ```bash
-wqg audit https://example.com \
+node dist/cli.js audit https://example.com \
   --policy marketing \
   --config .github/web-quality/config.json \
   --out artifacts \
@@ -220,7 +222,7 @@ Built-in policies are host-agnostic defaults (paths, budgets, toggles); the targ
 
 ### Output Formats
 
-On successful runs, `wqg audit` writes artifact files to `--out` (default: `artifacts`) regardless of output mode:
+On successful runs, `node dist/cli.js audit` writes artifact files to `--out` (default: `artifacts`) regardless of output mode:
 
 - `summary.json`
 - `summary.v2.json`
@@ -248,21 +250,21 @@ Examples:
 
 ```bash
 # Default (same as --format html): artifact-driven output, no stdout payload
-wqg audit https://example.com --out artifacts
+node dist/cli.js audit https://example.com --out artifacts
 
 # JSON to stdout for scripting while still writing report artifacts
-wqg audit https://example.com --format json --out artifacts > summary.stdout.json
+node dist/cli.js audit https://example.com --format json --out artifacts > summary.stdout.json
 
 # Markdown to stdout for terminal/PR paste while still writing report artifacts
-wqg audit https://example.com --format md --out artifacts > report.stdout.md
+node dist/cli.js audit https://example.com --format md --out artifacts > report.stdout.md
 
 # Multipage-aware JSON to stdout for automation
-wqg audit https://example.com --format json-v2 --out artifacts > summary.v2.stdout.json
+node dist/cli.js audit https://example.com --format json-v2 --out artifacts > summary.v2.stdout.json
 ```
 
 ## Baseline Workflow
 
-1. Run once to create baselines:
+1. From a built source checkout, run once to create baselines:
 
 ```bash
 node dist/cli.js audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
@@ -283,7 +285,7 @@ For a consuming repository, keep configuration in a path you own such as `.githu
   },
   "playwright": {
     "viewport": { "width": 1280, "height": 720 },
-    "userAgent": "wqg/3.2.2",
+    "userAgent": "wqg/3.2.3",
     "locale": "en-US",
     "colorScheme": "light"
   },
@@ -350,7 +352,8 @@ For most consumers, the composite Action is the supported starting point.
 
 The composite Action exposes stable artifact path outputs for downstream
 workflow steps: `status`, `summary-path`, `summary-v2-path`, `report-path`,
-`action-plan-path`, `pr-risk-ledger-path`, and `pr-risk-ledger-md-path`.
+`action-plan-path`, `pr-risk-ledger-path`, `pr-risk-ledger-md-path`, and
+`sensitive-audit`.
 
 Workflow behavior (`.github/workflows/quality-gate.yml`):
 
@@ -359,7 +362,7 @@ Workflow behavior (`.github/workflows/quality-gate.yml`):
 - Repos without a docs preview fall back to a local `demo` script when present, then to a remote Pages URL or `https://example.com`.
 - Local docs-preview and demo runs stay blocking and pass `--allow-internal-targets` for the loopback target.
 - Set `WQG_RELAXED_REMOTE=true` to make remote mode non-blocking (`--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual`).
-- If authenticated inputs are detected (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`) or `WQG_SENSITIVE_AUDIT=true`, artifact upload and PR comments are disabled by default.
+- In the repository workflow, authenticated inputs (`WQG_AUTH_HEADER(S)` / `WQG_AUTH_COOKIE(S)`) or `WQG_SENSITIVE_AUDIT=true` disable artifact upload and PR comments by default. The composite Action also reports `sensitive-audit=true` when `allow-internal-targets` is enabled, so generated consumer workflows suppress artifact upload for internal/private audits unless explicitly allowed.
 - Set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` only when you intentionally want to publish outputs for a sensitive run.
 - Internal/private targets are blocked by default in CI and authenticated runs unless you explicitly set `--allow-internal-targets` or `WQG_ALLOW_INTERNAL_TARGETS=true`.
 - Requested public targets are DNS-resolved and pinned before Playwright/Lighthouse execution where browser resolver rules are supported. Sensitive-mode redirect destinations and outbound HTTP(S) request targets are verified before continuation and blocked when they resolve to private network space.

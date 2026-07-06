@@ -110,6 +110,17 @@ describe("workflow invariants", () => {
     expect(source).not.toContain("pull-requests: write");
   });
 
+  it("keeps Codecov upload gated on a generated coverage report", () => {
+    const source = readRepoFile(".github/workflows/quality-gate.yml");
+
+    expect(source).toContain("Run coverage");
+    expect(source).toContain("npm run test:coverage");
+    expect(source).toContain("Check coverage report");
+    expect(source).toContain("id: coverage_report");
+    expect(source).toContain("[ -f coverage/lcov.info ]");
+    expect(source).toContain("steps.coverage_report.outputs.found == 'true'");
+    expect(source).toContain("files: coverage/lcov.info");
+  });
   it("keeps repo quality-gate audits hermetic by preferring local docs preview targets", () => {
     const source = readRepoFile(".github/workflows/quality-gate.yml");
 
@@ -164,6 +175,20 @@ describe("workflow invariants", () => {
     expect(localSmokeSource).toContain(
       'assertOutput(outputs, "pr-risk-ledger-md-path", "artifacts/pr-risk-ledger.md")'
     );
+    expect(localSmokeSource).toContain("runActionSetupPreflight");
+    expect(localSmokeSource).toContain("npm run engines:check");
+    expect(localSmokeSource).toContain("node scripts/ci/resolve-chrome-path.mjs");
+    expect(localSmokeSource).toContain('expectedSensitive: "false"');
+    expect(localSmokeSource).toContain('expectedSensitive: "true"');
+    expect(actionSource).toContain("sensitive-audit:");
+    expect(actionSource).toContain('echo "sensitive-audit=$SENSITIVE_AUDIT"');
+    expect(actionSource).toContain("has_nonblank_value");
+    expect(actionSource).toContain('[[ "$INPUT_ALLOW_INTERNAL" == "true" ]]');
+    expect(actionSource).toContain('case "${WQG_ALLOW_INTERNAL_TARGETS:-}" in');
+    expect(actionSource).toContain('export WQG_AUTH_HEADERS="$INPUT_HEADERS"');
+    expect(actionSource).toContain('export WQG_AUTH_COOKIES="$INPUT_COOKIES"');
+    expect(actionSource).not.toContain('ARGS+=("--header"');
+    expect(actionSource).not.toContain('ARGS+=("--cookie"');
     expect(assertionSource).toContain("WQG_ACTION_SUMMARY_V2_PATH");
     expect(assertionSource).toContain("WQG_ACTION_PR_RISK_LEDGER_MD_PATH");
     expect(assertionSource).toContain("pr-risk-ledger.json");
@@ -325,6 +350,14 @@ describe("workflow invariants", () => {
     expect(source).toContain("does not match package.json version tag");
     expect(source).toContain("Upload publish artifact");
     expect(source).toContain("npm pack --ignore-scripts --json > pack.json");
+    expect(source).toContain("Generate publish evidence");
+    expect(source).toContain("RELEASE_COMMIT=");
+    expect(source).toContain("git rev-parse HEAD");
+    expect(source).toContain("--commit");
+    expect(source).toContain("--validation-profile npm-publish");
+    expect(source).toContain("Upload publish evidence");
+    expect(source).toContain("npm-release-evidence");
+    expect(source).toContain("Verify npm package visibility");
     expect(source).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c");
     expect(source).toContain("Configure npm registry");
     expect(source).toContain("needs: [validate-input, validate-package]");
@@ -347,8 +380,11 @@ describe("workflow invariants", () => {
     expect(source).not.toContain("NPM_TOKEN");
   });
 
-  it("keeps release workflow focused on GitHub Release and stable Action tag publication", () => {
+  it("keeps release workflow focused on GitHub Release and stable Action tag publication", function () {
     const source = readRepoFile(".github/workflows/release.yml");
+    const releaseEvidenceIndex = source.indexOf("Generate release evidence");
+    const uploadEvidenceIndex = source.indexOf("Upload release evidence");
+    const downloadEvidenceIndex = source.indexOf("Download release evidence");
     const guardIndex = source.indexOf("Validate stable major tag movement");
     const releaseIndex = source.indexOf("Create GitHub release");
     const majorTagIndex = source.indexOf("Update major version tag");
@@ -361,17 +397,26 @@ describe("workflow invariants", () => {
     expect(source).toContain("contents: read");
     expect(source).toContain("contents: write");
     expect(source).toContain("npm run release:dry-run");
+    expect(source).toContain("npm run release:evidence");
+    expect(source).toContain("--validation-profile release");
+    expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
+    expect(source).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c");
+    expect(source).toContain("release-provenance.json");
+    expect(source).toContain("sbom.spdx.json");
     expect(source).not.toContain("npm publish --provenance --access public");
     expect(source).not.toContain("HAS_NPM_TOKEN");
     expect(source).not.toContain("id-token: write");
     expect(source).not.toContain("Ensure package version is unpublished");
+    expect(releaseEvidenceIndex).toBeGreaterThanOrEqual(0);
+    expect(uploadEvidenceIndex).toBeGreaterThan(releaseEvidenceIndex);
+    expect(downloadEvidenceIndex).toBeGreaterThan(uploadEvidenceIndex);
     expect(guardIndex).toBeGreaterThanOrEqual(0);
     expect(releaseIndex).toBeGreaterThanOrEqual(0);
     expect(majorTagIndex).toBeGreaterThanOrEqual(0);
+    expect(downloadEvidenceIndex).toBeLessThan(releaseIndex);
     expect(guardIndex).toBeLessThan(releaseIndex);
     expect(releaseIndex).toBeLessThan(majorTagIndex);
   });
-
   it("uses maintainer helper commands in validation-heavy workflows", () => {
     const qualityGate = readRepoFile(".github/workflows/quality-gate.yml");
     const release = readRepoFile(".github/workflows/release.yml");

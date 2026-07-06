@@ -17,6 +17,19 @@ describe("packaged CLI smoke", () => {
     expect(source).toMatch(new RegExp(`actionMs:\\s*${expectedActionMs}\\b`));
     expect(source).not.toMatch(/actionMs:\s*5000\b/);
   });
+  it("packs the repo root tarball with the same npm pack mode used by npm publish", () => {
+    const source = readFileSync(path.join(ROOT, "scripts", "ci", "pack-smoke.mjs"), "utf8");
+
+    expect(source).toContain(
+      '["pack", "--ignore-scripts", "--json", "--pack-destination", smokeRoot]'
+    );
+    expect(source).toContain("{ cwd: ROOT }");
+    expect(source).not.toContain("package-source");
+    expect(source).toContain('"package/package.json"');
+    expect(source).toContain('"package/configs/security/audit-exceptions.json"');
+    expect(source).toContain('"package/dist/cli.js.map"');
+    expect(source).not.toContain('"package/tests/"');
+  });
 
   it("installs the tarball in a clean project and runs a real audit with shipped assets", async () => {
     const { stdout } = await execFileAsync(
@@ -29,6 +42,7 @@ describe("packaged CLI smoke", () => {
         env: {
           ...process.env,
           NO_COLOR: "1",
+          npm_config_cache: path.join(ROOT, ".tmp-npm-cache-package-smoke-test"),
           WQG_PACK_SMOKE_KEEP_DIST: "true"
         }
       }

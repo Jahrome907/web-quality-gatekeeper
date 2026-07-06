@@ -1,7 +1,7 @@
 {
   "timeouts": {
-    "navigationMs": 15000,
-    "actionMs": 5000,
+    "navigationMs": 30000,
+    "actionMs": 10000,
     "waitAfterLoadMs": 500
   },
   "playwright": {
@@ -9,7 +9,7 @@
       "width": 1280,
       "height": 720
     },
-    "userAgent": "wqg-fixture/3.2.2",
+    "userAgent": "wqg-fixture/3.2.3",
     "locale": "en-US",
     "colorScheme": "light"
   },

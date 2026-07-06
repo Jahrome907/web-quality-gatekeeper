@@ -1,5 +1,4 @@
 import path from "node:path";
-import { existsSync } from "node:fs";
 import {
   chromium,
   type Browser,
@@ -15,6 +14,7 @@ import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
 import { applyScopedAuthHeaders } from "../utils/auth.js";
+import { resolveBrowserExecutablePath } from "../utils/browserExecutable.js";
 import {
   NavigationTargetVerifier,
   isAuditableHttpUrl,
@@ -30,11 +30,7 @@ const MAX_SEGMENT_CAPTURE_POINTS = 200;
 const MAX_BROWSER_RELAUNCHES = 4;
 
 function resolveChromePath(): string | undefined {
-  if (!process.env.CHROME_PATH) {
-    return undefined;
-  }
-
-  return existsSync(process.env.CHROME_PATH) ? process.env.CHROME_PATH : undefined;
+  return resolveBrowserExecutablePath(process.env.CHROME_PATH);
 }
 
 export interface ScreenshotResult {
@@ -495,50 +491,57 @@ export async function openPage(
     initialTrustedHosts
   );
 
-  let resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
-  let resolvedHostResolverRules = navigation.resolvedTarget?.hostResolverRules ?? null;
+  try {
+    let resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
+    let resolvedHostResolverRules = navigation.resolvedTarget?.hostResolverRules ?? null;
 
-  for (
-    let relaunchCount = 0;
-    options.targetPolicy && resolvedHostResolverRules !== currentLaunchHostResolverRules;
-    relaunchCount += 1
-  ) {
-    if (relaunchCount >= MAX_BROWSER_RELAUNCHES) {
-      throw new Error(
-        `Playwright resolver pinning did not stabilize after ${MAX_BROWSER_RELAUNCHES + 1} launches.`
+    for (
+      let relaunchCount = 0;
+      options.targetPolicy && resolvedHostResolverRules !== currentLaunchHostResolverRules;
+      relaunchCount += 1
+    ) {
+      if (relaunchCount >= MAX_BROWSER_RELAUNCHES) {
+        throw new Error(
+          `Playwright resolver pinning did not stabilize after ${MAX_BROWSER_RELAUNCHES + 1} launches.`
+        );
+      }
+
+      logger.debug("Relaunching Playwright browser with landing host resolver rules");
+      await closeQuietly(navigation.page, logger, "page");
+      await closeQuietly(navigation.context, logger, "context");
+      await closeQuietly(navigation.browser, logger, "browser");
+      currentLaunchHostResolverRules = resolvedHostResolverRules;
+      navigation = await launchNavigatedPage(
+        resolvedUrl,
+        authScopeUrl,
+        currentLaunchHostResolverRules,
+        config,
+        logger,
+        auth,
+        options,
+        new Map([[normalizeUrlHostname(resolvedUrl), currentLaunchHostResolverRules]])
       );
+      resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
+      resolvedHostResolverRules = navigation.resolvedTarget?.hostResolverRules ?? null;
     }
 
-    logger.debug("Relaunching Playwright browser with landing host resolver rules");
+    await applyStabilityOverrides(navigation.page);
+    await navigation.page.waitForTimeout(config.timeouts.waitAfterLoadMs);
+    throwIfBlockedRequest(navigation.page);
+
+    return {
+      browser: navigation.browser,
+      page: navigation.page,
+      runtimeSignals: navigation.runtimeSignals,
+      resolvedUrl,
+      resolvedHostResolverRules
+    };
+  } catch (error) {
     await closeQuietly(navigation.page, logger, "page");
     await closeQuietly(navigation.context, logger, "context");
     await closeQuietly(navigation.browser, logger, "browser");
-    currentLaunchHostResolverRules = resolvedHostResolverRules;
-    navigation = await launchNavigatedPage(
-      resolvedUrl,
-      authScopeUrl,
-      currentLaunchHostResolverRules,
-      config,
-      logger,
-      auth,
-      options,
-      new Map([[normalizeUrlHostname(resolvedUrl), currentLaunchHostResolverRules]])
-    );
-    resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
-    resolvedHostResolverRules = navigation.resolvedTarget?.hostResolverRules ?? null;
+    throw error;
   }
-
-  await applyStabilityOverrides(navigation.page);
-  await navigation.page.waitForTimeout(config.timeouts.waitAfterLoadMs);
-  throwIfBlockedRequest(navigation.page);
-
-  return {
-    browser: navigation.browser,
-    page: navigation.page,
-    runtimeSignals: navigation.runtimeSignals,
-    resolvedUrl,
-    resolvedHostResolverRules
-  };
 }
 
 async function captureScreenshot(
@@ -652,6 +655,7 @@ async function captureViewportSegments(
       window.scrollTo(0, y);
     }, offset);
     await page.waitForTimeout(120);
+    throwIfBlockedRequest(page);
 
     const filename = `${screenshotBaseName}--vp-${String(index + 1).padStart(2, "0")}.png`;
     const filePath = path.join(outDir, filename);
@@ -667,6 +671,7 @@ async function captureViewportSegments(
   await page.evaluate(() => {
     window.scrollTo(0, 0);
   });
+  throwIfBlockedRequest(page);
 
   return results;
 }

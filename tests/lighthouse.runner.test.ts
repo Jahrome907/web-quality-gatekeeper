@@ -2,9 +2,13 @@ import { mkdtemp, mkdir, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockLookup } = vi.hoisted(() => ({
-  mockLookup: vi.fn()
-}));
+const { mockIsBrowserExecutableFile, mockLookup, mockResolveBrowserExecutablePath } = vi.hoisted(
+  () => ({
+    mockIsBrowserExecutableFile: vi.fn(),
+    mockLookup: vi.fn(),
+    mockResolveBrowserExecutablePath: vi.fn()
+  })
+);
 const mockLighthouse = vi.fn();
 const mockLaunch = vi.fn();
 const mockRetry = vi.fn();
@@ -26,6 +30,10 @@ vi.mock("../src/utils/retry.js", () => ({
 }));
 vi.mock("node:dns/promises", () => ({
   lookup: mockLookup
+}));
+vi.mock("../src/utils/browserExecutable.js", () => ({
+  isBrowserExecutableFile: mockIsBrowserExecutableFile,
+  resolveBrowserExecutablePath: mockResolveBrowserExecutablePath
 }));
 vi.mock("../src/utils/fs.js", async () => {
   const actual = await vi.importActual("../src/utils/fs.js");
@@ -81,6 +89,8 @@ function createPuppeteerHarness() {
 describe("lighthouse runner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsBrowserExecutableFile.mockReturnValue(false);
+    mockResolveBrowserExecutablePath.mockReturnValue(undefined);
     mockLookup.mockResolvedValue([{ address: "203.0.113.10", family: 4 }]);
     mockRetry.mockImplementation(async (fn: () => unknown) => fn());
   });
@@ -377,9 +387,7 @@ describe("lighthouse runner", () => {
     expect(mockLaunch).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        chromeFlags: expect.arrayContaining([
-          "--host-resolver-rules=MAP example.com 203.0.113.10"
-        ])
+        chromeFlags: expect.arrayContaining(["--host-resolver-rules=MAP example.com 203.0.113.10"])
       })
     );
     expect(mockLaunch).toHaveBeenNthCalledWith(
@@ -534,6 +542,48 @@ describe("lighthouse runner", () => {
     );
   });
 
+  it("ignores CHROME_PATH when it is not a browser executable", async () => {
+    const previousChromePath = process.env.CHROME_PATH;
+    process.env.CHROME_PATH = process.execPath;
+    mockIsBrowserExecutableFile.mockReturnValue(false);
+    mockResolveBrowserExecutablePath.mockReturnValue(undefined);
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        categories: {
+          performance: { score: 0.95 }
+        },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+        }
+      }
+    });
+
+    try {
+      const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+      await runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        { debug: vi.fn() } as never
+      );
+
+      expect(mockLaunch).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          chromePath: process.execPath
+        })
+      );
+    } finally {
+      if (previousChromePath === undefined) {
+        delete process.env.CHROME_PATH;
+      } else {
+        process.env.CHROME_PATH = previousChromePath;
+      }
+    }
+  });
   it("adds no-sandbox chrome flags in CI", async () => {
     const previousCI = process.env.CI;
     const previousActions = process.env.GITHUB_ACTIONS;
@@ -961,6 +1011,64 @@ describe("lighthouse runner", () => {
     }
   });
 
+  it("does not fail a successful audit when Chrome cleanup fails", async () => {
+    const kill = vi.fn().mockRejectedValue(new Error("kill failed"));
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        categories: {
+          performance: { score: 0.95 }
+        },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+        }
+      }
+    });
+
+    const logger = { debug: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never
+      )
+    ).resolves.toMatchObject({
+      metrics: {
+        performanceScore: 0.95
+      }
+    });
+
+    expect(kill).toHaveBeenCalledTimes(1);
+    expect(logger.debug).toHaveBeenCalledWith(
+      "Ignoring Lighthouse Chrome cleanup failure: kill failed"
+    );
+  });
+
+  it("preserves the primary Lighthouse error when Chrome cleanup also fails", async () => {
+    const kill = vi.fn().mockRejectedValue(new Error("kill failed"));
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    mockLighthouse.mockRejectedValue(new Error("lighthouse crashed"));
+
+    const logger = { debug: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never
+      )
+    ).rejects.toThrow("lighthouse crashed");
+
+    expect(kill).toHaveBeenCalledTimes(1);
+    expect(logger.debug).toHaveBeenCalledWith(
+      "Ignoring Lighthouse Chrome cleanup failure: kill failed"
+    );
+  });
   it("throws when lighthouse returns no lhr and always kills chrome", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });

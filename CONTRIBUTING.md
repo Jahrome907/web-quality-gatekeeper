@@ -25,7 +25,7 @@ npx playwright install --with-deps chromium
 Use the stable entrypoints below so local verification matches repo automation:
 
 ```bash
-npm run validate:full   # engine preflight + lint + typecheck + build + tests + security:audit
+npm run validate:full   # engine preflight + lint + typecheck + build + tests + runtime and toolchain security audits
 npm run engines:check   # fail fast when local Node does not satisfy package.json
 npm run contracts:check # summary and PR Risk Ledger contract drift gate
 npm run security:audit  # runtime dependency audit exceptions gate

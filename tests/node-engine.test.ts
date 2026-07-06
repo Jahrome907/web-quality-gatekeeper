@@ -71,5 +71,6 @@ describe("Node engine preflight", () => {
 
     expect(validateFull).toMatch(/^npm run engines:check && /);
     expect(validateFull).toContain("npm run security:audit");
+    expect(validateFull).toContain("npm run security:audit:toolchain");
   });
 });

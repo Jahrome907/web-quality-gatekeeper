@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -8,6 +8,7 @@ import { promisify } from "node:util";
 import { loadConfig } from "./config/loadConfig.js";
 import type { Config } from "./config/schema.js";
 import { validateOutputDirectory } from "./utils/fs.js";
+import { resolveBrowserExecutablePath } from "./utils/browserExecutable.js";
 import {
   buildNativeVisualDiffChildEnv,
   classifyNativeVisualDiffPath,
@@ -24,6 +25,7 @@ const pkg = require("../package.json") as {
   engines?: { node?: string };
 };
 const NATIVE_PROBE_TIMEOUT_MS = 3000;
+const BROWSER_PROBE_TIMEOUT_MS = 3000;
 
 export type DoctorCheckStatus = "pass" | "warn" | "fail";
 
@@ -32,6 +34,12 @@ export interface DoctorCheck {
   status: DoctorCheckStatus;
   message: string;
   details?: Record<string, string | number | boolean | null>;
+}
+
+export interface BrowserProbeResult {
+  ok: boolean;
+  version?: string;
+  message?: string;
 }
 
 export interface DoctorOptions {
@@ -43,6 +51,7 @@ export interface DoctorOptions {
   env?: NodeJS.ProcessEnv;
   nodeVersion?: string;
   playwrightChromiumPath?: string | null;
+  browserProbe?: (chromePath: string, env: NodeJS.ProcessEnv) => Promise<BrowserProbeResult>;
 }
 
 export interface DoctorResult {
@@ -132,6 +141,31 @@ function strictStatus(strict: boolean): DoctorCheckStatus {
   return strict ? "fail" : "warn";
 }
 
+async function probeBrowserExecutable(
+  chromePath: string,
+  env: NodeJS.ProcessEnv
+): Promise<BrowserProbeResult> {
+  try {
+    const { stdout, stderr } = await execFileAsync(chromePath, ["--version"], {
+      timeout: BROWSER_PROBE_TIMEOUT_MS,
+      env
+    });
+    const version = `${stdout}\n${stderr}`.trim();
+    if (/\b(google chrome|chromium|chrome|microsoft edge|brave browser)\b/i.test(version)) {
+      return { ok: true, version };
+    }
+    return {
+      ok: false,
+      message: "CHROME_PATH exists but does not identify as a Chrome/Chromium browser."
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "CHROME_PATH exists but failed the browser executable probe."
+    };
+  }
+}
+
 async function probeNativeVisualEngine(
   binaryPath: string,
   env: NodeJS.ProcessEnv
@@ -184,20 +218,39 @@ async function probeNativeVisualEngine(
   }
 }
 
-function checkBrowser(
+async function checkBrowser(
   env: NodeJS.ProcessEnv,
   strict: boolean,
-  playwrightChromiumPath?: string | null
-): DoctorCheck {
+  playwrightChromiumPath?: string | null,
+  browserProbe: DoctorOptions["browserProbe"] = probeBrowserExecutable
+): Promise<DoctorCheck> {
   const chromePath = env.CHROME_PATH;
   const playwrightChromium = resolvePlaywrightChromiumPath(playwrightChromiumPath);
 
   if (chromePath) {
+    if (existsSync(chromePath) && statSync(chromePath).isFile()) {
+      const probe = await browserProbe(chromePath, env);
+      if (probe.ok) {
+        return {
+          id: "browser",
+          status: "pass",
+          message: "CHROME_PATH passed the browser executable probe.",
+          details: { chromePath, version: probe.version ?? null }
+        };
+      }
+      return {
+        id: "browser",
+        status: strictStatus(strict),
+        message: probe.message ?? "CHROME_PATH exists but failed the browser executable probe.",
+        details: { chromePath }
+      };
+    }
+
     if (existsSync(chromePath)) {
       return {
         id: "browser",
-        status: "pass",
-        message: "CHROME_PATH points to an existing browser executable.",
+        status: strict ? "fail" : "warn",
+        message: "CHROME_PATH exists but is not a browser executable file.",
         details: { chromePath }
       };
     }
@@ -226,6 +279,16 @@ function checkBrowser(
       status: "pass",
       message: "Playwright Chromium is installed and available.",
       details: { playwrightChromium }
+    };
+  }
+
+  const systemChromePath = resolveBrowserExecutablePath();
+  if (systemChromePath) {
+    return {
+      id: "browser",
+      status: "pass",
+      message: "System Chrome/Chromium browser was found and is available.",
+      details: { chromePath: systemChromePath }
     };
   }
 
@@ -399,7 +462,9 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorResult> {
   checks.push(
     checkDirectory("baseline", "Baseline directory", path.resolve(cwd, options.baselineDir))
   );
-  checks.push(checkBrowser(env, strict, options.playwrightChromiumPath));
+  checks.push(
+    await checkBrowser(env, strict, options.playwrightChromiumPath, options.browserProbe)
+  );
 
   return {
     status: aggregateStatus(checks),

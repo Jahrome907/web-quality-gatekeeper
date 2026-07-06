@@ -117,6 +117,21 @@ jobs:
           TARBALL="$(node -p "JSON.parse(require('node:fs').readFileSync('pack.json', 'utf8'))[0].filename")"
           echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
 
+      - name: Generate publish evidence
+        run: |
+          RELEASE_COMMIT="$(git rev-parse HEAD)"
+          npm run release:evidence -- --release-tag "${{ inputs.release_tag }}" --commit "$RELEASE_COMMIT" --validation-profile npm-publish --out-dir artifacts/release --pack-json pack.json
+
+      - name: Upload publish evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: npm-release-evidence
+          path: |
+            artifacts/release/release-provenance.json
+            artifacts/release/sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Upload publish artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -161,3 +176,13 @@ jobs:
             exit 1
           fi
           npm publish "${tarballs[0]}" --provenance --access public --tag "$NPM_DIST_TAG"
+
+      - name: Verify npm package visibility
+        env:
+          RELEASE_VERSION: ${{ needs.validate-input.outputs.release_version }}
+        run: |
+          PUBLISHED_VERSION="$(npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org/)"
+          if [ "$PUBLISHED_VERSION" != "$RELEASE_VERSION" ]; then
+            echo "::error::Expected npm registry version $RELEASE_VERSION, got $PUBLISHED_VERSION."
+            exit 1
+          fi

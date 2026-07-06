@@ -115,6 +115,82 @@ describe("phase4 markdown rendering", () => {
     expect(secondIndex).toBeGreaterThan(firstIndex);
   });
 
+  it("renders single-page SummaryV2 with v2-only markdown sections", () => {
+    const markdown = formatSummaryAsMarkdown({
+      $schema:
+        "https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/v2/schemas/summary.v2.json",
+      schemaVersion: "2.3.0",
+      toolVersion: "3.2.3",
+      overallStatus: "fail",
+      url: "https://example.com/",
+      startedAt: "2026-02-08T00:00:00.000Z",
+      durationMs: 1200,
+      steps: {
+        playwright: "pass",
+        a11y: "pass",
+        perf: "skipped",
+        visual: "skipped"
+      },
+      artifacts: {
+        summary: "summary.json",
+        summaryV2: "summary.v2.json",
+        report: "report.html",
+        axe: null,
+        lighthouse: null,
+        screenshotsDir: "screenshots",
+        diffsDir: "diffs",
+        baselineDir: "baselines"
+      },
+      screenshots: [],
+      a11y: null,
+      performance: null,
+      visual: null,
+      runtimeSignals: {
+        console: {
+          total: 1,
+          errorCount: 0,
+          warningCount: 1,
+          dropped: 0,
+          messages: []
+        },
+        jsErrors: {
+          total: 0,
+          dropped: 0,
+          errors: []
+        },
+        network: {
+          totalRequests: 4,
+          failedRequests: 2,
+          transferSizeBytes: 1000,
+          resourceTypeBreakdown: { script: 1 }
+        }
+      },
+      insights: {
+        recommendations: [
+          {
+            id: "runtime-errors",
+            source: "runtime",
+            severity: "high",
+            title: "Triage failed requests",
+            why: "Network requests failed during the audit.",
+            evidence: ["Failed network requests: 2"],
+            remediation: ["Inspect failed requests."],
+            verification: ["Re-run WQG."],
+            expectedImpact: "Cleaner runtime signal.",
+            references: []
+          }
+        ]
+      }
+    } as never);
+
+    expect(markdown).toContain("- **Summary (v2)**: `summary.v2.json`");
+    expect(markdown).toContain("### Runtime Signals");
+    expect(markdown).toContain("| Failed requests | 2 |");
+    expect(markdown).toContain("### Action Plan");
+    expect(markdown.match(/Action Plan/g)).toHaveLength(1);
+    expect(markdown).not.toMatch(/^## Action Plan$/m);
+    expect(markdown).not.toContain("## Visual Regression");
+  });
   it("renders non-ready trend states compactly for PR-comment readability", () => {
     const markdown = formatSummaryAsMarkdown({
       $schema:

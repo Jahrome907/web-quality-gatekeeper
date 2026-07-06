@@ -102,4 +102,23 @@ describe("buildInsights", () => {
     expect(insights.recommendations.some((item) => item.source === "perf")).toBe(true);
     expect(insights.recommendations.some((item) => item.source === "visual")).toBe(true);
   });
+
+  it("recommends runtime triage for failed network requests without console or JS errors", () => {
+    const summary = createSummary();
+    summary.runtimeSignals.console.errorCount = 0;
+    summary.runtimeSignals.jsErrors.total = 0;
+    summary.runtimeSignals.network.failedRequests = 2;
+
+    const insights = buildInsights(summary);
+
+    expect(insights.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "runtime:errors",
+          source: "runtime",
+          evidence: expect.arrayContaining(["Failed network requests: 2"])
+        })
+      ])
+    );
+  });
 });

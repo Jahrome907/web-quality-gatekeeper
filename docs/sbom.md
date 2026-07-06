@@ -1,19 +1,20 @@
 # SBOM
 
-Web Quality Gatekeeper does not currently publish a standalone release SBOM artifact. Dependency transparency is maintained through the lockfile, Dependabot updates, runtime audit gate, and release notes.
+Web Quality Gatekeeper publishes a release-scoped SPDX 2.3 SBOM as `sbom.spdx.json` with GitHub Release artifacts. The release workflow generates it with `npm run release:evidence` from `package.json`, `package-lock.json`, and the packed tarball metadata when available.
 
 ## Current Verification
 
-- Runtime dependency advisories are checked with `npm run security:audit`.
+- Runtime dependency advisories are checked with `npm run security:audit`; build/test toolchain advisories are checked with `npm run security:audit:toolchain`.
 - Dependency changes are reviewed through grouped Dependabot PRs.
 - The package smoke test installs the generated tarball in a clean consumer project and verifies shipped assets.
+- `npm run release:evidence` writes `artifacts/release/sbom.spdx.json` and `artifacts/release/release-provenance.json` for local inspection.
 
-## Planned SBOM Path
+## Release Artifact
 
-The intended release path is to generate an SPDX or CycloneDX SBOM during the release workflow, attach it to the GitHub Release, and document the exact generator command here.
+Consumers should inspect these release files together:
 
-Until that is available, consumers should inspect:
-
+- `sbom.spdx.json`
+- `release-provenance.json`
 - `package-lock.json`
 - `configs/security/audit-exceptions.json`
 - GitHub Release notes
