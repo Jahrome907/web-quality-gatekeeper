@@ -14,7 +14,7 @@ async function readJson(filePath: string) {
 }
 
 async function runEvidence(args: string[], outDir: string) {
-  await execFileAsync(
+  return execFileAsync(
     "node",
     [path.join(ROOT, "scripts", "ci", "write-release-evidence.mjs"), ...args, "--out-dir", outDir],
     {
@@ -115,6 +115,20 @@ describe("release evidence artifacts", function () {
       expect(provenance.tarball.path).toBeUndefined();
       expect(JSON.stringify(provenance)).not.toContain(outDir);
       expect(JSON.stringify(provenance)).not.toContain(tarballPath);
+    } finally {
+      await rm(outDir, { recursive: true, force: true });
+    }
+  });
+  it("logs artifact names without printing local output paths", async function () {
+    const outDir = await mkdtemp(path.join(tmpdir(), "wqg-release-log-"));
+    try {
+      const { stdout } = await runEvidence(["--release-tag", "v9.9.9", "--commit", "abc123"], outDir);
+
+      expect(stdout).toContain("Wrote release evidence artifacts:");
+      expect(stdout).toContain("- release-provenance.json");
+      expect(stdout).toContain("- sbom.spdx.json");
+      expect(stdout).not.toContain(outDir);
+      expect(stdout).not.toContain(path.resolve(outDir));
     } finally {
       await rm(outDir, { recursive: true, force: true });
     }

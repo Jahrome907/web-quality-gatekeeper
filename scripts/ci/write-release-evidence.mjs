@@ -345,8 +345,8 @@ function main() {
   writeJsonFile(path.join(options.outDir, "sbom.spdx.json"), buildSbom(pkg, lock, context));
 
   console.log("Wrote release evidence artifacts:");
-  console.log("- " + path.join(options.outDir, "release-provenance.json"));
-  console.log("- " + path.join(options.outDir, "sbom.spdx.json"));
+  console.log("- release-provenance.json");
+  console.log("- sbom.spdx.json");
 }
 
 main();

@@ -380,6 +380,18 @@ async function runLocalActionSmoke() {
       extraEnv: { WQG_ALLOW_INTERNAL_TARGETS: "true" },
       expectedSensitive: "true"
     });
+    await runActionAuditCase({
+      actionRoot,
+      workspace,
+      fixtureUrl: fixture.url,
+      caseName: "append-env-auth",
+      allowInternal: "true",
+      extraEnv: {
+        WQG_AUTH_HEADERS_APPEND: "X-WQG-Auth: append-env-smoke",
+        WQG_AUTH_COOKIES_APPEND: "wqg_append_session=append-env-smoke"
+      },
+      expectedSensitive: "true"
+    });
 
     assertActionSmoke({
       workspace,

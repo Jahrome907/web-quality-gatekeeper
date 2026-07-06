@@ -180,11 +180,16 @@ describe("workflow invariants", () => {
     expect(localSmokeSource).toContain("node scripts/ci/resolve-chrome-path.mjs");
     expect(localSmokeSource).toContain('expectedSensitive: "false"');
     expect(localSmokeSource).toContain('expectedSensitive: "true"');
+    expect(localSmokeSource).toContain('caseName: "append-env-auth"');
+    expect(localSmokeSource).toContain('WQG_AUTH_HEADERS_APPEND');
+    expect(localSmokeSource).toContain('WQG_AUTH_COOKIES_APPEND');
     expect(actionSource).toContain("sensitive-audit:");
     expect(actionSource).toContain('echo "sensitive-audit=$SENSITIVE_AUDIT"');
     expect(actionSource).toContain("has_nonblank_value");
     expect(actionSource).toContain('[[ "$INPUT_ALLOW_INTERNAL" == "true" ]]');
     expect(actionSource).toContain('case "${WQG_ALLOW_INTERNAL_TARGETS:-}" in');
+    expect(actionSource).toContain('${WQG_AUTH_HEADERS_APPEND:-}');
+    expect(actionSource).toContain('${WQG_AUTH_COOKIES_APPEND:-}');
     expect(actionSource).toContain('export WQG_AUTH_HEADERS_APPEND="$INPUT_HEADERS"');
     expect(actionSource).toContain('export WQG_AUTH_COOKIES_APPEND="$INPUT_COOKIES"');
     expect(actionSource).not.toContain('export WQG_AUTH_HEADERS="$INPUT_HEADERS"');

@@ -288,7 +288,7 @@ runs:
         if [[ "$INPUT_ALLOW_INTERNAL" == "true" ]]; then
           SENSITIVE_AUDIT=true
         fi
-        if has_nonblank_value "$INPUT_HEADERS" || has_nonblank_value "$INPUT_COOKIES" || has_nonblank_value "${WQG_AUTH_HEADER:-}" || has_nonblank_value "${WQG_AUTH_HEADERS:-}" || has_nonblank_value "${WQG_AUTH_COOKIE:-}" || has_nonblank_value "${WQG_AUTH_COOKIES:-}"; then
+        if has_nonblank_value "$INPUT_HEADERS" || has_nonblank_value "$INPUT_COOKIES" || has_nonblank_value "${WQG_AUTH_HEADER:-}" || has_nonblank_value "${WQG_AUTH_HEADERS:-}" || has_nonblank_value "${WQG_AUTH_HEADERS_APPEND:-}" || has_nonblank_value "${WQG_AUTH_COOKIE:-}" || has_nonblank_value "${WQG_AUTH_COOKIES:-}" || has_nonblank_value "${WQG_AUTH_COOKIES_APPEND:-}"; then
           SENSITIVE_AUDIT=true
         fi
         if [[ -n "$GITHUB_OUTPUT_PATH" ]]; then
