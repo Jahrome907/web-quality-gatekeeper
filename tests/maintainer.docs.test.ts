@@ -268,7 +268,9 @@ describe("maintainer documentation", () => {
     expect(unreleased).toContain("audited landing URL after redirects");
     expect(unreleased).toContain("Stable major Action tag publication");
     expect(unreleased).toContain("composite Action no longer checks out");
-    expect(unreleased).toContain("trusted-publishing runtime preflight now resolves `npm.cmd`");
+    expect(unreleased).toContain(
+      "trusted-publishing runtime preflight now invokes `npm.cmd` through the Windows command processor"
+    );
     expect(unreleased).toContain("Release evidence artifacts");
     expect(unreleased).toContain("sensitive-audit");
     expect(unreleased).toContain("consumer workflow examples gate artifact upload");

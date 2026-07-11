@@ -76,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Emitted summaries, aggregate reports, trend entries, and PR Risk Ledger inputs now record the audited landing URL after redirects.
 - Stable major Action tag publication now refuses backward movement before creating the GitHub Release, and the release workflow no longer retriggers on bare major aliases.
 - The composite Action no longer checks out and cleans the caller workspace before reading relative config or policy inputs.
-- The trusted-publishing runtime preflight now resolves `npm.cmd` on Windows.
+- The trusted-publishing runtime preflight now invokes `npm.cmd` through the Windows command processor, avoiding Node child-process failures during the version check.
 - Maintainer documentation now has automated guards for local Markdown links, documented npm scripts, helper scripts, referenced test files, historical release framing, and stale roadmap entries.
 - Maintainer testing guidance now describes `contracts:check` as the combined summary and PR Risk Ledger contract gate.
 

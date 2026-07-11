@@ -181,15 +181,15 @@ describe("workflow invariants", () => {
     expect(localSmokeSource).toContain('expectedSensitive: "false"');
     expect(localSmokeSource).toContain('expectedSensitive: "true"');
     expect(localSmokeSource).toContain('caseName: "append-env-auth"');
-    expect(localSmokeSource).toContain('WQG_AUTH_HEADERS_APPEND');
-    expect(localSmokeSource).toContain('WQG_AUTH_COOKIES_APPEND');
+    expect(localSmokeSource).toContain("WQG_AUTH_HEADERS_APPEND");
+    expect(localSmokeSource).toContain("WQG_AUTH_COOKIES_APPEND");
     expect(actionSource).toContain("sensitive-audit:");
     expect(actionSource).toContain('echo "sensitive-audit=$SENSITIVE_AUDIT"');
     expect(actionSource).toContain("has_nonblank_value");
     expect(actionSource).toContain('[[ "$INPUT_ALLOW_INTERNAL" == "true" ]]');
     expect(actionSource).toContain('case "${WQG_ALLOW_INTERNAL_TARGETS:-}" in');
-    expect(actionSource).toContain('${WQG_AUTH_HEADERS_APPEND:-}');
-    expect(actionSource).toContain('${WQG_AUTH_COOKIES_APPEND:-}');
+    expect(actionSource).toContain("${WQG_AUTH_HEADERS_APPEND:-}");
+    expect(actionSource).toContain("${WQG_AUTH_COOKIES_APPEND:-}");
     expect(actionSource).toContain('export WQG_AUTH_HEADERS_APPEND="$INPUT_HEADERS"');
     expect(actionSource).toContain('export WQG_AUTH_COOKIES_APPEND="$INPUT_COOKIES"');
     expect(actionSource).not.toContain('export WQG_AUTH_HEADERS="$INPUT_HEADERS"');
@@ -311,8 +311,14 @@ describe("workflow invariants", () => {
     expect(source).toContain("matrix:");
     expect(source).toContain("os: [ubuntu-latest, macos-latest, windows-latest]");
     expect(source).toContain('node: ["22.19", 24]');
+    expect(source).toContain("Check trusted publishing runtime (Windows)");
+    expect(source).toContain("if: runner.os == 'Windows' && matrix.node == 24");
     expect(source).toContain("Check Node engine");
-    expectTextOrder(source, ["npm run engines:check", "npm ci --ignore-scripts"]);
+    expectTextOrder(source, [
+      "node scripts/ci/assert-publish-runtime.mjs",
+      "npm run engines:check",
+      "npm ci --ignore-scripts"
+    ]);
     expect(source).toContain("node-version: ${{ matrix.node }}");
     expect(source).toContain("Resolve Chrome path");
     expect(source).toContain("node scripts/ci/resolve-chrome-path.mjs");
@@ -450,8 +456,8 @@ describe("workflow invariants", () => {
       "npm run check\n          npm run security:audit\n          npm run build"
     );
     expect(publishRuntime).toContain("Trusted publishing requires");
-    expect(publishRuntime).toContain("resolveNpmCommand");
-    expect(publishRuntime).toContain('["--version"]');
+    expect(publishRuntime).toContain("resolveNpmInvocation");
+    expect(publishRuntime).toContain('"npm.cmd --version"');
   });
 
   it("keeps the published consumer workflow aligned with repo pinning policy", () => {
