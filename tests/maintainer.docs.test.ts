@@ -338,7 +338,9 @@ describe("maintainer documentation", () => {
       expect(source).not.toContain("Publish a maintained SBOM alongside release artifacts");
     }
 
-    expect(sbom).toContain("Web Quality Gatekeeper publishes a release-scoped SPDX 2.3 SBOM");
+    expect(sbom).toContain(
+      "The release workflow is configured to attach a release-scoped SPDX 2.3 SBOM"
+    );
     expect(sbom).toContain("npm run release:evidence");
     expect(provenance).toContain("release-provenance.json");
     expect(provenance).toContain("sbom.spdx.json");

@@ -21,7 +21,9 @@ describe("public story surface", () => {
     expect(source).toContain("Source fixture:");
     const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
 
-    expect(source).toContain(`<strong>Proof bundle version:</strong> ${pkg.version}.`);
+    expect(source).toContain(
+      `<strong>Proof bundle version:</strong> source checkout ${pkg.version}.`
+    );
     expect(source).toMatch(/<strong>Release source:<\/strong>\s*GitHub\s+tags\s+and\s+Releases/);
     expect(source).toContain("proof/fixture-report.html");
     expect(source).toContain("proof/fixture-summary.v2.json");

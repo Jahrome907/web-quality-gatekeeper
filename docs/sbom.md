@@ -1,6 +1,6 @@
 # SBOM
 
-Starting with v3.2.3, Web Quality Gatekeeper publishes a release-scoped SPDX 2.3 SBOM as `sbom.spdx.json` with GitHub Release artifacts. The release workflow generates it with `npm run release:evidence` from `package.json`, `package-lock.json`, and the packed tarball metadata when available. Older releases may not include the attached SBOM.
+The release workflow is configured to attach a release-scoped SPDX 2.3 SBOM as `sbom.spdx.json` for v3.2.3 and later GitHub Releases. It generates the SBOM with `npm run release:evidence` from `package.json`, `package-lock.json`, and the packed tarball metadata when available. Older releases may not include the attached SBOM.
 
 ## Current Verification
 

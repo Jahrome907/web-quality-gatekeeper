@@ -30,7 +30,7 @@ The case-study script writes a provenance manifest with the source fixture path,
 
 ## Release Evidence
 
-GitHub tags and Releases are the public source of truth for published versions. The stable major Action tag is moved only from validated release workflow runs. Starting with v3.2.3, the release workflow attaches:
+GitHub tags and Releases are the public source of truth for published versions. The stable major Action tag is moved only from validated release workflow runs. The release workflow is configured to attach these files for v3.2.3 and later GitHub Releases:
 
 - `release-provenance.json`
 - `sbom.spdx.json`

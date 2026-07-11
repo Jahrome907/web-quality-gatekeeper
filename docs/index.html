@@ -12,23 +12,33 @@
     <style>
       :root {
         color-scheme: light;
-        --ink: #0b1220;
-        --ink-soft: #3b4252;
-        --muted: #57606a;
-        --line: #d0d7de;
-        --line-soft: #e7ebef;
+        --ink: #10161f;
+        --ink-soft: #3a4453;
+        --muted: #5c6674;
+        --line: #d7dce1;
+        --line-soft: #e9ecef;
         --bg: #ffffff;
-        --bg-soft: #f6f8fa;
-        --accent: #0969da;
-        --accent-strong: #0550ae;
+        --bg-soft: #f6f7f8;
+        --accent: #1c6b74;
+        --accent-strong: #113f46;
+        --good: #1a7f52;
         --code-bg: #0d1117;
         --code-ink: #e6edf3;
-        --max: 1080px;
-        --radius: 6px;
+        --code-muted: #8b949e;
+        --code-line: #232a35;
+        --max: 1120px;
+        --radius: 10px;
       }
 
       * {
         box-sizing: border-box;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
       }
 
       html {
@@ -37,9 +47,16 @@
 
       body {
         margin: 0;
-        font-family: Aptos, Arial, sans-serif;
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
         font-size: 16px;
-        line-height: 1.55;
+        line-height: 1.6;
         color: var(--ink);
         background: var(--bg);
       }
@@ -50,7 +67,7 @@
       samp {
         font-family:
           ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-        font-size: 0.92em;
+        font-size: 0.9em;
       }
 
       a {
@@ -92,11 +109,18 @@
         margin: 0 auto;
       }
 
+      @media (min-width: 1440px) {
+        .shell {
+          width: min(1200px, calc(100% - 64px));
+        }
+      }
+
       header.topbar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 16px;
+        flex-wrap: wrap;
+        gap: 14px 20px;
         padding: 20px 0;
         border-bottom: 1px solid var(--line);
         margin-bottom: 56px;
@@ -105,12 +129,11 @@
       .brand {
         display: flex;
         align-items: center;
-        gap: 12px;
-        font-weight: 600;
+        gap: 10px;
+        font-weight: 700;
         color: var(--ink);
         text-decoration: none;
       }
-
       .brand:hover,
       .brand:focus-visible {
         color: var(--ink);
@@ -118,11 +141,10 @@
       }
 
       .brand-mark {
-        width: 34px;
-        height: 34px;
+        width: 30px;
+        height: 30px;
         flex: 0 0 auto;
       }
-
       .brand-mark img {
         width: 100%;
         height: 100%;
@@ -131,28 +153,43 @@
       nav.nav {
         display: flex;
         flex-wrap: wrap;
-        gap: 22px;
-        font-size: 0.95rem;
+        gap: 4px 18px;
+        font-size: 0.92rem;
       }
       nav.nav a {
         color: var(--ink-soft);
         text-decoration: none;
+        padding: 4px 2px;
       }
       nav.nav a:hover {
         color: var(--accent-strong);
         text-decoration: underline;
         text-underline-offset: 0.25em;
       }
+      nav.nav a.nav-repo {
+        color: var(--ink);
+        font-weight: 600;
+      }
 
-      section {
-        margin-bottom: 72px;
+      main section {
+        margin-bottom: 76px;
       }
 
       .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
         font-size: 0.78rem;
-        font-weight: 600;
+        font-weight: 700;
         color: var(--muted);
-        margin: 0 0 12px;
+        margin: 0 0 14px;
+      }
+      .kicker::before {
+        content: "";
+        width: 14px;
+        height: 2px;
+        background: var(--accent);
+        flex: 0 0 auto;
       }
 
       h1,
@@ -162,16 +199,19 @@
         margin: 0 0 16px;
       }
       h1 {
-        font-size: clamp(2rem, 4vw, 2.6rem);
-        line-height: 1.15;
-        max-width: 22ch;
+        font-size: clamp(2rem, 1.1rem + 3.4vw, 2.75rem);
+        font-weight: 700;
+        line-height: 1.12;
+        max-width: 21ch;
       }
       h2 {
         font-size: 1.5rem;
+        font-weight: 700;
         line-height: 1.25;
       }
       h3 {
         font-size: 1.05rem;
+        font-weight: 600;
         line-height: 1.35;
       }
 
@@ -179,7 +219,7 @@
         margin: 0 0 24px;
         max-width: 64ch;
         color: var(--ink-soft);
-        font-size: 1.05rem;
+        font-size: 1.08rem;
       }
 
       p {
@@ -199,9 +239,9 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 14px;
+        padding: 9px 16px;
         border-radius: var(--radius);
-        font-weight: 500;
+        font-weight: 600;
         font-size: 0.95rem;
         text-decoration: none;
         border: 1px solid transparent;
@@ -230,35 +270,46 @@
         color: var(--ink);
       }
 
-      .facts {
-        margin: 32px 0 0;
+      .checks {
+        margin: 36px 0 0;
         padding: 0;
         list-style: none;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
         gap: 0;
         border-top: 1px solid var(--line);
         border-bottom: 1px solid var(--line);
       }
-      .facts li {
-        padding: 16px 18px;
+      .checks li {
+        padding: 16px 18px 16px 30px;
         border-right: 1px solid var(--line-soft);
+        position: relative;
       }
-      .facts li:last-child {
+      .checks li::before {
+        content: "";
+        position: absolute;
+        left: 6px;
+        top: 21px;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--good);
+      }
+      .checks li:last-child {
         border-right: 0;
       }
-      .facts code {
+      .checks code {
         color: var(--ink);
         font-weight: 600;
       }
-      .facts strong {
+      .checks strong {
         display: block;
         font-weight: 600;
         color: var(--ink);
         margin-bottom: 4px;
         font-size: 0.95rem;
       }
-      .facts span {
+      .checks span {
         color: var(--muted);
         font-size: 0.88rem;
       }
@@ -280,11 +331,17 @@
       .grid-2.proof {
         grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr);
       }
+      .grid-2 + .grid-2 {
+        margin-top: 24px;
+      }
+      .grid-2 > * {
+        min-width: 0;
+      }
 
       .panel {
         border: 1px solid var(--line);
         border-radius: var(--radius);
-        padding: 20px;
+        padding: 22px;
         background: var(--bg);
       }
       .panel h3 {
@@ -346,20 +403,33 @@
         display: none;
       }
 
+      .code-block {
+        border: 1px solid var(--code-bg);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .code-block figcaption {
+        padding: 8px 16px;
+        background: var(--code-bg);
+        color: var(--code-muted);
+        font-family:
+          ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+        font-size: 0.8rem;
+        border-bottom: 1px solid var(--code-line);
+      }
+
       pre {
         margin: 0;
         padding: 16px 18px;
         background: var(--code-bg);
         color: var(--code-ink);
-        border-radius: var(--radius);
         overflow-x: auto;
         font-size: 0.88rem;
-        line-height: 1.55;
-        border: 1px solid var(--code-bg);
+        line-height: 1.6;
       }
       pre:focus-visible {
         outline: 2px solid var(--accent);
-        outline-offset: 2px;
+        outline-offset: -2px;
       }
       pre code {
         color: inherit;
@@ -397,7 +467,7 @@
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 0;
-        margin: 0 0 0;
+        margin: 0;
         border: 1px solid var(--line);
         border-radius: var(--radius);
         overflow: hidden;
@@ -422,26 +492,6 @@
         border-right: 0;
       }
 
-      figure.diagram {
-        margin: 0 0 24px;
-        padding: 0;
-        border: 1px solid var(--line);
-        border-radius: var(--radius);
-        background: var(--bg);
-        overflow: hidden;
-      }
-      figure.diagram img {
-        width: 100%;
-        height: auto;
-      }
-      figure.diagram figcaption {
-        padding: 10px 14px;
-        border-top: 1px solid var(--line-soft);
-        color: var(--muted);
-        font-size: 0.88rem;
-        background: var(--bg-soft);
-      }
-
       .step-list {
         margin: 0;
         padding: 0;
@@ -456,7 +506,7 @@
       .step-list li {
         counter-increment: step;
         display: grid;
-        grid-template-columns: 36px 1fr;
+        grid-template-columns: 34px 1fr;
         gap: 14px;
         padding: 16px 18px;
         border-bottom: 1px solid var(--line-soft);
@@ -468,14 +518,14 @@
       .step-list li::before {
         content: counter(step);
         grid-column: 1;
-        width: 26px;
-        height: 26px;
+        width: 24px;
+        height: 24px;
         border-radius: 50%;
         background: var(--bg-soft);
         border: 1px solid var(--line);
         display: grid;
         place-items: center;
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         font-weight: 600;
         color: var(--ink-soft);
       }
@@ -494,19 +544,19 @@
         font-size: 0.94rem;
       }
 
-      ul.checks {
+      ul.plain-checks {
         margin: 0;
         padding: 0;
         list-style: none;
         display: grid;
         gap: 10px;
       }
-      ul.checks li {
+      ul.plain-checks li {
         padding-left: 22px;
         position: relative;
         color: var(--ink-soft);
       }
-      ul.checks li::before {
+      ul.plain-checks li::before {
         content: "";
         position: absolute;
         left: 4px;
@@ -516,7 +566,31 @@
         border-radius: 2px;
         background: var(--accent);
       }
-      ul.checks code {
+      ul.plain-checks code {
+        color: var(--ink);
+      }
+
+      .reproduce-steps {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: rstep;
+        display: grid;
+        gap: 8px;
+      }
+      .reproduce-steps li {
+        counter-increment: rstep;
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+      }
+      .reproduce-steps li::before {
+        content: counter(rstep) ".";
+        color: var(--muted);
+        font-weight: 600;
+        flex: 0 0 auto;
+      }
+      .reproduce-steps code {
         color: var(--ink);
       }
 
@@ -555,22 +629,7 @@
         margin-bottom: 8px;
       }
 
-      @media (max-width: 820px) {
-        header.topbar {
-          align-items: flex-start;
-          flex-direction: column;
-          margin-bottom: 40px;
-        }
-        nav.nav {
-          width: 100%;
-          gap: 8px;
-        }
-        nav.nav a {
-          border: 1px solid var(--line);
-          border-radius: var(--radius);
-          padding: 6px 10px;
-          background: var(--bg);
-        }
+      @media (max-width: 860px) {
         .grid-2,
         .grid-2.proof {
           grid-template-columns: 1fr;
@@ -580,6 +639,19 @@
         }
         .metric-row > div:nth-of-type(2) {
           border-right: 0;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .checks {
+          grid-template-columns: 1fr;
+        }
+        .checks li {
+          border-right: 0;
+          border-bottom: 1px solid var(--line-soft);
+        }
+        .checks li:last-child {
+          border-bottom: 0;
         }
       }
 
@@ -593,6 +665,24 @@
           border-radius: var(--radius);
           padding: 16px;
           background: var(--bg-soft);
+        }
+      }
+
+      @media (max-width: 480px) {
+        header.topbar {
+          flex-direction: column;
+          align-items: flex-start;
+          margin-bottom: 40px;
+        }
+        nav.nav {
+          width: 100%;
+          gap: 8px;
+        }
+        nav.nav a {
+          border: 1px solid var(--line);
+          border-radius: var(--radius);
+          padding: 6px 10px;
+          background: var(--bg);
         }
         h1 {
           max-width: none;
@@ -612,10 +702,12 @@
         </a>
         <nav class="nav" aria-label="Page sections">
           <a href="#proof">Proof</a>
-          <a href="#adopt">Adopt</a>
-          <a href="#workflow">Workflow</a>
-          <a href="#trust">Trust</a>
-          <a href="https://github.com/Jahrome907/web-quality-gatekeeper">GitHub</a>
+          <a href="#usage">Usage</a>
+          <a href="#outputs">Outputs</a>
+          <a href="#reproduce">Reproduce</a>
+          <a class="nav-repo" href="https://github.com/Jahrome907/web-quality-gatekeeper"
+            >Repository</a
+          >
         </nav>
       </header>
 
@@ -624,21 +716,22 @@
           <p class="kicker">Inspectable open-source evidence</p>
           <h1>A quality gate that ships the artifacts it gates on.</h1>
           <p class="lede">
-            Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse
-            budgets, and visual regression in a single CLI and GitHub Action. Every run emits an
-            HTML report and a contract-checked JSON summary you can open, diff, and reproduce.
+            Web Quality Gatekeeper is a quality gate CLI and GitHub Action. It runs Playwright smoke
+            checks, axe-core accessibility scans, Lighthouse audits, and visual regression diffs,
+            then emits an HTML report, a contract-checked JSON summary, and PR Risk Ledger artifacts
+            you can open, diff, and reproduce.
           </p>
           <div class="cta-row">
-            <a class="button" href="proof/fixture-report.html">Open sample report</a>
-            <a class="button-secondary" href="#adopt">Usage paths</a>
-            <a
-              class="button-secondary"
-              href="https://github.com/Jahrome907/web-quality-gatekeeper#readme"
-              >README</a
+            <a class="button" href="proof/fixture-report.html">View fixture report</a>
+            <a class="button-secondary" href="proof/fixture-summary.v2.json"
+              >Inspect summary JSON</a
+            >
+            <a class="button-secondary" href="https://github.com/Jahrome907/web-quality-gatekeeper"
+              >View repository</a
             >
           </div>
 
-          <ul class="facts" aria-label="Key project facts">
+          <ul class="checks" aria-label="Key project facts">
             <li>
               <strong><code>node dist/cli.js audit</code></strong>
               <span>Supported source-checkout entrypoint for local runs and CI gating.</span>
@@ -648,8 +741,11 @@
               <span>Human report plus contract-checked machine-readable outputs.</span>
             </li>
             <li>
-              <strong>CLI + Action</strong>
-              <span>Same toolchain works locally and in GitHub workflows.</span>
+              <strong>Source checkout 3.2.3</strong>
+              <span
+                >Node 22.19 or later. Ships as a GitHub Action and source checkout; not yet
+                published to npm.</span
+              >
             </li>
           </ul>
         </section>
@@ -697,12 +793,13 @@
               <a href="proof/fixture-pr-risk-ledger.json">PR Risk Ledger</a>.
             </p>
             <p>
-              <strong>Proof bundle version:</strong> 3.2.3. <strong>Release source:</strong> GitHub
-              tags and Releases, not a working-branch package field.
+              <strong>Proof bundle version:</strong> source checkout 3.2.3.
+              <strong>Release source:</strong> GitHub tags and Releases, not a working-branch
+              package field.
             </p>
           </div>
 
-          <div class="grid-2 proof" style="margin-top: 32px">
+          <div class="grid-2 proof">
             <article class="panel">
               <h3>Live report preview</h3>
               <p>
@@ -792,50 +889,18 @@
             </ul>
           </div>
 
-          <div class="grid-2" style="margin-top: 24px">
-            <figure class="shot">
-              <img
-                src="proof/screenshots/home.png"
-                alt="Fixture site screenshot captured by the proof run"
-              />
-              <figcaption>
-                Source: <a href="proof/screenshots/home.png">proof/screenshots/home.png</a>
-              </figcaption>
-            </figure>
-
-            <article class="panel">
-              <h3>Machine-readable summary</h3>
-              <p>The HTML report is for humans; the JSON contract is for downstream automation.</p>
-              <pre tabindex="0" aria-label="Summary v2 JSON excerpt"><code>{
-  "overallStatus": "pass",
-  "durationMs": 11498,
-  "rollup": {
-    "pageCount": 1,
-    "a11yViolations": 0,
-    "performanceBudgetFailures": 0
-  },
-  "page": {
-    "steps": {
-      "playwright": "pass",
-      "a11y": "pass",
-      "perf": "pass",
-      "visual": "skipped"
-    },
-    "metrics": {
-      "performanceScore": 0.99,
-      "consoleErrors": 0,
-      "failedRequests": 0
-    }
-  }
-}</code></pre>
-              <p style="margin-top: 12px; font-size: 0.9rem">
-                From <a href="proof/fixture-summary.v2.json">proof/fixture-summary.v2.json</a>.
-              </p>
-            </article>
-          </div>
+          <figure class="shot" style="margin-top: 24px">
+            <img
+              src="proof/screenshots/home.png"
+              alt="Fixture site screenshot captured by the proof run"
+            />
+            <figcaption>
+              Source: <a href="proof/screenshots/home.png">proof/screenshots/home.png</a>
+            </figcaption>
+          </figure>
         </section>
 
-        <section id="adopt">
+        <section id="usage">
           <header class="section-head">
             <p class="kicker">Adopt in 5 minutes</p>
             <h2>Pick the path that matches how you want to use the project.</h2>
@@ -850,7 +915,9 @@
             <article class="panel">
               <h3>GitHub Action in your repo</h3>
               <p>The supported consumer path for CI usage in a separate repository.</p>
-              <pre tabindex="0" aria-label="GitHub Action adoption example"><code>jobs:
+              <figure class="code-block">
+                <figcaption>GitHub Actions workflow step</figcaption>
+                <pre tabindex="0" aria-label="GitHub Action adoption example"><code>jobs:
   web-quality:
     runs-on: ubuntu-latest
     env:
@@ -878,6 +945,7 @@
             ${{ steps.wqg.outputs.pr-risk-ledger-path }}
             ${{ steps.wqg.outputs.pr-risk-ledger-md-path }}
           if-no-files-found: warn</code></pre>
+              </figure>
             </article>
 
             <article class="panel">
@@ -887,16 +955,19 @@
                 or later; release and publish workflows use Node 24, while package smoke coverage
                 also runs on Node 22.19.
               </p>
-              <pre
-                tabindex="0"
-                aria-label="Source CLI adoption example"
-              ><code>git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
+              <figure class="code-block">
+                <figcaption>Shell</figcaption>
+                <pre
+                  tabindex="0"
+                  aria-label="Source CLI adoption example"
+                ><code>git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
 cd web-quality-gatekeeper
 npm run engines:check
 npm ci
 npx playwright install chromium
 npm run build
 node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
+              </figure>
               <p style="margin-top: 12px; font-size: 0.92rem">
                 Keep custom settings in a consumer-owned path such as
                 <span class="inline-code">.github/web-quality/config.json</span>
@@ -908,11 +979,11 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
 
         <section id="workflow">
           <header class="section-head">
-            <p class="kicker">Workflow</p>
-            <h2>One run, both review surface and automation surface.</h2>
+            <p class="kicker">How it runs</p>
+            <h2>One audit writes both the review surface and the automation surface.</h2>
             <p>
-              One audit writes the review artifacts and summary contracts that teams usually
-              assemble by hand across separate tools.
+              A single run produces the artifacts teams usually assemble by hand across separate
+              tools.
             </p>
           </header>
 
@@ -957,6 +1028,133 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
           </ol>
         </section>
 
+        <section id="outputs">
+          <header class="section-head">
+            <p class="kicker">Example output</p>
+            <h2>Real numbers from the checked-in fixture run.</h2>
+            <p>
+              These figures are read from <code>docs/proof/fixture-summary.v2.json</code>, the
+              sanitized fixture evidence checked into this repository. They are not output from a
+              published release.
+            </p>
+          </header>
+
+          <div class="grid-2">
+            <article class="panel">
+              <h3>Machine-readable summary</h3>
+              <p>The HTML report is for humans; the JSON contract is for downstream automation.</p>
+              <figure class="code-block">
+                <figcaption>docs/proof/fixture-summary.v2.json (excerpt)</figcaption>
+                <pre tabindex="0" aria-label="Summary v2 JSON excerpt"><code>{
+  "overallStatus": "pass",
+  "durationMs": 11498,
+  "rollup": {
+    "pageCount": 1,
+    "a11yViolations": 0,
+    "performanceBudgetFailures": 0
+  },
+  "page": {
+    "steps": {
+      "playwright": "pass",
+      "a11y": "pass",
+      "perf": "pass",
+      "visual": "skipped"
+    },
+    "metrics": {
+      "performanceScore": 0.99,
+      "consoleErrors": 0,
+      "failedRequests": 0
+    }
+  }
+}</code></pre>
+              </figure>
+              <p style="margin-top: 12px; font-size: 0.9rem">
+                From <a href="proof/fixture-summary.v2.json">proof/fixture-summary.v2.json</a>.
+              </p>
+            </article>
+
+            <article class="panel">
+              <h3>Why the numbers are trustworthy</h3>
+              <ul class="plain-checks">
+                <li>
+                  The Runtime metric is derived from the committed <code>durationMs</code> value and
+                  displayed in seconds to one decimal.
+                </li>
+                <li>
+                  The fixture target is <code>https://fixture.example/</code>, a sanitized
+                  placeholder, not a live audited site.
+                </li>
+                <li>
+                  Schemas live in <code>schemas/summary.v1.json</code> and
+                  <code>schemas/summary.v2.json</code>.
+                </li>
+                <li>Re-run the fixture yourself with the commands in Reproduce below.</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
+        <section id="reproduce">
+          <header class="section-head">
+            <p class="kicker">Reproduce it</p>
+            <h2>Recreate the fixture run from a clean clone.</h2>
+            <p>
+              Use these commands from a clean clone. Project-specific checks are exposed as npm
+              scripts; npm and Playwright provide the setup commands.
+            </p>
+          </header>
+
+          <div class="grid-2">
+            <article class="panel">
+              <h3>Run the fixture case study</h3>
+              <ol class="reproduce-steps">
+                <li><code>npm run engines:check</code></li>
+                <li><code>npm ci</code></li>
+                <li><code>npx playwright install chromium</code></li>
+                <li><code>npm run build</code></li>
+                <li><code>npm run case-study:fixture</code></li>
+              </ol>
+              <p style="margin-top: 14px">
+                Full walkthrough:
+                <a
+                  href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study-run.md"
+                  >docs/case-study-run.md</a
+                >.
+              </p>
+            </article>
+
+            <article class="panel">
+              <h3>Read the provenance and reproduction docs</h3>
+              <ul class="plain-checks">
+                <li>
+                  <a
+                    href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md"
+                    >Public OSS repro protocol</a
+                  >: how baseline/improved case studies record commits and evidence.
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/provenance.md"
+                    >Provenance</a
+                  >: what the proof bundle traces back to and how release evidence is attached.
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/sbom.md"
+                    >SBOM</a
+                  >: how the release-scoped SPDX document is generated and verified.
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/roadmap.md"
+                    >Roadmap</a
+                  >: remaining work, tracked in the open.
+                </li>
+              </ul>
+            </article>
+          </div>
+        </section>
+
         <section id="trust">
           <header class="section-head">
             <p class="kicker">Why trust it</p>
@@ -970,7 +1168,7 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
           <div class="grid-2">
             <article class="panel">
               <h3>Inspectable contracts</h3>
-              <ul class="checks">
+              <ul class="plain-checks">
                 <li>
                   Schemas live in <code>schemas/summary.v1.json</code> and
                   <code>schemas/summary.v2.json</code>.
@@ -989,7 +1187,7 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
 
             <article class="panel">
               <h3>Operational guarantees</h3>
-              <ul class="checks">
+              <ul class="plain-checks">
                 <li>
                   Internal/private targets are blocked by default in CI and on authenticated runs.
                 </li>
@@ -1010,6 +1208,9 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
       <footer class="site-footer">
         <div class="footer-links">
           <a href="https://github.com/Jahrome907/web-quality-gatekeeper">Repository</a>
+          <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/CHANGELOG.md"
+            >Changelog</a
+          >
           <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/SECURITY.md"
             >Security</a
           >
