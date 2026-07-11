@@ -80,6 +80,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Maintainer documentation now has automated guards for local Markdown links, documented npm scripts, helper scripts, referenced test files, historical release framing, and stale roadmap entries.
 - Maintainer testing guidance now describes `contracts:check` as the combined summary and PR Risk Ledger contract gate.
 
+### Security
+
+- Accepted GHSA-8988-4f7v-96qf as a medium-severity upstream risk for 3.2.3. The affected `@opentelemetry/core@1.30.1` remains transitive through `lighthouse@13.4.0` and `@sentry/node@9.47.1`; no compatible stable Lighthouse upgrade removes it, while the release gates continue to reject unexcepted high or critical advisories.
+
 ## [3.1.6] - 2026-05-29
 
 ### Added
