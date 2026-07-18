@@ -78,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The composite Action no longer checks out and cleans the caller workspace before reading relative config or policy inputs.
 - The trusted-publishing runtime preflight now invokes `npm.cmd` through the Windows command processor, avoiding Node child-process failures during the version check.
 - Release SBOM generation now resolves runtime dependencies by package-lock installation path, preserving coexisting nested versions with unique SPDX identifiers.
-- Release and npm publishing now reject tags outside protected `main`; npm publishing also requires an existing published GitHub Release.
+- Release and npm publishing now reject tags outside protected `main`. Release evidence is staged on a draft and the exact tag is reverified before publication; npm publishing likewise reverifies the tag and published GitHub Release immediately before upload.
 - Maintainer documentation now has automated guards for local Markdown links, documented npm scripts, helper scripts, referenced test files, historical release framing, and stale roadmap entries.
 - Maintainer testing guidance now describes `contracts:check` as the combined summary and PR Risk Ledger contract gate.
 

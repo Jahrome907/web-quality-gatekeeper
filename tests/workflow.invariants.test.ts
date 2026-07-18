@@ -106,11 +106,22 @@ describe("workflow invariants", () => {
     expect(release).toContain('MAIN_COMMIT="$(git rev-parse --verify "origin/main^{commit}")"');
     expect(release).toContain('if [ "$RELEASE_COMMIT" != "$MAIN_COMMIT" ]; then');
     expect(release).toContain("must point to the current main commit");
+    expect(release).toContain("release_commit: ${{ steps.release_commit.outputs.commit }}");
+    expect(release).toContain("Create draft GitHub release");
+    expect(release).toContain("fail_on_unmatched_files: true");
+    expect(release).toContain("Verify release tag and publish GitHub release");
+    expect(release).toContain(
+      'git fetch --force --no-tags origin "refs/tags/${RELEASE_TAG}:refs/release-verification/${RELEASE_TAG}"'
+    );
+    expect(release).toContain('if [ "$CURRENT_RELEASE_COMMIT" != "$RELEASE_COMMIT" ]; then');
+    expect(release).toContain("leaving the GitHub Release as a draft");
+    expect(release).toContain('gh release edit "$RELEASE_TAG" --draft=false');
     expectTextOrder(release, [
       "Checkout",
       "Verify release tag commit is on main",
       "Install dependencies",
-      "Create GitHub release"
+      "Create draft GitHub release",
+      "Verify release tag and publish GitHub release"
     ]);
 
     expect(npmPublish).toContain("Verify release tag is published from main");
@@ -121,10 +132,17 @@ describe("workflow invariants", () => {
       'gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}"'
     );
     expect(npmPublish).toContain('RELEASE_DRAFT" != "false"');
+    expect(npmPublish).toContain("release_commit: ${{ steps.release_origin.outputs.commit }}");
+    expect(npmPublish).toContain("Reverify immutable npm release source");
+    expect(npmPublish).toContain(
+      "gh api \"repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}\" --jq '.sha'"
+    );
+    expect(npmPublish).toContain("must remain published before npm publishing");
     expectTextOrder(npmPublish, [
       "Checkout",
       "Verify release tag is published from main",
       "Setup Node",
+      "Reverify immutable npm release source",
       "Publish to npm with trusted publishing"
     ]);
   });
@@ -435,7 +453,8 @@ describe("workflow invariants", () => {
     const uploadEvidenceIndex = source.indexOf("Upload release evidence");
     const downloadEvidenceIndex = source.indexOf("Download release evidence");
     const guardIndex = source.indexOf("Validate stable major tag movement");
-    const releaseIndex = source.indexOf("Create GitHub release");
+    const releaseIndex = source.indexOf("Create draft GitHub release");
+    const publishIndex = source.indexOf("Verify release tag and publish GitHub release");
     const majorTagIndex = source.indexOf("Update major version tag");
 
     expect(source).toContain("Enforce tag and package version parity");
@@ -461,10 +480,11 @@ describe("workflow invariants", () => {
     expect(downloadEvidenceIndex).toBeGreaterThan(uploadEvidenceIndex);
     expect(guardIndex).toBeGreaterThanOrEqual(0);
     expect(releaseIndex).toBeGreaterThanOrEqual(0);
+    expect(publishIndex).toBeGreaterThan(releaseIndex);
     expect(majorTagIndex).toBeGreaterThanOrEqual(0);
     expect(downloadEvidenceIndex).toBeLessThan(releaseIndex);
     expect(guardIndex).toBeLessThan(releaseIndex);
-    expect(releaseIndex).toBeLessThan(majorTagIndex);
+    expect(publishIndex).toBeLessThan(majorTagIndex);
   });
   it("uses maintainer helper commands in validation-heavy workflows", () => {
     const qualityGate = readRepoFile(".github/workflows/quality-gate.yml");
