@@ -13,12 +13,12 @@ async function readJson(filePath: string) {
   return JSON.parse(await readFile(filePath, "utf8"));
 }
 
-async function runEvidence(args: string[], outDir: string) {
+async function runEvidence(args: string[], outDir: string, cwd = ROOT) {
   return execFileAsync(
     "node",
     [path.join(ROOT, "scripts", "ci", "write-release-evidence.mjs"), ...args, "--out-dir", outDir],
     {
-      cwd: ROOT,
+      cwd,
       env: {
         ...process.env,
         WQG_RELEASE_EVIDENCE_NOW: "2026-07-06T00:00:00.000Z"
@@ -88,6 +88,66 @@ describe("release evidence artifacts", function () {
     }
   });
 
+  it("preserves nested runtime package versions in the SPDX inventory", async function () {
+    const fixtureRoot = await mkdtemp(path.join(tmpdir(), "wqg-sbom-resolution-"));
+    const outDir = path.join(fixtureRoot, "out");
+    try {
+      const fixturePackage = {
+        name: "sbom-resolution-fixture",
+        version: "1.0.0",
+        dependencies: {
+          parent: "1.0.0",
+          shared: "2.0.0"
+        }
+      };
+      const fixtureLock = {
+        name: fixturePackage.name,
+        version: fixturePackage.version,
+        lockfileVersion: 3,
+        packages: {
+          "": fixturePackage,
+          "node_modules/parent": {
+            version: "1.0.0",
+            dependencies: { shared: "1.0.0" }
+          },
+          "node_modules/parent/node_modules/shared": { version: "1.0.0" },
+          "node_modules/shared": { version: "2.0.0" }
+        }
+      };
+      await writeFile(
+        path.join(fixtureRoot, "package.json"),
+        JSON.stringify(fixturePackage),
+        "utf8"
+      );
+      await writeFile(
+        path.join(fixtureRoot, "package-lock.json"),
+        JSON.stringify(fixtureLock),
+        "utf8"
+      );
+
+      await runEvidence(["--release-tag", "v1.0.0", "--commit", "abc123"], outDir, fixtureRoot);
+
+      const sbom = await readJson(path.join(outDir, "sbom.spdx.json"));
+      const sharedPackages = sbom.packages.filter(function (pkg: { name: string }) {
+        return pkg.name === "shared";
+      });
+      expect(
+        sharedPackages.map(function (pkg: { versionInfo: string }) {
+          return pkg.versionInfo;
+        })
+      ).toEqual(["1.0.0", "2.0.0"]);
+      expect(
+        new Set(
+          sharedPackages.map(function (pkg: { SPDXID: string }) {
+            return pkg.SPDXID;
+          })
+        ).size
+      ).toBe(2);
+    } finally {
+      await rm(fixtureRoot, { recursive: true, force: true });
+    }
+  });
+
   it("records tarball metadata without publishing local filesystem paths", async function () {
     const outDir = await mkdtemp(path.join(tmpdir(), "wqg-pack-evidence-"));
     try {
@@ -122,7 +182,10 @@ describe("release evidence artifacts", function () {
   it("logs artifact names without printing local output paths", async function () {
     const outDir = await mkdtemp(path.join(tmpdir(), "wqg-release-log-"));
     try {
-      const { stdout } = await runEvidence(["--release-tag", "v9.9.9", "--commit", "abc123"], outDir);
+      const { stdout } = await runEvidence(
+        ["--release-tag", "v9.9.9", "--commit", "abc123"],
+        outDir
+      );
 
       expect(stdout).toContain("Wrote release evidence artifacts:");
       expect(stdout).toContain("- release-provenance.json");
