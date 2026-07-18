@@ -1053,19 +1053,21 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
     "a11yViolations": 0,
     "performanceBudgetFailures": 0
   },
-  "page": {
-    "steps": {
-      "playwright": "pass",
-      "a11y": "pass",
-      "perf": "pass",
-      "visual": "skipped"
-    },
-    "metrics": {
-      "performanceScore": 0.99,
-      "consoleErrors": 0,
-      "failedRequests": 0
+  "pages": [
+    {
+      "steps": {
+        "playwright": "pass",
+        "a11y": "pass",
+        "perf": "pass",
+        "visual": "skipped"
+      },
+      "metrics": {
+        "performanceScore": 0.99,
+        "consoleErrors": 0,
+        "failedRequests": 0
+      }
     }
-  }
+  ]
 }</code></pre>
               </figure>
               <p style="margin-top: 12px; font-size: 0.9rem">

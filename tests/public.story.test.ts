@@ -87,6 +87,40 @@ describe("public story surface", () => {
     expect(source).not.toContain('"durationMs": 7621');
   });
 
+  it("keeps the Pages summary excerpt aligned with the published multipage shape", () => {
+    const source = readRepoFile("docs/index.html");
+    const proof = JSON.parse(readRepoFile("docs/proof/fixture-summary.v2.json")) as {
+      pages: Array<{
+        steps: Record<string, string>;
+        metrics: {
+          performanceScore: number;
+          consoleErrors: number;
+          failedRequests: number;
+        };
+      }>;
+    };
+    const excerptSource = source.match(
+      /aria-label="Summary v2 JSON excerpt"><code>([\s\S]*?)<\/code><\/pre>/
+    )?.[1];
+
+    expect(excerptSource).toBeDefined();
+    const excerpt = JSON.parse(excerptSource ?? "{}") as {
+      page?: unknown;
+      pages?: Array<{ steps?: unknown; metrics?: unknown }>;
+    };
+    expect(excerpt).not.toHaveProperty("page");
+    expect(excerpt.pages).toEqual([
+      {
+        steps: proof.pages[0]?.steps,
+        metrics: {
+          performanceScore: proof.pages[0]?.metrics.performanceScore,
+          consoleErrors: proof.pages[0]?.metrics.consoleErrors,
+          failedRequests: proof.pages[0]?.metrics.failedRequests
+        }
+      }
+    ]);
+  });
+
   it("links Pages markdown references to GitHub-rendered docs", () => {
     const source = readRepoFile("docs/index.html");
 
