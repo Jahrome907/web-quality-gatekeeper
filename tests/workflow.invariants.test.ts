@@ -93,6 +93,42 @@ describe("workflow invariants", () => {
     expect(source).toContain('"refs/tags/$MAJOR" --force');
   });
 
+  it("requires release and npm publish tags to come from protected main", () => {
+    const release = readRepoFile(".github/workflows/release.yml");
+    const npmPublish = readRepoFile(".github/workflows/npm-publish.yml");
+    const ancestryFetch = 'git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"';
+    const ancestryCheck = 'git merge-base --is-ancestor "$RELEASE_COMMIT" "origin/main"';
+
+    expect(release).toContain("Verify release tag commit is on main");
+    expect(release).toContain(ancestryFetch);
+    expect(release).toContain(ancestryCheck);
+    expect(release).toContain("must point to a commit reachable from main");
+    expect(release).toContain('MAIN_COMMIT="$(git rev-parse --verify "origin/main^{commit}")"');
+    expect(release).toContain('if [ "$RELEASE_COMMIT" != "$MAIN_COMMIT" ]; then');
+    expect(release).toContain("must point to the current main commit");
+    expectTextOrder(release, [
+      "Checkout",
+      "Verify release tag commit is on main",
+      "Install dependencies",
+      "Create GitHub release"
+    ]);
+
+    expect(npmPublish).toContain("Verify release tag is published from main");
+    expect(npmPublish).toContain("fetch-depth: 0");
+    expect(npmPublish).toContain(ancestryFetch);
+    expect(npmPublish).toContain(ancestryCheck);
+    expect(npmPublish).toContain(
+      'gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}"'
+    );
+    expect(npmPublish).toContain('RELEASE_DRAFT" != "false"');
+    expectTextOrder(npmPublish, [
+      "Checkout",
+      "Verify release tag is published from main",
+      "Setup Node",
+      "Publish to npm with trusted publishing"
+    ]);
+  });
+
   it("keeps PR summary comments fork-safe and permission-tolerant", () => {
     const source = readRepoFile(".github/workflows/quality-gate.yml");
 
