@@ -219,6 +219,28 @@ describe("maintainer documentation", () => {
     );
   });
 
+  it("keeps the 3.2.3 release notes scoped to the release workflow output", () => {
+    const changelog = readRepoFile("CHANGELOG.md");
+    const release = changelog.slice(
+      changelog.indexOf("## [3.2.3]"),
+      changelog.indexOf("## [3.2.2]")
+    );
+
+    expect(release).toContain("## [3.2.3] - Pending release");
+    expect(release).toContain("Redesigned the public Pages site");
+    expect(release).toContain("installed npm CLI usage");
+    expect(release).toContain("Windows command processor");
+    expect(release).toContain("coexisting nested versions");
+    expect(release).toContain("reject tags outside protected `main`");
+    expect(release).toContain("GHSA-8988-4f7v-96qf");
+    expect(changelog).toContain(
+      "[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...HEAD"
+    );
+    expect(changelog).toContain(
+      "[3.2.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...HEAD"
+    );
+  });
+
   it("keeps Unreleased changelog notes aligned with current hardening surfaces", () => {
     const changelog = readRepoFile("CHANGELOG.md");
     const unreleased = changelog.slice(

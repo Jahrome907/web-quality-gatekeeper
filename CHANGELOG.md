@@ -16,6 +16,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release evidence artifacts now include `release-provenance.json` and `sbom.spdx.json` from the GitHub Release workflow.
 - Composite Action runs now emit `sensitive-audit`, and consumer workflow examples gate artifact upload on `steps.wqg.outputs.sensitive-audit`.
 
+### Changed
+
+- Redesigned the public Pages site around inspectable proof, adoption paths, outputs, and reproduction, with responsive navigation and contract-checked fixture excerpts.
+- Documented installed npm CLI usage alongside the GitHub Action and reproducible source-checkout paths.
+- Refreshed runtime, development, and workflow dependencies while retaining Node 22.19 as the supported minimum and Node 24 for release jobs.
+
+### Fixed
+
+- The trusted-publishing runtime preflight now invokes `npm.cmd` through the Windows command processor, avoiding Node child-process failures during the version check.
+- Release SBOM generation now resolves runtime dependencies by package-lock installation path, preserving coexisting nested versions with unique SPDX identifiers.
+- Release and npm publishing now reject tags outside protected `main`. Release evidence is staged on a draft and the exact tag is reverified before publication; npm publishing likewise reverifies the tag and published GitHub Release immediately before upload.
+
+### Security
+
+- Accepted GHSA-8988-4f7v-96qf as a medium-severity upstream risk for 3.2.3. The affected `@opentelemetry/core@1.30.1` remains transitive through `lighthouse@13.4.0` and `@sentry/node@9.47.1`; no compatible stable Lighthouse upgrade removes it, while the release gates continue to reject unexcepted high or critical advisories.
+
 ## [3.2.2] - 2026-06-14
 
 ### Changed
@@ -76,15 +92,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Emitted summaries, aggregate reports, trend entries, and PR Risk Ledger inputs now record the audited landing URL after redirects.
 - Stable major Action tag publication now refuses backward movement before creating the GitHub Release, and the release workflow no longer retriggers on bare major aliases.
 - The composite Action no longer checks out and cleans the caller workspace before reading relative config or policy inputs.
-- The trusted-publishing runtime preflight now invokes `npm.cmd` through the Windows command processor, avoiding Node child-process failures during the version check.
-- Release SBOM generation now resolves runtime dependencies by package-lock installation path, preserving coexisting nested versions with unique SPDX identifiers.
-- Release and npm publishing now reject tags outside protected `main`. Release evidence is staged on a draft and the exact tag is reverified before publication; npm publishing likewise reverifies the tag and published GitHub Release immediately before upload.
 - Maintainer documentation now has automated guards for local Markdown links, documented npm scripts, helper scripts, referenced test files, historical release framing, and stale roadmap entries.
 - Maintainer testing guidance now describes `contracts:check` as the combined summary and PR Risk Ledger contract gate.
-
-### Security
-
-- Accepted GHSA-8988-4f7v-96qf as a medium-severity upstream risk for 3.2.3. The affected `@opentelemetry/core@1.30.1` remains transitive through `lighthouse@13.4.0` and `@sentry/node@9.47.1`; no compatible stable Lighthouse upgrade removes it, while the release gates continue to reject unexcepted high or critical advisories.
 
 ## [3.1.6] - 2026-05-29
 

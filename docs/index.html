@@ -743,8 +743,8 @@
             <li>
               <strong>Source checkout 3.2.3</strong>
               <span
-                >Node 22.19 or later. Ships as a GitHub Action and source checkout; not yet
-                published to npm.</span
+                >Node 22.19 or later. The npm CLI becomes available only after its version is
+                visible in the public registry.</span
               >
             </li>
           </ul>
@@ -905,9 +905,9 @@
             <p class="kicker">Adopt in 5 minutes</p>
             <h2>Pick the path that matches how you want to use the project.</h2>
             <p>
-              Public usage is split into two lanes. Use the GitHub Action in your own repository for
-              CI gating, or run the CLI from a source checkout when you want local evaluation. npm
-              publication is handled separately and is not yet part of the automated release path.
+              Use the GitHub Action in your own repository for CI gating. Install the CLI from npm
+              only after its version is visible in the public registry; a source checkout remains
+              available for contributors and reproducible release review.
             </p>
           </header>
 
@@ -949,14 +949,27 @@
             </article>
 
             <article class="panel">
-              <h3>Run the CLI from source</h3>
+              <h3>Run the CLI locally</h3>
               <p>
-                Use this path when you want local evaluation before wiring CI. Requires Node 22.19
-                or later; release and publish workflows use Node 24, while package smoke coverage
-                also runs on Node 22.19.
+                After registry publication, install the package for normal CLI use. Requires Node
+                22.19 or later; release and publish workflows use Node 24, while package smoke
+                coverage also runs on Node 22.19.
               </p>
               <figure class="code-block">
-                <figcaption>Shell</figcaption>
+                <figcaption>After registry publication</figcaption>
+                <pre
+                  tabindex="0"
+                  aria-label="Installed CLI adoption example"
+                ><code>npm view web-quality-gatekeeper@3.2.3 version
+npm install --save-dev web-quality-gatekeeper
+npx playwright install chromium
+npx wqg audit https://your-site.example --policy marketing</code></pre>
+              </figure>
+              <p style="margin-top: 16px">
+                Contributing or reviewing a release? Run the same CLI from source.
+              </p>
+              <figure class="code-block">
+                <figcaption>Source checkout</figcaption>
                 <pre
                   tabindex="0"
                   aria-label="Source CLI adoption example"

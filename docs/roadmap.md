@@ -15,4 +15,4 @@ Web Quality Gatekeeper is focused on practical CI evidence for web teams. The pr
 
 - The project is not a hosted monitoring platform.
 - The CLI does not store credentials or remote run history.
-- npm publication remains separate from the automated GitHub Release path until that distribution lane is fully validated.
+- npm publication remains separately authorized through the trusted-publisher workflow and is verified against its corresponding GitHub Release.

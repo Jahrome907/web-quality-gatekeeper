@@ -11,7 +11,7 @@ A quality gate CLI and GitHub Action that runs Playwright smoke checks, axe acce
 
 Release source of truth: use GitHub tags and Releases for published versions. The `package.json` version on `main` may move ahead during release preparation.
 
-Distribution status: tagged releases create GitHub Releases and update the stable GitHub Action major tag from the same validated source. npm publication is handled separately and is not yet part of the automated release path; until an npm release exists, use the GitHub Action or a source checkout.
+Distribution status: new tagged releases create immutable GitHub Releases and update the stable GitHub Action major tag from the same validated source. npm publication is separately authorized through the trusted-publisher workflow; verify a version in the public registry before installing it.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg" alt="Web Quality Gatekeeper flow: target URL and config pass through policy checks into Playwright, axe, Lighthouse, and visual diff, then emit HTML reports, JSON summaries, baselines, and CI-safe outputs." width="980" />
@@ -23,8 +23,18 @@ The diagram follows the same three-step audit path described below: validate and
 
 Use one of these public entry points:
 
+- npm package for local CLI use after the requested version is visible in the public registry.
 - GitHub Action in your own repository for CI-first adoption.
 - Source checkout when you want to contribute to this repository.
+
+```bash
+npm view web-quality-gatekeeper@3.2.3 version
+npm install --save-dev web-quality-gatekeeper
+npx playwright install chromium
+npx wqg audit https://your-site.example --policy marketing
+```
+
+For a source checkout:
 
 ```bash
 git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
@@ -114,6 +124,17 @@ If you prefer the repository source view, the same proof artifacts are also avai
 
 ## Consumer Usage
 
+### Local CLI from npm
+
+Use this path only after the registry check returns the requested version. The package exposes the `wqg` binary and requires Node 22.19 or later.
+
+```bash
+npm view web-quality-gatekeeper@3.2.3 version
+npm install --save-dev web-quality-gatekeeper
+npx playwright install chromium
+npx wqg audit https://your-site.example --policy marketing
+```
+
 ### GitHub Action in your repository
 
 This is the supported consumer path when you want CI gating without maintaining a fork of this project.
@@ -151,7 +172,7 @@ jobs:
 
 ### Local CLI from source checkout
 
-Use this path when you want to inspect outputs locally before wiring CI or when contributing to this repository. The npm package publication path is separate from the automated GitHub Release path.
+Use this path when you want to inspect repository internals or contribute changes. The npm package, GitHub Release, and source checkout remain separately verifiable distribution lanes.
 
 ```bash
 git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
@@ -167,12 +188,12 @@ Open `artifacts/report.html` for the HTML report and `artifacts/summary.json` / 
 
 ## CLI Usage
 
-The npm package is not published yet, so public CLI usage currently starts from
-a source checkout. Build first, then run the compiled CLI with `node dist/cli.js`.
-The binary name `wqg` is reserved for installed-package usage once that
-publication path is available.
+After registry publication, the installed package exposes the `wqg` binary. A
+built source checkout exposes the same commands through `node dist/cli.js`.
 
 ```bash
+npx wqg audit [url] [options]
+# From a source checkout:
 node dist/cli.js audit [url] [options]
 ```
 
@@ -181,6 +202,8 @@ The positional URL is optional when your config supplies `urls`.
 Initialize a consumer repository:
 
 ```bash
+npx wqg init --profile marketing --url https://your-site.example
+# From a source checkout:
 node dist/cli.js init --profile marketing --url https://your-site.example
 ```
 

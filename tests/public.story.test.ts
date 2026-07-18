@@ -51,9 +51,14 @@ describe("public story surface", () => {
     expect(source).toMatch(/tabindex="0"\s+aria-label="Source CLI adoption example"/);
     expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action adoption example"/);
     expect(source).toContain("<strong><code>node dist/cli.js audit</code></strong>");
+    expect(source).toContain("npm view web-quality-gatekeeper@3.2.3 version");
+    expect(source).toContain("npm install --save-dev web-quality-gatekeeper");
+    expect(source).toContain("npx wqg audit https://your-site.example --policy marketing");
+    expect(source).toContain('aria-label="Installed CLI adoption example"');
     expect(source).toContain("<strong><code>report.html</code> + JSON summaries</strong>");
     expect(source).toContain("Human report plus contract-checked machine-readable outputs.");
-    expect(source).not.toContain("<strong><code>wqg audit</code></strong>");
+    expect(source).toContain("only after its version is visible in the public registry");
+    expect(source).not.toContain("not yet published to npm");
     expect(source).not.toContain("output-dir: artifacts");
     expect(source).not.toContain("source commit");
     expect(source).not.toMatch(GENERATED_FROM_PATTERN);
@@ -177,6 +182,12 @@ describe("public story surface", () => {
     expect(source).toContain("steps.wqg.outputs.pr-risk-ledger-md-path");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
     expect(source).toContain("Proof & Reproducibility");
+    expect(source).toContain("npm install --save-dev web-quality-gatekeeper");
+    expect(source).toContain("npm view web-quality-gatekeeper@3.2.3 version");
+    expect(source).toContain("npx wqg audit https://your-site.example --policy marketing");
+    expect(source).toContain("verify a version in the public registry before installing it");
+    expect(source).not.toContain("The npm package is not published yet");
+    expect(source).not.toContain("until an npm release exists");
     expect(source).toContain("blob/main/docs/proof/fixture-report.html");
     expect(source).toContain("blob/main/docs/proof/fixture-summary.v2.json");
     expect(source).toContain("blob/main/docs/proof/fixture-pr-risk-ledger.json");
