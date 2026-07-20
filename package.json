@@ -83,7 +83,7 @@
     "@axe-core/playwright": "^4.12.1",
     "chrome-launcher": "^1.1.0",
     "commander": "^15.0.0",
-    "lighthouse": "^13.4.0",
+    "lighthouse": "^13.4.1",
     "pixelmatch": "^7.2.0",
     "playwright": "^1.61.1",
     "pngjs": "^7.0.0",
@@ -93,7 +93,7 @@
     "@sentry/node": {
       "minimatch": "10.2.4"
     },
-    "axios": "1.17.0",
+    "axios": "1.18.1",
     "basic-ftp": "6.0.0",
     "esbuild": "0.28.1",
     "yauzl": "3.2.1"
