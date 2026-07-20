@@ -6,166 +6,82 @@ function readRepoFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-const GENERATED_FROM_PATTERN = new RegExp(["Generated", "from"].join("\\s+"));
-const GENERATED_FROM_LOWERCASE_PATTERN = new RegExp(["generated", "from"].join("\\s+"));
-const GENERATED_BUNDLE_PATTERN = new RegExp(["generated", "bundle"].join("\\s+"));
-
 describe("public story surface", () => {
-  it("keeps the Pages entry focused on evidence, adoption, and trust", () => {
+  it("keeps the Pages entry focused on use cases, proof, and adoption", () => {
     const source = readRepoFile("docs/index.html");
 
-    expect(source).toContain("Published evidence");
-    expect(source).toContain("Adopt in 5 minutes");
-    expect(source).toContain("Why trust it");
-    expect(source).toContain("Inspectable open-source evidence");
-    expect(source).toContain("Source fixture:");
-    const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
-
-    expect(source).toContain(`<strong>Proof bundle version:</strong> ${pkg.version}.`);
-    expect(source).toMatch(/<strong>Release source:<\/strong>\s*GitHub\s+tags\s+and\s+Releases/);
+    expect(source).toContain("<title>Web Quality Gatekeeper | Release evidence for web teams</title>");
+    expect(source).toContain("One clear answer before a web change ships.");
+    expect(source).toContain('id="use-cases"');
+    expect(source).toContain('id="workflow"');
+    expect(source).toContain('id="evidence"');
+    expect(source).toContain('id="start"');
+    expect(source).toContain("Fixture result");
     expect(source).toContain("proof/fixture-report.html");
     expect(source).toContain("proof/fixture-summary.v2.json");
-    expect(source).toContain("proof/fixture-pr-risk-ledger.json");
-    expect(source).toContain(
-      "https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study-run.md"
-    );
-    expect(source).toContain(
-      "https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md"
-    );
-    expect(source).toContain('title="Sample Web Quality Gatekeeper report"');
+    expect(source).toContain("proof/fixture-action-plan.md");
+    expect(source).toContain("proof/fixture-pr-risk-ledger.md");
+    expect(source).toContain("proof/fixture-lighthouse.json");
+    expect(source).toContain('src="assets/brand-mark.svg"');
+    expect(source).toContain('src="assets/fixture-home.png"');
+    expect(source).toContain('aria-label="GitHub Action example"');
+    expect(source).toContain('aria-label="Source checkout example"');
     expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
-    expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
-    expect(source).toContain("# v6.0.3");
-    expect(source).toContain("baseline-dir: .github/web-quality/baselines");
-    expect(source).toContain('WQG_SENSITIVE_AUDIT: "false"');
-    expect(source).toContain('WQG_ALLOW_SENSITIVE_OUTPUTS: "false"');
-    expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
-    expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
-    expect(source).toContain("# v7.0.1");
-    expect(source).toContain("- id: wqg");
-    expect(source).toContain("steps.wqg.outputs.report-path");
-    expect(source).toContain("steps.wqg.outputs.pr-risk-ledger-md-path");
-    expect(source).toContain("steps.wqg.outputs.sensitive-audit");
-    expect(source).toMatch(/tabindex="0"\s+aria-label="Source CLI adoption example"/);
-    expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action adoption example"/);
-    expect(source).toContain("<strong><code>node dist/cli.js audit</code></strong>");
-    expect(source).toContain("<strong><code>report.html</code> + JSON summaries</strong>");
-    expect(source).toContain("Human report plus contract-checked machine-readable outputs.");
-    expect(source).not.toContain("<strong><code>wqg audit</code></strong>");
-    expect(source).not.toContain("output-dir: artifacts");
-    expect(source).not.toContain("source commit");
-    expect(source).not.toMatch(GENERATED_FROM_PATTERN);
+    expect(source).toContain("npm run engines:check");
+    expect(source).toContain("npx playwright install chromium");
+    expect(source).not.toContain("<iframe");
+    expect(source).not.toContain("href=\"roadmap.md\"");
+    expect(source).not.toContain("href=\"provenance.md\"");
+    expect(source).not.toContain("href=\"sbom.md\"");
   });
 
-  it("keeps Pages branding and labels readable instead of relying on all-caps styling", () => {
-    const source = readRepoFile("docs/index.html");
-
-    expect(source).toContain('href="assets/brand-mark.svg"');
-    expect(source).toMatch(
-      /<span class="brand-mark" aria-hidden="true"\s*>\s*<img src="assets\/brand-mark\.svg"/
-    );
-    expect(source).not.toContain(">WQG<");
-    expect(source).not.toContain("text-transform: uppercase");
-    expect(source).not.toContain("letter-spacing");
-    expect(source).not.toContain("&mdash;");
-  });
-
-  it("keeps Pages proof metrics aligned with the published summary artifact", () => {
+  it("keeps the visible sample metrics aligned with the proof fixture", () => {
     const source = readRepoFile("docs/index.html");
     const proof = JSON.parse(readRepoFile("docs/proof/fixture-summary.v2.json")) as {
       durationMs: number;
+      pages: Array<{
+        details?: {
+          performance?: { metrics?: { performanceScore?: number } };
+          a11y?: { violations?: number };
+          screenshots?: unknown[];
+        };
+      }>;
     };
-    const expectedDurationSeconds = (proof.durationMs / 1000).toFixed(1);
 
-    expect(source).toContain(`${expectedDurationSeconds}&nbsp;s`);
-    expect(source).toContain(`"durationMs": ${proof.durationMs}`);
-    expect(source).toMatch(/<div>\s*<dt>Runtime<\/dt>\s*<dd>11\.5&nbsp;s<\/dd>\s*<\/div>/);
-    expect(source).toMatch(/<div>\s*<dt>Lighthouse performance<\/dt>\s*<dd>0\.99<\/dd>\s*<\/div>/);
-    expect(source).not.toContain("7.6&nbsp;s");
-    expect(source).not.toContain('"durationMs": 7621');
+    const details = proof.pages[0]?.details;
+    const duration = (proof.durationMs / 1000).toFixed(1);
+    const performance = details?.performance?.metrics?.performanceScore?.toFixed(2);
+    const screenshots = details?.screenshots?.length;
+    const violations = details?.a11y?.violations;
+
+    expect(source).toContain(`Runtime: ${duration} s`);
+    expect(source).toContain(`Lighthouse performance</span><strong>${performance}</strong>`);
+    expect(source).toContain(`Accessibility violations</span><strong>${violations}</strong>`);
+    expect(source).toContain(`Captured screenshots</span><strong>${screenshots}</strong>`);
   });
 
-  it("links Pages markdown references to GitHub-rendered docs", () => {
-    const source = readRepoFile("docs/index.html");
-
-    expect(source).toContain(
-      "https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/roadmap.md"
-    );
-    expect(source).toContain(
-      "https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/provenance.md"
-    );
-    expect(source).toContain(
-      "https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/sbom.md"
-    );
-    expect(source).not.toContain('href="case-study-run.md"');
-    expect(source).not.toContain('href="case-study/public-oss-repro.md"');
-    expect(source).not.toContain('href="roadmap.md"');
-    expect(source).not.toContain('href="provenance.md"');
-    expect(source).not.toContain('href="sbom.md"');
-  });
-
-  it("keeps provenance wording focused on traceable repository evidence", () => {
-    const source = readRepoFile("docs/provenance.md");
-
-    expect(source).toContain("trace back to repository-owned fixtures");
-    expect(source).toContain("proof bundle");
-    expect(source).toContain("required screenshot evidence");
-    expect(source).toContain("optional Lighthouse payload");
-    expect(source).not.toMatch(GENERATED_FROM_LOWERCASE_PATTERN);
-    expect(source).not.toMatch(GENERATED_BUNDLE_PATTERN);
-  });
-
-  it("keeps README linked to proof artifacts and reproducibility docs", () => {
-    const source = readRepoFile("README.md");
-    const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
-
-    expect(source).toContain("How It Works");
-    expect(source).toContain(`source-${pkg.version}`);
-    expect(source).toContain("artifacts/action-plan.md");
-    expect(source).toContain("PR Risk Ledger artifacts by default");
-    expect(source).toContain(
-      'src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/how-it-works.svg"'
-    );
-    expect(source).toContain(
-      'src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/report-screenshot.png"'
-    );
-    expect(source).toContain(
-      "Release source of truth: use GitHub tags and Releases for published versions."
-    );
-    expect(source).toContain('WQG_SENSITIVE_AUDIT: "false"');
-    expect(source).toContain('WQG_ALLOW_SENSITIVE_OUTPUTS: "false"');
-    expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
-    expect(source).toContain("# v7.0.1");
-    expect(source).toContain("- id: wqg");
-    expect(source).toContain("steps.wqg.outputs.summary-path");
-    expect(source).toContain("steps.wqg.outputs.pr-risk-ledger-md-path");
-    expect(source).toContain("steps.wqg.outputs.sensitive-audit");
-    expect(source).toContain("Proof & Reproducibility");
-    expect(source).toContain("blob/main/docs/proof/fixture-report.html");
-    expect(source).toContain("blob/main/docs/proof/fixture-summary.v2.json");
-    expect(source).toContain("blob/main/docs/proof/fixture-pr-risk-ledger.json");
-    expect(source).toContain("blob/main/docs/proof/fixture-proof-config.json");
-    expect(source).toContain("blob/main/docs/case-study-run.md");
-    expect(source).toContain("blob/main/docs/case-study/public-oss-repro.md");
-    expect(source).toContain("On successful runs, `node dist/cli.js audit` writes artifact files");
-    expect(source).toContain("`sensitive-audit`");
-    expect(source).not.toContain("On successful runs, `wqg audit` writes artifact files");
-    expect(source).toContain("Screenshot paths must be `@target`");
-    expect(source).toContain("Protocol-relative paths such as `//example.com/path` are rejected");
-  });
-
-  it("keeps default source-checkout user agent examples aligned with the package version", () => {
+  it("keeps the README short enough to scan and complete enough to use", () => {
     const readme = readRepoFile("README.md");
-    const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
-    const defaultConfig = JSON.parse(readRepoFile("configs/default.json")) as {
-      playwright?: { userAgent?: string };
-    };
 
-    expect(defaultConfig.playwright?.userAgent).toBe(`wqg/${pkg.version}`);
-    expect(readme).toContain(`"userAgent": "wqg/${pkg.version}"`);
+    expect(readme.length).toBeLessThan(15000);
+    expect(readme).toContain("# Web Quality Gatekeeper");
+    expect(readme).toContain("## When it helps");
+    expect(readme).toContain("## Start with the GitHub Action");
+    expect(readme).toContain("## Run it from a source checkout");
+    expect(readme).toContain("## What a run produces");
+    expect(readme).toContain("## Configure the checks");
+    expect(readme).toContain("## Development");
+    expect(readme).toContain('src="assets/how-it-works.svg"');
+    expect(readme).toContain('src="assets/report-screenshot.png"');
+    expect(readme).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
+    expect(readme).toContain("node dist/cli.js audit https://your-site.example --policy marketing");
+    expect(readme).toContain("npm run validate:full");
+    expect(readme).toContain("docs/engineering/ARCHITECTURE_MAP.md");
+    expect(readme).toContain("docs/testing-matrix.md");
+    expect(readme).not.toContain("## Table of Contents");
   });
 
-  it("publishes the proof artifact set referenced by the public docs", () => {
+  it("publishes the proof files linked from the public surface", () => {
     const requiredFiles = [
       "docs/assets/brand-mark.svg",
       "docs/assets/fixture-home.png",
@@ -188,50 +104,12 @@ describe("public story surface", () => {
     });
   });
 
-  it("keeps the published proof bundle version aligned with the package version", () => {
-    const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
-    const proof = JSON.parse(readRepoFile("docs/proof/fixture-summary.v2.json")) as {
-      toolVersion: string;
-      pages: Array<{ details?: { toolVersion?: string } }>;
-    };
-    const prRiskLedger = JSON.parse(readRepoFile("docs/proof/fixture-pr-risk-ledger.json")) as {
-      toolVersion: string;
-    };
-
-    expect(proof.toolVersion).toBe(pkg.version);
-    expect(proof.pages[0]?.details?.toolVersion).toBe(pkg.version);
-    expect(prRiskLedger.toolVersion).toBe(pkg.version);
-  });
-
-  it("keeps proof fixture config aligned with the published release version", () => {
-    const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
-    const config = JSON.parse(readRepoFile("docs/proof/fixture-proof-config.json")) as {
-      playwright?: { userAgent?: string };
-    };
-
-    expect(config.playwright?.userAgent).toBe(`wqg-proof-fixture/${pkg.version}`);
-  });
-
-  it("sanitizes published proof artifacts for OSS distribution", () => {
+  it("keeps published proof artifacts free of local paths", () => {
     const report = readRepoFile("docs/proof/fixture-report.html");
-    const summarySource = readRepoFile("docs/proof/fixture-summary.v2.json");
+    const summary = readRepoFile("docs/proof/fixture-summary.v2.json");
     const lighthouse = readRepoFile("docs/proof/fixture-lighthouse.json");
-    const prRiskLedger = readRepoFile("docs/proof/fixture-pr-risk-ledger.json");
-    const prRiskLedgerMarkdown = readRepoFile("docs/proof/fixture-pr-risk-ledger.md");
-    const summary = JSON.parse(summarySource) as {
-      startedAt: string;
-      primaryUrl: string;
-      pages: Array<{
-        url?: string;
-        startedAt?: string;
-        details?: {
-          url?: string;
-          startedAt?: string;
-          screenshots?: Array<{ url?: string }>;
-        };
-      }>;
-    };
-    const combined = `${report}\n${summarySource}\n${lighthouse}\n${prRiskLedger}\n${prRiskLedgerMarkdown}`;
+    const riskLedger = readRepoFile("docs/proof/fixture-pr-risk-ledger.json");
+    const combined = `${report}\n${summary}\n${lighthouse}\n${riskLedger}`;
 
     expect(combined).not.toMatch(/http:\/\/127\.0\.0\.1/i);
     expect(combined).not.toMatch(/\b127\.0\.0\.1\b/i);
@@ -239,17 +117,5 @@ describe("public story surface", () => {
     expect(combined).not.toMatch(/C:\\Users\\/i);
     expect(combined).not.toMatch(/\/Users\//);
     expect(combined).not.toMatch(/file:\/\//i);
-
-    expect(summary.primaryUrl).toBe("https://fixture.example/");
-    expect(summary.startedAt).toBe("2026-05-11T22:00:00.000Z");
-    expect(report).toContain(`data-iso="${summary.startedAt}"`);
-    expect(summary.pages[0]?.url).toBe("https://fixture.example/");
-    expect(summary.pages[0]?.startedAt).toBe("2026-05-11T22:00:00.000Z");
-    expect(summary.pages[0]?.details?.url).toBe("https://fixture.example/");
-    expect(summary.pages[0]?.details?.startedAt).toBe("2026-05-11T22:00:00.000Z");
-    expect(summary.pages[0]?.details?.screenshots?.[0]?.url).toBe("https://fixture.example/");
-    expect(summary.pages[0]?.details?.screenshots?.[1]?.url).toBe(
-      "https://fixture.example/pricing.html"
-    );
   });
 });

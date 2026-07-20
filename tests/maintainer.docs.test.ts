@@ -208,15 +208,13 @@ describe("maintainer documentation", () => {
     expect(fullAudit).not.toContain("this machine");
   });
 
-  it("keeps the roadmap focused on remaining work", () => {
+  it("keeps the public docs grounded in maintained references", () => {
     const roadmap = readRepoFile("docs/roadmap.md");
     const readme = readRepoFile("README.md");
 
-    expect(readme).toContain("profile-specific coverage, baseline guidance");
-    expect(readme).toContain("report artifact upload step");
-    expect(roadmap).not.toContain(
-      "Expand `wqg init` templates with profile-specific comments and baseline guidance."
-    );
+    expect(roadmap).toContain("GitHub Action and source-checkout CLI paths");
+    expect(readme).toContain("node dist/cli.js init --profile marketing --url https://your-site.example");
+    expect(readme).toContain("docs/testing-matrix.md");
   });
 
   it("keeps Unreleased changelog notes aligned with current hardening surfaces", () => {
