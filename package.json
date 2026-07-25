@@ -93,7 +93,7 @@
     "@sentry/node": {
       "minimatch": "10.2.4"
     },
-    "axios": "1.17.0",
+    "axios": "1.18.0",
     "basic-ftp": "6.0.0",
     "esbuild": "0.28.1",
     "yauzl": "3.2.1"
