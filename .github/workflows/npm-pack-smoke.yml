@@ -30,6 +30,10 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
 
+      - name: Check trusted publishing runtime (Windows)
+        if: runner.os == 'Windows' && matrix.node == 24
+        run: node scripts/ci/assert-publish-runtime.mjs
+
       - name: Check Node engine
         run: npm run engines:check
 

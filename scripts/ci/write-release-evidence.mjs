@@ -131,8 +131,13 @@ function resolvePackArtifact(options) {
   };
 }
 
-function toSpdxId(name) {
-  return "SPDXRef-Package-" + name.replace(/[^A-Za-z0-9.-]+/g, "-");
+function toSpdxId(name, version, location) {
+  let identity = name;
+  if (location) {
+    const locationHash = createHash("sha256").update(location).digest("hex").slice(0, 12);
+    identity += "-" + version + "-" + locationHash;
+  }
+  return "SPDXRef-Package-" + identity.replace(/[^A-Za-z0-9.-]+/g, "-");
 }
 
 function packageLicense(packageInfo) {
@@ -142,11 +147,11 @@ function packageLicense(packageInfo) {
   return "NOASSERTION";
 }
 
-function spdxPackage(name, version, packageInfo) {
+function spdxPackage(name, version, packageInfo, location) {
   const license = packageLicense(packageInfo);
   return {
     name,
-    SPDXID: toSpdxId(name),
+    SPDXID: toSpdxId(name, version, location),
     versionInfo: version,
     downloadLocation: "NOASSERTION",
     filesAnalyzed: false,
@@ -156,45 +161,51 @@ function spdxPackage(name, version, packageInfo) {
   };
 }
 
-function packageLocationForName(name) {
-  return "node_modules/" + name;
-}
-
-function findPackageLocation(name, lockPackages) {
-  const directLocation = packageLocationForName(name);
-  if (lockPackages[directLocation]) {
-    return directLocation;
-  }
-
-  const suffix = "/node_modules/" + name;
-  for (const location of Object.keys(lockPackages)) {
-    if (location.endsWith(suffix)) {
-      return location;
+function resolvePackageLocation(fromLocation, name, lockPackages) {
+  let currentLocation = fromLocation;
+  while (true) {
+    const candidate = currentLocation
+      ? currentLocation + "/node_modules/" + name
+      : "node_modules/" + name;
+    if (lockPackages[candidate]) {
+      return candidate;
     }
-  }
+    if (!currentLocation) {
+      return null;
+    }
 
-  return null;
+    const parentNodeModules = currentLocation.lastIndexOf("/node_modules/");
+    currentLocation = parentNodeModules === -1 ? "" : currentLocation.slice(0, parentNodeModules);
+  }
 }
 
-function runtimeDependencyNames(pkg, lock) {
+function runtimeDependencyLocations(pkg, lock) {
   const lockPackages = lock.packages ? lock.packages : {};
   const rootPackage = lockPackages[""] ? lockPackages[""] : pkg;
-  const queue = Object.keys(rootPackage.dependencies ? rootPackage.dependencies : {});
-  const seen = new Set();
+  const rootDependencyEdges = Object.assign(
+    {},
+    rootPackage.dependencies ? rootPackage.dependencies : {},
+    rootPackage.optionalDependencies ? rootPackage.optionalDependencies : {}
+  );
+  const queue = Object.keys(rootDependencyEdges)
+    .map(function (name) {
+      return { name, location: resolvePackageLocation("", name, lockPackages) };
+    })
+    .filter(function (entry) {
+      return entry.location;
+    });
+  const seen = new Map();
 
   while (queue.length) {
-    const name = queue.shift();
-    if (!name) {
+    const entry = queue.shift();
+    if (!entry) {
       continue;
     }
-    if (seen.has(name)) {
+    const { name, location } = entry;
+    if (!location || seen.has(location)) {
       continue;
     }
 
-    const location = findPackageLocation(name, lockPackages);
-    if (!location) {
-      continue;
-    }
     const packageInfo = lockPackages[location];
     if (!packageInfo) {
       continue;
@@ -203,15 +214,16 @@ function runtimeDependencyNames(pkg, lock) {
       continue;
     }
 
-    seen.add(name);
+    seen.set(location, name);
     const dependencyEdges = Object.assign(
       {},
       packageInfo.dependencies ? packageInfo.dependencies : {},
       packageInfo.optionalDependencies ? packageInfo.optionalDependencies : {}
     );
     for (const dependencyName of Object.keys(dependencyEdges)) {
-      if (!seen.has(dependencyName)) {
-        queue.push(dependencyName);
+      const dependencyLocation = resolvePackageLocation(location, dependencyName, lockPackages);
+      if (dependencyLocation && !seen.has(dependencyLocation)) {
+        queue.push({ name: dependencyName, location: dependencyLocation });
       }
     }
   }
@@ -221,25 +233,32 @@ function runtimeDependencyNames(pkg, lock) {
 
 function dependencyPackages(pkg, lock) {
   const lockPackages = lock.packages ? lock.packages : {};
-  const packages = [spdxPackage(pkg.name, pkg.version, pkg)];
-  const runtimeNames = Array.from(runtimeDependencyNames(pkg, lock)).sort(function (left, right) {
-    return left.localeCompare(right);
-  });
+  const packages = [spdxPackage(pkg.name, pkg.version, pkg, "")];
+  const runtimeLocations = Array.from(runtimeDependencyLocations(pkg, lock)).sort(
+    function (left, right) {
+      return left[0].localeCompare(right[0]);
+    }
+  );
 
-  for (const name of runtimeNames) {
-    const location = findPackageLocation(name, lockPackages);
-    const packageInfo = location ? lockPackages[location] : null;
+  for (const [location, dependencyName] of runtimeLocations) {
+    const packageInfo = lockPackages[location];
     if (!packageInfo) {
       continue;
     }
     if (!packageInfo.version) {
       continue;
     }
-    packages.push(spdxPackage(name, packageInfo.version, packageInfo));
+    const name = packageInfo.name ? packageInfo.name : dependencyName;
+    packages.push(spdxPackage(name, packageInfo.version, packageInfo, location));
   }
 
   packages.sort(function (left, right) {
-    return left.name.localeCompare(right.name);
+    const byName = left.name.localeCompare(right.name);
+    if (byName) {
+      return byName;
+    }
+    const byVersion = left.versionInfo.localeCompare(right.versionInfo);
+    return byVersion ? byVersion : left.SPDXID.localeCompare(right.SPDXID);
   });
   return packages;
 }

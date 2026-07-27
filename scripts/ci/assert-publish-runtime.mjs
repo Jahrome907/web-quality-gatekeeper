@@ -41,17 +41,38 @@ export function assertMinimum(label, actual, minimum) {
   }
 }
 
-export function resolveNpmCommand(platform = process.platform) {
-  return platform === "win32" ? "npm.cmd" : "npm";
+export function resolveNpmInvocation(platform = process.platform, options = {}) {
+  const npmExecPath = Object.prototype.hasOwnProperty.call(options, "npmExecPath")
+    ? options.npmExecPath
+    : process.env.npm_execpath;
+
+  if (npmExecPath) {
+    return {
+      file: options.nodeExecPath ?? process.execPath,
+      args: [npmExecPath, "--version"]
+    };
+  }
+
+  if (platform === "win32") {
+    return {
+      file: options.commandProcessor ?? process.env.ComSpec ?? "cmd.exe",
+      // Node cannot execute .cmd shims directly. Keep the command literal so no
+      // caller-controlled input crosses the command-processor boundary.
+      args: ["/d", "/s", "/c", "npm.cmd --version"]
+    };
+  }
+
+  return { file: "npm", args: ["--version"] };
 }
 
 export function main(options = {}) {
   const platform = options.platform ?? process.platform;
   const execFile = options.execFileSync ?? execFileSync;
+  const npmInvocation = resolveNpmInvocation(platform, options);
   const nodeVersion = parseVersion("Node", options.nodeVersion ?? process.version);
   const npmVersion = parseVersion(
     "npm",
-    execFile(resolveNpmCommand(platform), ["--version"], { encoding: "utf8" })
+    execFile(npmInvocation.file, npmInvocation.args, { encoding: "utf8" })
   );
 
   assertMinimum("Node", nodeVersion, MINIMUMS.node);

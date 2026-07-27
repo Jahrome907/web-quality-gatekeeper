@@ -24,6 +24,10 @@ describe("packaged CLI smoke", () => {
       '["pack", "--ignore-scripts", "--json", "--pack-destination", smokeRoot]'
     );
     expect(source).toContain("{ cwd: ROOT }");
+    expect(source).toContain('["-tf", tarballName]');
+    expect(source).toContain("{ cwd: smokeRoot }");
+    expect(source).toContain('["-xf", path.basename(tarballPath), "-C", stagingDir]');
+    expect(source).not.toContain('["-tf", tarballPath]');
     expect(source).not.toContain("package-source");
     expect(source).toContain('"package/package.json"');
     expect(source).toContain('"package/configs/security/audit-exceptions.json"');

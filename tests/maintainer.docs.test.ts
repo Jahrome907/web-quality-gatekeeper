@@ -219,6 +219,26 @@ describe("maintainer documentation", () => {
     );
   });
 
+  it("keeps the 3.2.3 release notes pending and aligned with release output", () => {
+    const changelog = readRepoFile("CHANGELOG.md");
+    const release = changelog.slice(
+      changelog.indexOf("## [3.2.3]"),
+      changelog.indexOf("## [3.2.2]")
+    );
+
+    expect(release).toContain("## [3.2.3] - Pending release");
+    expect(release).toContain("Lighthouse to `13.4.1`");
+    expect(release).toContain("coexisting nested runtime package versions");
+    expect(release).toContain("Release tags must point to current `main`");
+    expect(release).toContain("Windows publish-runtime and package smoke checks");
+    expect(changelog).toContain(
+      "[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...HEAD"
+    );
+    expect(changelog).toContain(
+      "[3.2.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...HEAD"
+    );
+  });
+
   it("keeps Unreleased changelog notes aligned with current hardening surfaces", () => {
     const changelog = readRepoFile("CHANGELOG.md");
     const unreleased = changelog.slice(
@@ -268,7 +288,7 @@ describe("maintainer documentation", () => {
     expect(unreleased).toContain("audited landing URL after redirects");
     expect(unreleased).toContain("Stable major Action tag publication");
     expect(unreleased).toContain("composite Action no longer checks out");
-    expect(unreleased).toContain("trusted-publishing runtime preflight now resolves `npm.cmd`");
+    expect(unreleased).toContain("Windows publish-runtime and package smoke checks");
     expect(unreleased).toContain("Release evidence artifacts");
     expect(unreleased).toContain("sensitive-audit");
     expect(unreleased).toContain("consumer workflow examples gate artifact upload");
