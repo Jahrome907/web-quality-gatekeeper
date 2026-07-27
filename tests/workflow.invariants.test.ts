@@ -548,9 +548,11 @@ describe("workflow invariants", () => {
     const contributing = readRepoFile("CONTRIBUTING.md");
     const prTemplate = readRepoFile(".github/pull_request_template.md");
 
+    expect(contributing).toContain("Add the narrowest regression test for behavior changes.");
     expect(contributing).toContain(
-      "Keep submitted code, docs, and artifacts directly verifiable through the repo's tests, smoke checks, or published evidence."
+      "Keep public examples aligned with the Action, CLI, and emitted artifacts."
     );
+    expect(contributing).toContain("Do not treat a skipped optional smoke as release evidence.");
     expect(prTemplate).toContain(
       "I confirmed the docs, examples, and emitted artifacts still match actual repo behavior"
     );
