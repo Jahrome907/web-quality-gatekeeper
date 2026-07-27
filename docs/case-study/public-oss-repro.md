@@ -27,7 +27,27 @@ node scripts/case-study/roi-from-summaries.mjs \
   > artifacts/case-study/roi.json
 ```
 
-4. Run `npm run case-study:provenance -- --help` for the manifest writer's current arguments, then record the repository URL, both SHAs, config, summaries, reports, review artifacts, screenshots, and ROI output in `provenance.json`.
+4. Write the provenance manifest:
+
+```bash
+node scripts/case-study/write-provenance-manifest.mjs \
+  --repo-url "$REPO_URL" \
+  --baseline-sha "$BASELINE_SHA" \
+  --improved-sha "$IMPROVED_SHA" \
+  --baseline-summary artifacts/case-study/baseline/summary.v2.json \
+  --improved-summary artifacts/case-study/improved/summary.v2.json \
+  --baseline-report artifacts/case-study/baseline/report.html \
+  --improved-report artifacts/case-study/improved/report.html \
+  --baseline-action-plan artifacts/case-study/baseline/action-plan.md \
+  --improved-action-plan artifacts/case-study/improved/action-plan.md \
+  --baseline-pr-risk-ledger artifacts/case-study/baseline/pr-risk-ledger.json \
+  --improved-pr-risk-ledger artifacts/case-study/improved/pr-risk-ledger.json \
+  --baseline-pr-risk-ledger-md artifacts/case-study/baseline/pr-risk-ledger.md \
+  --improved-pr-risk-ledger-md artifacts/case-study/improved/pr-risk-ledger.md \
+  --roi-output artifacts/case-study/roi.json \
+  --config "$CONFIG_PATH" \
+  --out artifacts/case-study/provenance.json
+```
 
 ## Publish
 
