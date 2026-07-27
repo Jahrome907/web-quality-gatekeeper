@@ -1,128 +1,63 @@
 # Contributing
 
-Thanks for contributing to Web Quality Gatekeeper. Please review the
-[Code of Conduct](CODE_OF_CONDUCT.md) before participating.
+Thanks for contributing to Web Quality Gatekeeper. Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md). Report vulnerabilities through the private channel in [SECURITY.md](SECURITY.md), not a public issue.
 
-## Development setup
+## Set up a source checkout
 
 ```bash
 npm run engines:check
 npm ci
 npx playwright install chromium
-npm run validate:full
+npm run build
 ```
 
-On Linux hosts that need browser system dependencies, use:
+On Linux hosts that need browser system dependencies, use `npx playwright install --with-deps chromium`.
+
+Run a local audit with:
 
 ```bash
-npx playwright install --with-deps chromium
+npm run audit -- https://example.com
 ```
 
-## Common roles
+## Choose the narrowest validation
 
-### Maintainers
-
-Use the stable entrypoints below so local verification matches repo automation:
-
-```bash
-npm run validate:full   # engine preflight + lint + typecheck + build + tests + runtime and toolchain security audits
-npm run engines:check   # fail fast when local Node does not satisfy package.json
-npm run contracts:check # summary and PR Risk Ledger contract drift gate
-npm run security:audit  # runtime dependency audit exceptions gate
-npm run smoke:pack      # clean tarball install + real packaged audit
-npm run smoke:action    # local composite-action audit smoke
-npm run python:smoke    # Python analytics bundle smoke
-npm run release:dry-run # full maintainer validation + contract, package, Action, and Python smoke checks
-```
-
-`npm run validate:full` and `npm run release:dry-run` run the Node engine
-preflight first. Upgrade local Node to the package `engines.node` floor before
-using either command as release evidence.
-`npm run smoke:action` is strict by default. Use
-`WQG_ACTION_SMOKE_ALLOW_SKIP=true` only for optional local probing on machines
-without a Bash-side Playwright browser.
-
-Architecture and release references:
-
-- [Architecture Map](docs/engineering/ARCHITECTURE_MAP.md)
-- [Testing Matrix](docs/testing-matrix.md)
-- [Workflow Safety Policy](docs/engineering/WORKFLOW_SAFETY_POLICY.md)
-
-### Contributors
-
-Most code changes only need:
+For most code changes:
 
 ```bash
 npm run check
 npm run contracts:check
 ```
 
-If you change packaging, workflows, or Action behavior, also run the relevant smoke command from the maintainer list.
-
-### Docs-only contributors
-
-For docs, examples, or workflow guidance updates:
+For docs and examples:
 
 ```bash
-npm run contracts:check
-npm run lint
+npx prettier --check README.md CONTRIBUTING.md docs
+npx vitest run tests/maintainer.docs.test.ts
 ```
 
-## Running locally
+Use the relevant smoke check when a change crosses a distribution boundary:
 
-```bash
-npm run audit -- https://example.com
-```
+- `npm run smoke:action` for `action.yml` or consumer Action behavior
+- `npm run smoke:pack` for packaged files or CLI installation
+- `npm run python:smoke` for the optional Python analytics bundle
+- `npm run native:visual-diff:smoke` for the Rust adapter path
+- `npm run release:dry-run` for release preparation
 
-## Testing
+`npm run validate:full` is the comprehensive engine, lint, type, build, test, and dependency-audit gate. Do not treat a skipped optional smoke as release evidence.
 
-Tests live in `tests/` and mirror the `src/` structure.
-For CI parity, run the same checks used in repository validation:
+The [architecture map](docs/engineering/ARCHITECTURE_MAP.md) identifies subsystem ownership. The [testing matrix](docs/testing-matrix.md) maps behavior to its narrowest reliable test layer. Summary and PR Risk Ledger changes must stay aligned with their schemas and contract docs through `npm run contracts:check`.
 
-```bash
-npm run lint
-npm run typecheck
-npm test
-npm run contracts:check
-npm run security:audit
-```
+## Change expectations
 
-Additional useful commands:
+- Keep changes scoped and follow existing patterns.
+- Add the narrowest regression test for behavior changes.
+- Keep public examples aligned with the Action, CLI, and emitted artifacts.
+- Never commit credentials, private URLs, authenticated screenshots, or reports from internal sites.
+- Preserve compatibility for documented CLI flags, Action inputs/outputs, and JSON contracts unless the change includes an explicit migration.
+- Use conventional commit subjects that describe the project change.
 
-```bash
-npm test                         # run all tests
-npx vitest run tests/index.orchestration.test.ts # run a single file
-npm run test:coverage            # run with coverage report
-```
-
-Integration tests (`tests/integration.test.ts`) spin up a local HTTP server
-and exercise the built CLI end-to-end. Packaged consumer smoke lives in
-`tests/package.smoke.test.ts`. The current layer mapping is documented in
-`docs/testing-matrix.md`, and the main change surfaces are mapped in
-`docs/engineering/ARCHITECTURE_MAP.md`.
-
-## Standards
-
-- Use conventional commits (e.g. `feat: add visual diff thresholds`).
-- Release commit subjects must match the version actually being shipped (e.g. `release: prepare v3.1.5` only when `package.json` is on `3.1.5`). Do not leave version-mismatched subjects on `main`; reword the squash-merge subject if the source branch ever drifts.
-- Keep changes scoped and add tests for behavior changes.
-- Run `npm run check` before opening a PR.
-- Keep `README.md`, `SECURITY.md`, and workflow examples aligned with actual script and workflow behavior.
-- Keep submitted code, docs, and artifacts directly verifiable through the repo's tests, smoke checks, or published evidence.
-
-## Workflow safety defaults
-
-- `.github/workflows/quality-gate.yml` is strict by default in both demo and remote modes.
-- Set `WQG_RELAXED_REMOTE=true` only when you explicitly want non-blocking remote gates.
-- For authenticated or sensitive audits, set `WQG_SENSITIVE_AUDIT=true` and keep `WQG_ALLOW_SENSITIVE_OUTPUTS=false` unless publication is intentional.
-- Internal/private targets are blocked in CI or authenticated runs unless you set `--allow-internal-targets` (or `WQG_ALLOW_INTERNAL_TARGETS=true`).
-- Release major tags move only for stable release tags (`vX.Y.Z` or `vX.Y.Z+build`) and never for prereleases.
-- PR summary comments are best-effort only and are skipped for fork PRs or when the workflow token cannot write comments.
-- Repo-owned workflows and the composite Action pin third-party GitHub Actions to immutable SHAs; see `docs/engineering/WORKFLOW_SAFETY_POLICY.md`.
+Workflow and release-sensitive changes must preserve the rules in [the workflow safety policy](docs/engineering/WORKFLOW_SAFETY_POLICY.md), including immutable Action pins, least-privilege permissions, sensitive-output controls, and stable-tag guards.
 
 ## Pull requests
 
-- Describe the problem and the solution.
-- Include screenshots, report snippets, or summary artifacts when relevant.
-- Note any follow-up work or known limitations.
-- Use the [PR template](.github/pull_request_template.md) as a guide.
+Describe the problem, the chosen change, and the validation performed. Include screenshots or report excerpts when user-visible output changes, and identify known limitations or follow-up work. The [pull request template](.github/pull_request_template.md) is a checklist, not a requirement to run unrelated gates.

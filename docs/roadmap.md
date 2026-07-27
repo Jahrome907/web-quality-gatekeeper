@@ -1,18 +1,13 @@
 # Roadmap
 
-Web Quality Gatekeeper is focused on practical CI evidence for web teams. The project roadmap favors small, verifiable improvements over broad platform scope.
+Web Quality Gatekeeper focuses on verifiable CI evidence for web teams.
 
-## Current Priorities
+Current priorities:
 
-- Keep the GitHub Action and source-checkout CLI paths stable for consumers.
-- Improve merge-review evidence through the PR Risk Ledger artifacts.
-- Keep consumer scaffolds useful for first-run setup without making them the release blocker.
-- Promote the Rust visual diff engine behind an optional, documented runtime path.
-- Keep published proof artifacts reproducible from repository-owned fixtures.
-- Keep release evidence artifacts reproducible from package metadata, lockfile state, and release workflow inputs.
+- keep the stable GitHub Action and source-checkout CLI compatible
+- improve concise merge-review evidence without expanding the default artifact set unnecessarily
+- strengthen reproducible proof, provenance, and release-integrity checks
+- keep the optional native visual-diff path measurable, reviewable, and safely isolated
+- reduce first-run friction while preserving strict target and sensitive-output controls
 
-## Boundaries
-
-- The project is not a hosted monitoring platform.
-- The CLI does not store credentials or remote run history.
-- npm publication remains separate from the automated GitHub Release path until that distribution lane is fully validated.
+The project is not a hosted monitoring service, credential store, or remote run-history platform. Proposed work should fit the local CLI and GitHub Action model and include a testable consumer outcome.

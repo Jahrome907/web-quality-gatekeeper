@@ -1,34 +1,24 @@
-# Public OSS Reproducible Case Study Protocol
+# Public Case Study Evidence Protocol
 
-This protocol defines the minimum evidence bar for publishing a public baseline/improved case
-study for Web Quality Gatekeeper.
+Use this protocol when publishing a before-and-after Web Quality Gatekeeper case study. Its purpose is to make claims independently reproducible, not to prescribe which project to audit.
 
-## Required Inputs
+## Required inputs
 
-Do not publish a case study without these values:
+Record these values before running either audit:
 
-- `REPO_URL`: canonical Git remote URL for the audited project.
-- `BASELINE_SHA`: commit before the quality improvements.
-- `IMPROVED_SHA`: commit after the quality improvements.
-- `CONFIG_PATH`: the exact WQG config used for both runs.
+- canonical repository URL
+- baseline commit SHA
+- improved commit SHA
+- exact WQG config path and contents
+- build and preview commands for the audited project
 
-These values must appear in the published evidence bundle and in the machine-readable provenance
-manifest.
+Use the same target, config, browser/runtime assumptions, and output settings for both commits. If an input must change, disclose the difference instead of presenting the results as a direct comparison.
 
-## Candidate Repositories
+## Produce the evidence
 
-Pick the first repository from this ordered shortlist that can be built and previewed in CI using
-pinned commits:
-
-1. `vitejs/vite` docs site
-2. `withastro/docs`
-3. `remix-run/remix-website`
-
-## Reproduction Steps
-
-1. Check out `BASELINE_SHA` and run WQG with `CONFIG_PATH`, writing output to `artifacts/case-study/baseline`.
-2. Check out `IMPROVED_SHA` and run WQG with the same `CONFIG_PATH`, writing output to `artifacts/case-study/improved`.
-3. Compute ROI deltas:
+1. Check out the baseline commit and write its audit output to `artifacts/case-study/baseline`.
+2. Check out the improved commit and write its audit output to `artifacts/case-study/improved`.
+3. Compute deltas from the two `summary.v2.json` files:
 
 ```bash
 node scripts/case-study/roi-from-summaries.mjs \
@@ -37,58 +27,18 @@ node scripts/case-study/roi-from-summaries.mjs \
   > artifacts/case-study/roi.json
 ```
 
-4. Write the provenance manifest:
+4. Run `npm run case-study:provenance -- --help` for the manifest writer's current arguments, then record the repository URL, both SHAs, config, summaries, reports, review artifacts, screenshots, and ROI output in `provenance.json`.
 
-```bash
-node scripts/case-study/write-provenance-manifest.mjs \
-  --repo-url "$REPO_URL" \
-  --baseline-sha "$BASELINE_SHA" \
-  --improved-sha "$IMPROVED_SHA" \
-  --baseline-summary artifacts/case-study/baseline/summary.v2.json \
-  --improved-summary artifacts/case-study/improved/summary.v2.json \
-  --baseline-report artifacts/case-study/baseline/report.html \
-  --improved-report artifacts/case-study/improved/report.html \
-  --baseline-action-plan artifacts/case-study/baseline/action-plan.md \
-  --improved-action-plan artifacts/case-study/improved/action-plan.md \
-  --baseline-pr-risk-ledger artifacts/case-study/baseline/pr-risk-ledger.json \
-  --improved-pr-risk-ledger artifacts/case-study/improved/pr-risk-ledger.json \
-  --baseline-pr-risk-ledger-md artifacts/case-study/baseline/pr-risk-ledger.md \
-  --improved-pr-risk-ledger-md artifacts/case-study/improved/pr-risk-ledger.md \
-  --roi-output artifacts/case-study/roi.json \
-  --config "$CONFIG_PATH" \
-  --out artifacts/case-study/provenance.json
-```
+## Publish
 
-## Required Published Metrics
+A complete comparison contains:
 
-- A11y: rollup violations delta.
-- Performance: average performance score delta and average LCP delta across all audited pages.
-- Visual: visual failures delta.
-- Quality outcome: failed pages delta and overall status change.
-- If a metric is unavailable in either run, publish it as unavailable/null instead of substituting `0`.
+- both `summary.v2.json` files and HTML reports
+- both action plans and PR Risk Ledger JSON/Markdown files
+- screenshot and visual-diff evidence used by the claims
+- `roi.json` and `provenance.json`
+- the exact build, preview, and audit commands
 
-## Evidence Bundle
+Report accessibility violation deltas, average performance score and LCP deltas, visual failures, failed-page counts, and overall status. Preserve unavailable values as `null`; never substitute zero or omit a metric because it weakens the result.
 
-Publish all of the following:
-
-- `artifacts/case-study/baseline/summary.v2.json`
-- `artifacts/case-study/improved/summary.v2.json`
-- `artifacts/case-study/baseline/report.html`
-- `artifacts/case-study/improved/report.html`
-- `artifacts/case-study/baseline/action-plan.md`
-- `artifacts/case-study/improved/action-plan.md`
-- `artifacts/case-study/baseline/pr-risk-ledger.json`
-- `artifacts/case-study/improved/pr-risk-ledger.json`
-- `artifacts/case-study/baseline/pr-risk-ledger.md`
-- `artifacts/case-study/improved/pr-risk-ledger.md`
-- `artifacts/case-study/roi.json`
-- `artifacts/case-study/provenance.json`
-- The exact run commands if they differ from the documented protocol
-
-## Reproducibility Checklist
-
-- `REPO_URL`, `BASELINE_SHA`, and `IMPROVED_SHA` are recorded in the manifest.
-- The same `CONFIG_PATH` was used for both runs.
-- Summary, report, Action Plan, and PR Risk Ledger paths resolve correctly in the manifest.
-- ROI output was computed from `summary.v2.json`, not hand-entered metrics.
-- Published claims match the ROI JSON and the committed artifact set.
+Before publishing, reproduce the commands from a clean checkout and confirm every claim can be traced to the committed artifact set. Do not publish credentials, private URLs, local filesystem paths, or authenticated page content.

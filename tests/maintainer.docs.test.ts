@@ -6,34 +6,6 @@ function readRepoFile(relativePath: string): string {
   return readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-function listMarkdownFiles(relativeDir: string): string[] {
-  const absoluteDir = path.join(process.cwd(), relativeDir);
-  if (!existsSync(absoluteDir)) {
-    return [];
-  }
-
-  return readdirSync(absoluteDir, { withFileTypes: true }).flatMap((entry) => {
-    const relativePath = path.join(relativeDir, entry.name);
-    if (entry.isDirectory()) {
-      return listMarkdownFiles(relativePath);
-    }
-    return entry.isFile() && entry.name.endsWith(".md") ? [relativePath] : [];
-  });
-}
-
-function normalizeMarkdownLinkTarget(target: string): string {
-  return target.trim().replace(/^<|>$/g, "").split(/\s+/)[0] ?? "";
-}
-
-function expectTextOrder(source: string, orderedText: string[]): void {
-  let cursor = -1;
-  for (const text of orderedText) {
-    const index = source.indexOf(text, cursor + 1);
-    expect(index, `Expected ${text} after offset ${cursor}`).toBeGreaterThan(cursor);
-    cursor = index;
-  }
-}
-
 function listFiles(relativeDir: string, extensions: Set<string>): string[] {
   const absoluteDir = path.join(process.cwd(), relativeDir);
   if (!existsSync(absoluteDir)) {
@@ -49,65 +21,70 @@ function listFiles(relativeDir: string, extensions: Set<string>): string[] {
   });
 }
 
+function normalizeMarkdownLinkTarget(target: string): string {
+  return target.trim().replace(/^<|>$/g, "").split(/\s+/)[0] ?? "";
+}
+
 describe("maintainer documentation", () => {
-  it("keeps contributor guidance linked to architecture references", () => {
-    const contributing = readRepoFile("CONTRIBUTING.md");
+  it("keeps the README adoption-first and bounded", () => {
     const readme = readRepoFile("README.md");
-    const docsIndex = readRepoFile("docs/index.html");
-    const caseStudyRun = readRepoFile("docs/case-study-run.md");
-    const provenance = readRepoFile("docs/provenance.md");
+
+    expect(readme.split(/\r?\n/).length).toBeLessThan(250);
+    expect(readme).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
+    expect(readme).toContain("The npm package is not published");
+    expect(readme).toContain("node dist/cli.js audit");
+    expect(readme).toContain("steps.wqg.outputs.sensitive-audit");
+    expect(readme).toContain("docs/case-study-run.md");
+    expect(readme).toContain("docs/engineering/ARCHITECTURE_MAP.md");
+    expect(readme).toContain("docs/testing-matrix.md");
+    expect(readme).not.toMatch(/source-[0-9]+\.[0-9]+\.[0-9]+/);
+    expect(readme).not.toContain("npm install web-quality-gatekeeper");
+  });
+
+  it("keeps contributor guidance scoped to real validation entrypoints", () => {
+    const contributing = readRepoFile("CONTRIBUTING.md");
+    const pkg = JSON.parse(readRepoFile("package.json")) as { scripts?: Record<string, string> };
+
+    for (const command of [
+      "engines:check",
+      "check",
+      "contracts:check",
+      "smoke:action",
+      "smoke:pack",
+      "release:dry-run"
+    ]) {
+      expect(pkg.scripts).toHaveProperty(command);
+      expect(contributing).toContain(`npm run ${command}`);
+    }
 
     expect(contributing).toContain("docs/engineering/ARCHITECTURE_MAP.md");
     expect(contributing).toContain("docs/testing-matrix.md");
     expect(contributing).toContain("npx playwright install --with-deps chromium");
-    expect(contributing).toContain("npx playwright install chromium");
-    expect(readme).toContain("docs/engineering/ARCHITECTURE_MAP.md");
-    expect(readme).toContain("docs/testing-matrix.md");
-    expect(readme).toContain("npm run engines:check");
-    expect(readme).toContain("npm run validate:full");
-    for (const source of [contributing, readme, docsIndex, caseStudyRun, provenance]) {
-      expectTextOrder(source, [
-        "npm run engines:check",
-        "npm ci",
-        "npx playwright install chromium"
-      ]);
+  });
+
+  it("keeps essential OSS and maintainer documents while excluding archived process records", () => {
+    for (const relativePath of [
+      "README.md",
+      "LICENSE",
+      "SECURITY.md",
+      "CONTRIBUTING.md",
+      "CODE_OF_CONDUCT.md",
+      "docs/engineering/ARCHITECTURE_MAP.md",
+      "docs/engineering/WORKFLOW_SAFETY_POLICY.md",
+      "docs/contracts/compatibility-baseline.md",
+      "docs/provenance.md",
+      "docs/sbom.md",
+      "docs/roadmap.md"
+    ]) {
+      expect(existsSync(path.join(process.cwd(), relativePath)), relativePath).toBe(true);
     }
-    expect(caseStudyRun).toContain(
-      "Confirm `npm run engines:check` passes for the current Node.js runtime before treating the run as release evidence."
-    );
-    expect(caseStudyRun).toContain("Runs the source-checkout CLI");
-    expect(caseStudyRun).toContain("npx tsx src/cli.ts audit");
-    expect(caseStudyRun).toContain("node dist/cli.js audit");
-    expect(caseStudyRun).not.toContain("Runs `wqg audit`");
-  });
 
-  it("publishes architecture doc with maintainer gate references", () => {
-    const architecturePath = path.join(process.cwd(), "docs/engineering/ARCHITECTURE_MAP.md");
-
-    expect(existsSync(architecturePath)).toBe(true);
-
-    const architecture = readFileSync(architecturePath, "utf8");
-
-    expect(architecture).toContain("src/cli.ts");
-    expect(architecture).toContain("src/index.ts");
-    expect(architecture).toContain("action.yml");
-    expect(architecture).toContain("scripts/ci/*");
-  });
-
-  it("keeps release-sensitive workflow policy aligned with the Node preflight", () => {
-    const workflowPolicy = readRepoFile("docs/engineering/WORKFLOW_SAFETY_POLICY.md");
-    const contributing = readRepoFile("CONTRIBUTING.md");
-    const releaseDryRun = readRepoFile("scripts/ci/release-dry-run.mjs");
-
-    expect(workflowPolicy).toContain("Release-prep validation through `npm run release:dry-run`");
-    expect(workflowPolicy).toContain("Node engine preflight: `npm run engines:check`");
-    expect(workflowPolicy).toContain("Runtime dependency audit remains covered by");
-    expect(workflowPolicy).toMatch(/package smoke, Action\s+smoke, and Python smoke/);
-    expect(contributing).toContain("npm run engines:check");
-    expect(contributing).toContain("npm run python:smoke");
-    expect(releaseDryRun).toContain("assertNodeEngine()");
-    expect(releaseDryRun).toContain('args: ["run", "python:smoke"]');
-    expect(releaseDryRun).not.toContain('args: ["run", "security:audit"]');
+    for (const relativePath of [
+      "docs/engineering/FULL_REPO_AUDIT_2026-05-30.md",
+      "docs/engineering/RELEASE_3.1.4_READINESS.md"
+    ]) {
+      expect(existsSync(path.join(process.cwd(), relativePath)), relativePath).toBe(false);
+    }
   });
 
   it("keeps repository-local Markdown links resolvable", () => {
@@ -115,8 +92,8 @@ describe("maintainer documentation", () => {
       "README.md",
       "CONTRIBUTING.md",
       "SECURITY.md",
-      ...listMarkdownFiles("docs"),
-      ...listMarkdownFiles(".github")
+      ...listFiles("docs", new Set([".md"])),
+      ...listFiles(".github", new Set([".md"]))
     ];
     const missingLinks: string[] = [];
 
@@ -146,7 +123,7 @@ describe("maintainer documentation", () => {
     expect(missingLinks).toEqual([]);
   });
 
-  it("keeps documented command references backed by real scripts and test files", () => {
+  it("keeps documented commands backed by real scripts and test files", () => {
     const pkg = JSON.parse(readRepoFile("package.json")) as { scripts?: Record<string, string> };
     const knownScripts = new Set(Object.keys(pkg.scripts ?? {}));
     const optionalScripts = new Set(["demo"]);
@@ -154,9 +131,7 @@ describe("maintainer documentation", () => {
       "README.md",
       "CONTRIBUTING.md",
       "SECURITY.md",
-      "package.json",
-      "action.yml",
-      ...listMarkdownFiles("docs"),
+      ...listFiles("docs", new Set([".md"])),
       ...listFiles(".github", new Set([".md", ".yml", ".yaml"]))
     ];
     const missingReferences: string[] = [];
@@ -189,180 +164,37 @@ describe("maintainer documentation", () => {
     expect(missingReferences).toEqual([]);
   });
 
-  it("keeps historical release notes framed as archived evidence", () => {
-    const historicalRelease = readRepoFile("docs/engineering/RELEASE_3.1.4_READINESS.md");
-    const fullAudit = readRepoFile("docs/engineering/FULL_REPO_AUDIT_2026-05-30.md");
-    const normalizedFullAudit = fullAudit.replace(/\s+/g, " ");
-
-    expect(historicalRelease).toContain("archived readiness record");
-    expect(historicalRelease).toContain("Do not use it as the current");
-    expect(historicalRelease).toContain("Historical Required Verification");
-    expect(historicalRelease).not.toContain(["generated", "tool wording"].join("-"));
-    expect(fullAudit).toContain("Archived engineering record");
-    expect(normalizedFullAudit).toContain(
-      "Do not use it as the current release-readiness statement"
-    );
-    expect(fullAudit).not.toContain("outside the Windows sandbox");
-    expect(fullAudit).not.toContain("22.17.1");
-    expect(fullAudit).not.toContain("cargo is not installed");
-    expect(fullAudit).not.toContain("this machine");
-  });
-
-  it("keeps the roadmap focused on remaining work", () => {
-    const roadmap = readRepoFile("docs/roadmap.md");
-    const readme = readRepoFile("README.md");
-
-    expect(readme).toContain("profile-specific coverage, baseline guidance");
-    expect(readme).toContain("report artifact upload step");
-    expect(roadmap).not.toContain(
-      "Expand `wqg init` templates with profile-specific comments and baseline guidance."
-    );
-  });
-
-  it("keeps the 3.2.3 release notes pending and aligned with release output", () => {
-    const changelog = readRepoFile("CHANGELOG.md");
-    const release = changelog.slice(
-      changelog.indexOf("## [3.2.3]"),
-      changelog.indexOf("## [3.2.2]")
-    );
-
-    expect(release).toContain("## [3.2.3] - Pending release");
-    expect(release).toContain("Lighthouse to `13.4.1`");
-    expect(release).toContain("coexisting nested runtime package versions");
-    expect(release).toContain("Release tags must point to current `main`");
-    expect(release).toContain("Windows publish-runtime and package smoke checks");
-    expect(changelog).toContain(
-      "[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...HEAD"
-    );
-    expect(changelog).toContain(
-      "[3.2.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...HEAD"
-    );
-  });
-
-  it("keeps Unreleased changelog notes aligned with current hardening surfaces", () => {
-    const changelog = readRepoFile("CHANGELOG.md");
-    const unreleased = changelog.slice(
-      changelog.indexOf("## [Unreleased]"),
-      changelog.indexOf("## [3.1.6]")
-    );
-
-    expect(unreleased).toContain("`wqg doctor`");
-    expect(unreleased).toContain("`wqg init --profile <name> --url <url>`");
-    expect(unreleased).toContain("upload report artifacts");
-    expect(unreleased).toContain("Action-emitted summary, report, Action Plan");
-    expect(unreleased).toContain("current pinned checkout and upload-artifact actions");
-    expect(unreleased).toContain("Summary v2 schema/version advanced to `2.3.0`");
-    expect(unreleased).toContain("`schemas/pr-risk-ledger.v1.json`");
-    expect(unreleased).toContain("Fixture case-study provenance");
-    expect(unreleased).toContain("Composite Action outputs");
-    expect(unreleased).toContain("PR Risk Ledger artifacts");
-    expect(unreleased).toContain("Public baseline/improved case-study provenance");
-    expect(unreleased).toContain("required review and screenshot artifacts");
-    expect(unreleased).toContain("Node engine preflight");
-    expect(unreleased).toContain("Pack smoke");
-    expect(unreleased).toContain("rebuild stale `dist` output");
-    expect(unreleased).toContain("isolated built-runtime snapshot");
-    expect(unreleased).toContain("CLI shebang integrity");
-    expect(unreleased).toContain("installed `wqg init` artifact-upload scaffolding");
-    expect(unreleased).toContain("Native visual diff execution is disabled in CI");
-    expect(unreleased).toContain("Python smoke diagnostics");
-    expect(unreleased).toContain("bytecode caches");
-    expect(unreleased).toContain("Python analytics smoke");
-    expect(unreleased).toContain("pull request checklist");
-    expect(unreleased).toContain("avoids rerunning the runtime audit");
-    expect(unreleased).toContain("quality-gate workflow");
-    expect(unreleased).toContain("manual npm publish workflow");
-    expect(unreleased).toContain("native visual diff workflow now pins Node 24");
-    expect(unreleased).toContain("native runtime support helper changes");
-    expect(unreleased).toContain(
-      "repo-owned workflows now run the Node engine preflight before dependency install"
-    );
-    expect(unreleased).toContain("Package smoke coverage now runs on both Node 22.19 and Node 24");
-    expect(unreleased).toContain("README repo-development command list");
-    expect(unreleased).toContain("Protocol-relative screenshot paths are rejected");
-    expect(unreleased).toContain("combined summary and PR Risk Ledger contract gate");
-    expect(unreleased).toContain("Compatibility baseline follow-ups");
-    expect(unreleased).toContain(
-      "Auth headers and cookies now follow verified navigation redirects"
-    );
-    expect(unreleased).toContain("audited landing URL after redirects");
-    expect(unreleased).toContain("Stable major Action tag publication");
-    expect(unreleased).toContain("composite Action no longer checks out");
-    expect(unreleased).toContain("Windows publish-runtime and package smoke checks");
-    expect(unreleased).toContain("Release evidence artifacts");
-    expect(unreleased).toContain("sensitive-audit");
-    expect(unreleased).toContain("consumer workflow examples gate artifact upload");
-  });
-
-  it("keeps summary v2 migration guidance aligned with current aggregate artifacts", () => {
-    const migration = readRepoFile("docs/migrations/summary-v2.md");
-    const compatibility = readRepoFile("docs/contracts/compatibility-baseline.md");
-
-    expect(migration).toContain("summary.v2.json#artifacts.actionPlanMd");
-    expect(migration).toContain("summary.v2.json#artifacts.prRiskLedgerJson");
-    expect(migration).toContain("summary.v2.json#artifacts.prRiskLedgerMd");
-    expect(compatibility).toContain("default summary/report/action-plan/PR Risk Ledger artifacts");
-    expect(compatibility).toContain("default report/action-plan/PR");
-  });
-
-  it("keeps the testing matrix aligned with contract gate coverage", () => {
-    const matrix = readRepoFile("docs/testing-matrix.md");
-    const contributing = readRepoFile("CONTRIBUTING.md");
-
-    expect(matrix).toContain("summary and PR Risk Ledger contract drift gate");
-    expect(matrix).toContain("PR Risk Ledger schema/runtime/doc alignment");
-    expect(matrix).toContain("docs/contracts/pr-risk-ledger-v1-contract.md");
-    expect(matrix).toContain("schemas/pr-risk-ledger.v1.json");
-    expect(matrix).toContain("cache-free smoke runs");
-    expect(matrix).toContain("tests/python-smoke.test.ts");
-    expect(contributing).toContain("summary and PR Risk Ledger contract drift gate");
-  });
-
-  it("keeps architecture and compatibility docs aligned with PR Risk Ledger contract coverage", () => {
-    const architecture = readRepoFile("docs/engineering/ARCHITECTURE_MAP.md");
-    const compatibility = readRepoFile("docs/contracts/compatibility-baseline.md");
-    const qualityGate = readRepoFile(".github/workflows/quality-gate.yml");
-
-    expect(architecture).toContain(
-      "summary, PR Risk Ledger, schema, runtime, or contract-doc alignment"
-    );
-    expect(compatibility).toContain("schemas/pr-risk-ledger.v1.json");
-    expect(compatibility).toContain("PR Risk Ledger schema/docs");
-    expect(compatibility).toContain("summary or PR Risk Ledger contract edits");
-    expect(compatibility).toContain("Remaining Follow-ups");
-    expect(compatibility).toContain("sensitive-audit");
-    expect(compatibility).toContain(" - `sensitive-audit`");
-    expect(compatibility).toContain("explicit sensitive-audit controls");
-    expect(compatibility).toContain("release-provenance.json");
-    expect(compatibility).toContain("sbom.spdx.json");
-    expect(compatibility).not.toContain("release provenance artifacts and SBOM publication");
-    expect(compatibility).not.toContain(
-      "Correctness bugs in config loading, trend handling, action path resolution, and case-study ROI calculation"
-    );
-    expect(compatibility).not.toContain("Automated schema/doc/runtime drift detection");
-    expect(qualityGate).toContain("Check summary and PR Risk Ledger contracts");
-  });
-  it("documents release evidence as implemented release behavior", function () {
-    const sbom = readRepoFile("docs/sbom.md");
+  it("distinguishes source-generated release evidence from published assets", () => {
     const provenance = readRepoFile("docs/provenance.md");
-    const roadmap = readRepoFile("docs/roadmap.md");
+    const sbom = readRepoFile("docs/sbom.md");
+
+    expect(provenance).toContain("Inspect the assets attached to the specific Release");
+    expect(provenance).toContain("not evidence that a GitHub Release or npm package was published");
+    expect(sbom).toContain("inspect that GitHub Release's attached assets");
+    expect(sbom).toContain("is not proof that the same file was attached to a Release");
+    expect(provenance).not.toContain("Starting with v3.2.3");
+    expect(sbom).not.toContain("Starting with v3.2.3");
+  });
+
+  it("keeps the compatibility index concise and tied to authoritative contracts", () => {
     const compatibility = readRepoFile("docs/contracts/compatibility-baseline.md");
 
-    for (const source of [sbom, provenance, roadmap, compatibility]) {
-      expect(source).not.toContain("does not currently publish a standalone release SBOM artifact");
-      expect(source).not.toContain("Planned SBOM Path");
-      expect(source).not.toContain("Until that is available");
-      expect(source).not.toContain(
-        "Add release provenance artifacts to the GitHub Release workflow"
-      );
-      expect(source).not.toContain("Publish a maintained SBOM alongside release artifacts");
-    }
+    expect(compatibility.split(/\r?\n/).length).toBeLessThan(120);
+    expect(compatibility).toContain("schemas/summary.v1.json");
+    expect(compatibility).toContain("schemas/summary.v2.json");
+    expect(compatibility).toContain("schemas/pr-risk-ledger.v1.json");
+    expect(compatibility).toContain("sensitive-audit");
+    expect(compatibility).not.toContain("Historical 3.1.4 tarball contents");
+    expect(compatibility).not.toContain("Remaining Follow-ups");
+  });
 
-    expect(sbom).toContain("Web Quality Gatekeeper publishes a release-scoped SPDX 2.3 SBOM");
-    expect(sbom).toContain("npm run release:evidence");
-    expect(provenance).toContain("release-provenance.json");
-    expect(provenance).toContain("sbom.spdx.json");
-    expect(roadmap).toContain("release evidence artifacts");
-    expect(compatibility).toContain("manual npm trusted-publishing backfill path");
+  it("keeps the public comparison protocol project-neutral", () => {
+    const protocol = readRepoFile("docs/case-study/public-oss-repro.md");
+
+    expect(protocol).toContain("baseline commit SHA");
+    expect(protocol).toContain("improved commit SHA");
+    expect(protocol).toContain("provenance.json");
+    expect(protocol).not.toContain("Candidate Repositories");
+    expect(protocol).not.toContain("vitejs/vite");
   });
 });

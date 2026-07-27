@@ -8,7 +8,6 @@ __pycache__/
 *.py[cod]
 .env
 .env.*
-!.env.example
 coverage/
 playwright-report/
 test-results/
