@@ -9,12 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.2.3] - 2026-07-06
+## [3.2.3] - Pending release
 
 ### Added
 
 - Release evidence artifacts now include `release-provenance.json` and `sbom.spdx.json` from the GitHub Release workflow.
 - Composite Action runs now emit `sensitive-audit`, and consumer workflow examples gate artifact upload on `steps.wqg.outputs.sensitive-audit`.
+
+### Changed
+
+- Updated Lighthouse to `13.4.1`, removing the affected OpenTelemetry dependency path from the installed runtime graph.
+
+### Fixed
+
+- Release SBOM generation preserves coexisting nested runtime package versions with unique SPDX identifiers.
+- Release tags must point to current `main`; GitHub Release evidence is attached to a draft and the exact tag is reverified before publication.
+- Manual npm publishing reverifies the tagged commit and published GitHub Release immediately before trusted publication.
+- Windows publish-runtime and package smoke checks avoid direct `.cmd` and drive-qualified `tar` invocation failures.
 
 ## [3.2.2] - 2026-06-14
 
@@ -76,7 +87,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Emitted summaries, aggregate reports, trend entries, and PR Risk Ledger inputs now record the audited landing URL after redirects.
 - Stable major Action tag publication now refuses backward movement before creating the GitHub Release, and the release workflow no longer retriggers on bare major aliases.
 - The composite Action no longer checks out and cleans the caller workspace before reading relative config or policy inputs.
-- The trusted-publishing runtime preflight now resolves `npm.cmd` on Windows.
 - Maintainer documentation now has automated guards for local Markdown links, documented npm scripts, helper scripts, referenced test files, historical release framing, and stale roadmap entries.
 - Maintainer testing guidance now describes `contracts:check` as the combined summary and PR Risk Ledger contract gate.
 
@@ -346,8 +356,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
-[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.3...HEAD
-[3.2.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...v3.2.3
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...HEAD
+[3.2.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...HEAD
 [3.2.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.1...v3.2.2
 [3.2.1]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.0...v3.2.1
 [3.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.1.6...v3.2.0

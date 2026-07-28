@@ -96,18 +96,20 @@ async function runPackSmoke() {
     );
     const tarballName = parsePackedTarballName(tarballStdout);
     const tarballPath = path.join(smokeRoot, tarballName);
-    const { stdout: tarballList } = await runChecked("tar", ["-tf", tarballPath]);
+    const { stdout: tarballList } = await runChecked("tar", ["-tf", tarballName], {
+      cwd: smokeRoot
+    });
     assertTarballEntries(
       tarballList
         .split("\n")
         .map((entry) => entry.trim())
         .filter(Boolean)
     );
-    const { stdout: packagedCliSource } = await runChecked("tar", [
-      "-xOf",
-      tarballPath,
-      "package/dist/cli.js"
-    ]);
+    const { stdout: packagedCliSource } = await runChecked(
+      "tar",
+      ["-xOf", tarballName, "package/dist/cli.js"],
+      { cwd: smokeRoot }
+    );
     if (!packagedCliSource.startsWith("#!/usr/bin/env node")) {
       throw new Error("Expected packaged CLI entrypoint to start with a Node shebang.");
     }
@@ -562,7 +564,9 @@ async function installTarballByExtraction(consumerDir, tarballPath) {
   await mkdir(nodeModulesDir, { recursive: true });
   await mkdir(binDir, { recursive: true });
   await mkdir(stagingDir, { recursive: true });
-  await runChecked("tar", ["-xf", tarballPath, "-C", stagingDir]);
+  await runChecked("tar", ["-xf", path.basename(tarballPath), "-C", stagingDir], {
+    cwd: path.dirname(tarballPath)
+  });
   await removePathWithRetry(packageRoot);
   await rename(path.join(stagingDir, "package"), packageRoot);
   await removePathWithRetry(stagingDir);

@@ -93,6 +93,60 @@ describe("workflow invariants", () => {
     expect(source).toContain('"refs/tags/$MAJOR" --force');
   });
 
+  it("requires release and npm publish tags to come from protected main", () => {
+    const release = readRepoFile(".github/workflows/release.yml");
+    const npmPublish = readRepoFile(".github/workflows/npm-publish.yml");
+    const ancestryFetch = 'git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"';
+    const ancestryCheck = 'git merge-base --is-ancestor "$RELEASE_COMMIT" "origin/main"';
+
+    expect(release).toContain("Verify release tag commit is on main");
+    expect(release).toContain(ancestryFetch);
+    expect(release).toContain(ancestryCheck);
+    expect(release).toContain("must point to a commit reachable from main");
+    expect(release).toContain('MAIN_COMMIT="$(git rev-parse --verify "origin/main^{commit}")"');
+    expect(release).toContain('if [ "$RELEASE_COMMIT" != "$MAIN_COMMIT" ]; then');
+    expect(release).toContain("must point to the current main commit");
+    expect(release).toContain("release_commit: ${{ steps.release_commit.outputs.commit }}");
+    expect(release).toContain("Create draft GitHub release");
+    expect(release).toContain("fail_on_unmatched_files: true");
+    expect(release).toContain("Verify release tag and publish GitHub release");
+    expect(release).toContain(
+      'git fetch --force --no-tags origin "refs/tags/${RELEASE_TAG}:refs/release-verification/${RELEASE_TAG}"'
+    );
+    expect(release).toContain('if [ "$CURRENT_RELEASE_COMMIT" != "$RELEASE_COMMIT" ]; then');
+    expect(release).toContain("leaving the GitHub Release as a draft");
+    expect(release).toContain('gh release edit "$RELEASE_TAG" --draft=false');
+    expectTextOrder(release, [
+      "Checkout",
+      "Verify release tag commit is on main",
+      "Install dependencies",
+      "Create draft GitHub release",
+      "Verify release tag and publish GitHub release"
+    ]);
+
+    expect(npmPublish).toContain("Verify release tag is published from main");
+    expect(npmPublish).toContain("fetch-depth: 0");
+    expect(npmPublish).toContain(ancestryFetch);
+    expect(npmPublish).toContain(ancestryCheck);
+    expect(npmPublish).toContain(
+      'gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${RELEASE_TAG}"'
+    );
+    expect(npmPublish).toContain('RELEASE_DRAFT" != "false"');
+    expect(npmPublish).toContain("release_commit: ${{ steps.release_origin.outputs.commit }}");
+    expect(npmPublish).toContain("Reverify immutable npm release source");
+    expect(npmPublish).toContain(
+      "gh api \"repos/${GITHUB_REPOSITORY}/commits/${RELEASE_TAG}\" --jq '.sha'"
+    );
+    expect(npmPublish).toContain("must remain published before npm publishing");
+    expectTextOrder(npmPublish, [
+      "Checkout",
+      "Verify release tag is published from main",
+      "Setup Node",
+      "Reverify immutable npm release source",
+      "Publish to npm with trusted publishing"
+    ]);
+  });
+
   it("keeps PR summary comments fork-safe and permission-tolerant", () => {
     const source = readRepoFile(".github/workflows/quality-gate.yml");
 
@@ -181,15 +235,15 @@ describe("workflow invariants", () => {
     expect(localSmokeSource).toContain('expectedSensitive: "false"');
     expect(localSmokeSource).toContain('expectedSensitive: "true"');
     expect(localSmokeSource).toContain('caseName: "append-env-auth"');
-    expect(localSmokeSource).toContain('WQG_AUTH_HEADERS_APPEND');
-    expect(localSmokeSource).toContain('WQG_AUTH_COOKIES_APPEND');
+    expect(localSmokeSource).toContain("WQG_AUTH_HEADERS_APPEND");
+    expect(localSmokeSource).toContain("WQG_AUTH_COOKIES_APPEND");
     expect(actionSource).toContain("sensitive-audit:");
     expect(actionSource).toContain('echo "sensitive-audit=$SENSITIVE_AUDIT"');
     expect(actionSource).toContain("has_nonblank_value");
     expect(actionSource).toContain('[[ "$INPUT_ALLOW_INTERNAL" == "true" ]]');
     expect(actionSource).toContain('case "${WQG_ALLOW_INTERNAL_TARGETS:-}" in');
-    expect(actionSource).toContain('${WQG_AUTH_HEADERS_APPEND:-}');
-    expect(actionSource).toContain('${WQG_AUTH_COOKIES_APPEND:-}');
+    expect(actionSource).toContain("${WQG_AUTH_HEADERS_APPEND:-}");
+    expect(actionSource).toContain("${WQG_AUTH_COOKIES_APPEND:-}");
     expect(actionSource).toContain('export WQG_AUTH_HEADERS_APPEND="$INPUT_HEADERS"');
     expect(actionSource).toContain('export WQG_AUTH_COOKIES_APPEND="$INPUT_COOKIES"');
     expect(actionSource).not.toContain('export WQG_AUTH_HEADERS="$INPUT_HEADERS"');
@@ -311,8 +365,14 @@ describe("workflow invariants", () => {
     expect(source).toContain("matrix:");
     expect(source).toContain("os: [ubuntu-latest, macos-latest, windows-latest]");
     expect(source).toContain('node: ["22.19", 24]');
+    expect(source).toContain("Check trusted publishing runtime (Windows)");
+    expect(source).toContain("if: runner.os == 'Windows' && matrix.node == 24");
     expect(source).toContain("Check Node engine");
-    expectTextOrder(source, ["npm run engines:check", "npm ci --ignore-scripts"]);
+    expectTextOrder(source, [
+      "node scripts/ci/assert-publish-runtime.mjs",
+      "npm run engines:check",
+      "npm ci --ignore-scripts"
+    ]);
     expect(source).toContain("node-version: ${{ matrix.node }}");
     expect(source).toContain("Resolve Chrome path");
     expect(source).toContain("node scripts/ci/resolve-chrome-path.mjs");
@@ -358,6 +418,9 @@ describe("workflow invariants", () => {
     expect(source).toContain("Upload publish artifact");
     expect(source).toContain("npm pack --ignore-scripts --json > pack.json");
     expect(source).toContain("Generate publish evidence");
+    expect(source).toContain("RELEASE_TAG: ${{ inputs.release_tag }}");
+    expect(source).toContain(`--release-tag "$RELEASE_TAG"`);
+    expect(source).not.toContain('--release-tag "${{ inputs.release_tag }}"');
     expect(source).toContain("RELEASE_COMMIT=");
     expect(source).toContain("git rev-parse HEAD");
     expect(source).toContain("--commit");
@@ -393,7 +456,8 @@ describe("workflow invariants", () => {
     const uploadEvidenceIndex = source.indexOf("Upload release evidence");
     const downloadEvidenceIndex = source.indexOf("Download release evidence");
     const guardIndex = source.indexOf("Validate stable major tag movement");
-    const releaseIndex = source.indexOf("Create GitHub release");
+    const releaseIndex = source.indexOf("Create draft GitHub release");
+    const publishIndex = source.indexOf("Verify release tag and publish GitHub release");
     const majorTagIndex = source.indexOf("Update major version tag");
 
     expect(source).toContain("Enforce tag and package version parity");
@@ -419,10 +483,11 @@ describe("workflow invariants", () => {
     expect(downloadEvidenceIndex).toBeGreaterThan(uploadEvidenceIndex);
     expect(guardIndex).toBeGreaterThanOrEqual(0);
     expect(releaseIndex).toBeGreaterThanOrEqual(0);
+    expect(publishIndex).toBeGreaterThan(releaseIndex);
     expect(majorTagIndex).toBeGreaterThanOrEqual(0);
     expect(downloadEvidenceIndex).toBeLessThan(releaseIndex);
     expect(guardIndex).toBeLessThan(releaseIndex);
-    expect(releaseIndex).toBeLessThan(majorTagIndex);
+    expect(publishIndex).toBeLessThan(majorTagIndex);
   });
   it("uses maintainer helper commands in validation-heavy workflows", () => {
     const qualityGate = readRepoFile(".github/workflows/quality-gate.yml");
@@ -450,8 +515,8 @@ describe("workflow invariants", () => {
       "npm run check\n          npm run security:audit\n          npm run build"
     );
     expect(publishRuntime).toContain("Trusted publishing requires");
-    expect(publishRuntime).toContain("resolveNpmCommand");
-    expect(publishRuntime).toContain('["--version"]');
+    expect(publishRuntime).toContain("resolveNpmInvocation");
+    expect(publishRuntime).toContain('"npm.cmd --version"');
   });
 
   it("keeps the published consumer workflow aligned with repo pinning policy", () => {
@@ -483,9 +548,11 @@ describe("workflow invariants", () => {
     const contributing = readRepoFile("CONTRIBUTING.md");
     const prTemplate = readRepoFile(".github/pull_request_template.md");
 
+    expect(contributing).toContain("Add the narrowest regression test for behavior changes.");
     expect(contributing).toContain(
-      "Keep submitted code, docs, and artifacts directly verifiable through the repo's tests, smoke checks, or published evidence."
+      "Keep public examples aligned with the Action, CLI, and emitted artifacts."
     );
+    expect(contributing).toContain("Do not treat a skipped optional smoke as release evidence.");
     expect(prTemplate).toContain(
       "I confirmed the docs, examples, and emitted artifacts still match actual repo behavior"
     );
