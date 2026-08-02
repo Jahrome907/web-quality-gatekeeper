@@ -31,7 +31,11 @@ describe("maintainer documentation", () => {
 
     expect(readme.split(/\r?\n/).length).toBeLessThan(250);
     expect(readme).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
-    expect(readme).toContain("The npm package is not published");
+    expect(readme).toContain("Contract-checked JSON formats are covered by versioned schemas");
+    expect(readme).toContain("The `policy` input is optional");
+    expect(readme).toContain("tools/python/README.md");
+    expect(readme).not.toContain("url: https://your-site.example\n          policy: marketing");
+    expect(readme).toContain("Version `3.2.3` is not published to npm");
     expect(readme).toContain("node dist/cli.js audit");
     expect(readme).toContain("steps.wqg.outputs.sensitive-audit");
     expect(readme).toContain("docs/case-study-run.md");

@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
 [![Node.js 22.19+](https://img.shields.io/badge/Node.js-22.19%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-A GitHub Action and source-checkout CLI for Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual regression. Each audit writes an HTML report plus contract-checked JSON and Markdown artifacts for people and CI.
+A GitHub Action and source-checkout CLI for Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual regression. Each audit writes an HTML report plus JSON and Markdown artifacts for people and CI. Contract-checked JSON formats are covered by versioned schemas and contract tests, so downstream tools can rely on documented fields.
 
-The supported public distribution is `Jahrome907/web-quality-gatekeeper@v3`. The npm package is not published; use the Action or build a source checkout. GitHub tags and [Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) are the source of truth for published versions, while `main` may contain unreleased work.
+The supported public distribution is `Jahrome907/web-quality-gatekeeper@v3`. Version `3.2.3` is not published to npm, so registry installation is unavailable; use the Action or build a source checkout. GitHub tags and [Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) are the source of truth for published versions, while `main` may contain unreleased work.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
@@ -15,7 +15,7 @@ The supported public distribution is `Jahrome907/web-quality-gatekeeper@v3`. The
 
 ## Adopt with GitHub Actions
 
-Add a job like this to your workflow. The full [consumer example](examples/consumer-workflow.yml) also uploads the report bundle safely.
+Add a job like this to your workflow. The full [consumer example](examples/consumer-workflow.yml) is the canonical reference for optional inputs and safe report uploads.
 
 ```yaml
 jobs:
@@ -32,7 +32,6 @@ jobs:
         uses: Jahrome907/web-quality-gatekeeper@v3
         with:
           url: https://your-site.example
-          policy: marketing
           baseline-dir: .github/web-quality/baselines
       - name: Upload audit artifacts
         if: always() && (steps.wqg.outputs.sensitive-audit != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
@@ -49,7 +48,7 @@ jobs:
           if-no-files-found: warn
 ```
 
-The Action exposes `status`, artifact path outputs, and `sensitive-audit`. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
+The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, artifact path outputs, and `sensitive-audit`. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
 
 ## Run from source
 
@@ -103,11 +102,16 @@ Commit reviewed baseline images. Do not commit ordinary `artifacts/` output.
 
 ## What it checks
 
-- Playwright navigation, screenshots, console errors, and failed requests
+- Playwright navigation and runtime error capture
+- Screenshot capture
 - axe-core accessibility violations
-- Lighthouse performance score, LCP, CLS, and TBT budgets
-- pixel-level visual diffs, with an optional source-checkout Rust engine
-- multi-page rollups, trend history, prioritized remediation, and PR risk summaries
+- Lighthouse performance budgets
+- Pixel-level visual diffs
+- Optional source-checkout Rust visual diff engine
+- Multi-page rollups
+- Trend history
+- Prioritized remediation
+- PR risk summaries
 
 The target host comes from the audit URL or config. Built-in policies supply paths, budgets, and toggles; they never replace the requested host.
 
@@ -125,6 +129,7 @@ Reproduce that bundle with [the fixture walkthrough](docs/case-study-run.md). Pu
 - [Summary v1](docs/contracts/summary-v1-contract.md), [summary v2](docs/contracts/summary-v2-contract.md), and [PR Risk Ledger](docs/contracts/pr-risk-ledger-v1-contract.md)
 - [Architecture map](docs/engineering/ARCHITECTURE_MAP.md) and [testing matrix](docs/testing-matrix.md)
 - [Provenance](docs/provenance.md) and [SBOM](docs/sbom.md)
+- [Optional Python analytics tooling](tools/python/README.md) for case-study artifact post-processing; the core CLI and Action do not require Python
 - [Roadmap](docs/roadmap.md)
 
 ## Contributing
