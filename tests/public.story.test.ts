@@ -14,6 +14,8 @@ describe("public story surface", () => {
   it("keeps the Pages entry focused on evidence, supported usage, and boundaries", () => {
     const source = readRepoFile("docs/index.html");
 
+    expect(source).toContain("Browser quality checks with reviewable evidence.");
+    expect(source).not.toContain("Make a web release prove itself.");
     expect(source).toContain("Inspect the output before adopting the tool.");
     expect(source).toContain("Two supported paths, stated plainly.");
     expect(source).toContain("Rebuild the fixture proof from a clean clone.");
@@ -50,10 +52,14 @@ describe("public story surface", () => {
     expect(source).toContain("steps.wqg.outputs.report-path");
     expect(source).toContain("steps.wqg.outputs.pr-risk-ledger-md-path");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
+    expect(source).toContain("The <code>policy</code> input is optional");
+    expect(source).toContain("contract-checked JSON formats");
+    expect(source).toContain("covered by versioned schemas and contract tests");
+    expect(source).not.toContain("url: https://your-site.example\n          policy: marketing");
     expect(source).toMatch(/tabindex="0"\s+aria-label="Source CLI usage example"/);
     expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action usage example"/);
     expect(source).toContain("node dist/cli.js audit https://your-site.example --policy marketing");
-    expect(source).toContain("<strong>Not published.</strong>");
+    expect(source).toContain("<strong>3.2.3 is unavailable.</strong>");
     expect(source).toContain("This bundle is not evidence of npm publication.");
     expect(source).toContain("Sensitive runs suppress artifact uploads");
     expect(source).not.toContain("wqg audit https://your-site.example");
@@ -136,7 +142,14 @@ describe("public story surface", () => {
     const source = readRepoFile("README.md");
 
     expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
-    expect(source).toContain("The npm package is not published");
+    expect(source).toContain("Contract-checked JSON formats are covered by versioned schemas");
+    expect(source).toContain("The `policy` input is optional");
+    expect(source).toContain("tools/python/README.md");
+    expect(source).toContain(
+      "- Multi-page rollups\n- Trend history\n- Prioritized remediation\n- PR risk summaries"
+    );
+    expect(source).not.toContain("url: https://your-site.example\n          policy: marketing");
+    expect(source).toContain("Version `3.2.3` is not published to npm");
     expect(source).toContain("On successful runs, `node dist/cli.js audit` writes artifact files");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
     expect(source).toContain("docs/case-study-run.md");
