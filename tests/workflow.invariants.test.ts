@@ -278,7 +278,7 @@ describe("workflow invariants", () => {
     expect(source).toContain(
       [
         "    - name: Setup Node",
-        "      uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0",
+        "      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0",
         "      with:",
         "        node-version: 24"
       ].join("\n")
@@ -322,7 +322,7 @@ describe("workflow invariants", () => {
     const smokeSource = readRepoFile("scripts/ci/native-visual-diff-smoke.mjs");
 
     expect(source).toContain("Setup Node");
-    expect(source).toContain("actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e");
+    expect(source).toContain("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020");
     expect(source).toContain("node-version: 24");
     expect(source).toContain("package-manager-cache: false");
     expect(source).toContain("src/runner/nativeVisualDiffSupport.ts");
