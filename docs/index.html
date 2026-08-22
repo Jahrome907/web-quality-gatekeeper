@@ -525,7 +525,7 @@
         <section class="hero" aria-labelledby="hero-title">
           <div>
             <p class="eyebrow">Open-source browser quality gate</p>
-            <h1 id="hero-title">Make a web release prove itself.</h1>
+            <h1 id="hero-title">Browser quality checks with reviewable evidence.</h1>
             <p class="hero-copy">
               Web Quality Gatekeeper runs browser smoke checks, axe accessibility scans, Lighthouse
               budgets, and visual comparisons through one CLI and GitHub Action. It returns
@@ -547,7 +547,10 @@
             </div>
             <div>
               <dt>npm</dt>
-              <dd><strong>Not published.</strong> No registry install is documented here.</dd>
+              <dd>
+                <strong>3.2.3 is unavailable.</strong> No registry installation path is available
+                for this version.
+              </dd>
             </div>
             <div>
               <dt>Outputs</dt>
@@ -568,8 +571,9 @@
                 <h3>Committed fixture report</h3>
                 <p>
                   The human-readable report records step status, runtime signals, findings, and
-                  screenshot references. The same run also publishes contract-checked data for
-                  automation.
+                  screenshot references. The same run also publishes contract-checked JSON formats
+                  covered by versioned schemas and contract tests, so automation can rely on
+                  documented fields.
                 </p>
                 <a class="report-link" href="proof/fixture-report.html">Open fixture-report.html</a>
               </div>
@@ -680,6 +684,15 @@
             ${{ steps.wqg.outputs.pr-risk-ledger-path }}
             ${{ steps.wqg.outputs.pr-risk-ledger-md-path }}
           if-no-files-found: warn</code></pre>
+                <p>
+                  The <code>policy</code> input is optional; this minimal example uses the Action
+                  defaults. The
+                  <a
+                    href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/examples/consumer-workflow.yml"
+                    >consumer workflow</a
+                  >
+                  is the canonical reference for optional inputs and safe artifact uploads.
+                </p>
               </article>
               <article class="usage-path">
                 <p class="path-status">Source path</p>
@@ -701,10 +714,10 @@ node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
               </article>
             </div>
             <p class="registry-note">
-              <strong>Registry status:</strong> <code>web-quality-gatekeeper</code> is not published
-              on npm. Do not use <code>npm install web-quality-gatekeeper</code> or
-              <code>npx wqg</code> as an installation path unless a future release explicitly adds
-              registry publication.
+              <strong>Registry status:</strong> Version <code>3.2.3</code> is not published to npm.
+              Do not use <code>npm install web-quality-gatekeeper</code> or <code>npx wqg</code> as
+              a path to this version; wait for a release that explicitly publishes the requested
+              version.
             </p>
           </div>
         </section>
