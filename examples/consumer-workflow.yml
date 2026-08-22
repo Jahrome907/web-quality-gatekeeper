@@ -29,6 +29,8 @@ jobs:
         uses: Jahrome907/web-quality-gatekeeper@v3
         with:
           url: https://your-site.example.com
+          # Optional named policy: marketing, ecommerce, saas, or docs
+          # policy: marketing
           # Optional authenticated audits (recommended to source from secrets)
           # headers: |
           #   X-WQG-Auth: Token ${{ secrets.STAGING_AUTH_VALUE }}

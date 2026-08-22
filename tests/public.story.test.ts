@@ -55,7 +55,9 @@ describe("public story surface", () => {
     expect(source).toContain("The <code>policy</code> input is optional");
     expect(source).toContain("contract-checked JSON formats");
     expect(source).toContain("covered by versioned schemas and contract tests");
-    expect(source).not.toContain("url: https://your-site.example\n          policy: marketing");
+    expect(source).not.toMatch(
+      /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
+    );
     expect(source).toMatch(/tabindex="0"\s+aria-label="Source CLI usage example"/);
     expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action usage example"/);
     expect(source).toContain("node dist/cli.js audit https://your-site.example --policy marketing");
@@ -148,7 +150,9 @@ describe("public story surface", () => {
     expect(source).toContain(
       "- Multi-page rollups\n- Trend history\n- Prioritized remediation\n- PR risk summaries"
     );
-    expect(source).not.toContain("url: https://your-site.example\n          policy: marketing");
+    expect(source).not.toMatch(
+      /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
+    );
     expect(source).toContain("Version `3.2.3` is not published to npm");
     expect(source).toContain("On successful runs, `node dist/cli.js audit` writes artifact files");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
