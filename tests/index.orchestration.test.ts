@@ -318,7 +318,9 @@ describe("runAudit orchestration", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(mockValidateOutputDirectory).toHaveBeenCalledTimes(2);
+    expect(mockValidateOutputDirectory).toHaveBeenCalledTimes(4);
+    expect(mockValidateOutputDirectory).toHaveBeenCalledWith(outDir);
+    expect(mockValidateOutputDirectory).toHaveBeenCalledWith(baselineDir);
     expect(mockRunAxeScan).toHaveBeenCalledWith(
       expect.anything(),
       outDir,

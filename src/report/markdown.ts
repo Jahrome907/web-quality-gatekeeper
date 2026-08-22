@@ -129,15 +129,15 @@ function escapeMarkdownText(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/\r?\n/g, " ")
-    .replace(/([[\]()`*_{}#!+])/g, "\\$1");
+    .replace(/([[\]()`*_{}#!+|])/g, "\\$1");
 }
 
 function escapeTableCell(value: string): string {
-  return escapeMarkdownText(value).replace(/\|/g, "\\|");
+  return escapeMarkdownText(value);
 }
 
 function escapeHeadingText(value: string): string {
-  return escapeMarkdownText(value).replace(/\|/g, "\\|");
+  return escapeMarkdownText(value);
 }
 
 function codeSpan(value: string): string {
