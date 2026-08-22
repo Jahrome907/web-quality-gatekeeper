@@ -1,4 +1,5 @@
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { readdir, readFile, unlink } from "node:fs/promises";
 import type { Config, UrlTarget } from "../config/schema.js";
 import { ensureDir, pathExists, writeJson } from "../utils/fs.js";
@@ -670,7 +671,7 @@ export async function writeTrendSnapshot(
 ): Promise<void> {
   await ensureDir(historyDir);
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const snapshotPath = path.join(historyDir, `${timestamp}.summary.v2.json`);
+  const snapshotPath = path.join(historyDir, `${timestamp}-${randomUUID()}.summary.v2.json`);
   await writeJson(snapshotPath, summaryV2);
 
   const files = (await readdir(historyDir))

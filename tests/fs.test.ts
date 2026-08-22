@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, symlink } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -58,6 +58,31 @@ describe("validateOutputDirectory", () => {
       process.chdir(workspace);
 
       expect(() => validateOutputDirectory("artifacts")).toThrow(
+        "Output directory must be within the working directory or GITHUB_WORKSPACE"
+      );
+    } finally {
+      process.chdir(originalCwd);
+      await rm(workspace, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects nested output paths whose existing ancestor escapes the workspace", async () => {
+    const originalCwd = process.cwd();
+    const workspace = await mkdtemp(path.join(tmpdir(), "wqg-fs-workspace-"));
+    const outside = await mkdtemp(path.join(tmpdir(), "wqg-fs-outside-"));
+
+    try {
+      await mkdir(path.join(workspace, "artifacts"));
+      await symlink(
+        outside,
+        path.join(workspace, "artifacts", "pages"),
+        process.platform === "win32" ? "junction" : "dir"
+      );
+      process.chdir(workspace);
+
+      expect(() => validateOutputDirectory("artifacts")).not.toThrow();
+      expect(() => validateOutputDirectory("artifacts/pages/01-home")).toThrow(
         "Output directory must be within the working directory or GITHUB_WORKSPACE"
       );
     } finally {

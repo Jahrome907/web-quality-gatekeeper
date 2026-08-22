@@ -2924,10 +2924,17 @@ export function renderReportTemplate(view: ReportViewModel): string {
 
       const openLightbox = (src, alt) => {
         if (!lightbox || !lightboxImage || !lightboxCaption) return;
+        let previewUrl;
+        try {
+          previewUrl = new URL(src, document.baseURI);
+        } catch (_) {
+          return;
+        }
+        if (!["http:", "https:", "file:"].includes(previewUrl.protocol)) return;
         lastFocused = document.activeElement;
-        lightboxImage.setAttribute("src", src);
+        lightboxImage.setAttribute("src", previewUrl.href);
         lightboxImage.setAttribute("alt", alt || "Screenshot preview");
-        lightboxCaption.textContent = alt || src;
+        lightboxCaption.textContent = alt || previewUrl.href;
         lightbox.removeAttribute("hidden");
         lightbox.setAttribute("aria-hidden", "false");
         if (lightboxClose && typeof lightboxClose.focus === "function") {

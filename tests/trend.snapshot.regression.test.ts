@@ -1,5 +1,5 @@
 import path from "node:path";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { describe, expect, it, vi } from "vitest";
 import type { AuditSummaryV2 } from "../src/audit/orchestration.js";
@@ -132,6 +132,26 @@ function createSummaryFixture(): AuditSummaryV2 {
 }
 
 describe("trend snapshot regression coverage", () => {
+  it("preserves concurrent snapshots created within the same millisecond", async () => {
+    const historyDir = await mkdtemp(path.join(tmpdir(), "wqg-trend-concurrent-"));
+
+    try {
+      const { writeTrendSnapshot } = await import("../src/audit/orchestration.js");
+      await Promise.all([
+        writeTrendSnapshot(historyDir, createSummaryFixture(), 10),
+        writeTrendSnapshot(historyDir, createSummaryFixture(), 10)
+      ]);
+
+      const snapshots = (await readdir(historyDir)).filter((entry) =>
+        entry.endsWith(".summary.v2.json")
+      );
+      expect(snapshots).toHaveLength(2);
+      expect(new Set(snapshots)).toHaveLength(2);
+    } finally {
+      await rm(historyDir, { recursive: true, force: true });
+    }
+  });
+
   it("rejects malformed v2 history snapshots as incompatible", async () => {
     const historyDir = await mkdtemp(path.join(tmpdir(), "wqg-trend-malformed-"));
     const logger = { warn: vi.fn() };

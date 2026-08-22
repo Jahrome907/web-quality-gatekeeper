@@ -280,7 +280,7 @@ describe("phase4 markdown rendering", () => {
         {
           ...createPage(
             0,
-            "Checkout | ![badge](https://bad.example)\n# injected <img src=x onerror=alert(1)>",
+            "Checkout \\ path | ![badge](https://bad.example)\n# injected <img src=x onerror=alert(1)>",
             "fail"
           ),
           url: "https://example.com/checkout?next=a|b&tag=<script>",
@@ -346,7 +346,7 @@ describe("phase4 markdown rendering", () => {
     } as never);
 
     expect(markdown).toContain(
-      "Checkout \\| \\!\\[badge\\]\\(https://bad.example\\) \\# injected &lt;img src=x onerror=alert\\(1\\)&gt;"
+      "Checkout \\\\ path \\| \\!\\[badge\\]\\(https://bad.example\\) \\# injected &lt;img src=x onerror=alert\\(1\\)&gt;"
     );
     expect(markdown).toContain("next=a\\|b&amp;tag=&lt;script&gt;");
     expect(markdown).not.toContain("## 1. Checkout | ![badge]");

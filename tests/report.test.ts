@@ -219,6 +219,8 @@ describe("buildHtmlReport", () => {
     expect(html).toContain('id="lightbox-image"');
     expect(html).toContain('data-preview-src="screenshots/home.png"');
     expect(html).toContain('data-preview-src="../baselines/home.png"');
+    expect(html).toContain('["http:", "https:", "file:"].includes(previewUrl.protocol)');
+    expect(html).not.toContain('lightboxImage.setAttribute("src", src)');
     expect(html).toContain('aria-label="Image preview"');
   });
 

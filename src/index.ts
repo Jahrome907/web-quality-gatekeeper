@@ -372,6 +372,11 @@ export async function runAudit(
   };
   const targets = await resolveTargets(url, config, outDir, baselineDir, logger, targetPolicy);
 
+  for (const target of targets) {
+    validateOutputDirectory(target.outDir);
+    validateOutputDirectory(target.baselineDir);
+  }
+
   await ensureDir(outDir);
 
   const startedAt = nowIso();
