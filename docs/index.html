@@ -3,839 +3,217 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Web Quality Gatekeeper</title>
     <meta
       name="description"
-      content="An open-source CLI and GitHub Action for repeatable browser, accessibility, performance, and visual quality gates."
+      content="Web Quality Gatekeeper runs browser smoke, accessibility, performance, and visual checks in GitHub Actions."
     />
-    <link rel="icon" href="assets/brand-mark.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Web Quality Gatekeeper</title>
     <style>
       :root {
         color-scheme: light;
-        --paper: #f7f6f2;
-        --surface: #fff;
-        --ink: #151a1d;
-        --ink-soft: #41494e;
-        --muted: #626b70;
-        --line: #d7d5ce;
-        --line-strong: #aaa9a3;
-        --accent: #0b6570;
-        --accent-dark: #084b53;
-        --code-bg: #171c1f;
-        --code-ink: #edf1f2;
-        --max: 1140px;
+        --text: #1f2328;
+        --muted: #59636e;
+        --border: #d1d9e0;
+        --subtle: #f6f8fa;
+        --link: #0969da;
+        --success: #1a7f37;
       }
-      * {
-        box-sizing: border-box;
-      }
-      html {
-        scroll-behavior: smooth;
-      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
       body {
         margin: 0;
-        background: var(--paper);
-        color: var(--ink);
-        font-family:
-          Inter,
-          ui-sans-serif,
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          sans-serif;
+        background: #fff;
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-size: 16px;
-        line-height: 1.6;
-        overflow-wrap: break-word;
+        line-height: 1.5;
       }
-      a {
-        color: var(--accent);
-        text-decoration-thickness: 1px;
-        text-underline-offset: 0.2em;
-      }
-      a:hover {
-        color: var(--accent-dark);
-        text-decoration-thickness: 2px;
-      }
-      a:focus-visible,
-      pre:focus-visible {
-        outline: 3px solid var(--accent);
-        outline-offset: 3px;
-        border-radius: 2px;
-      }
-      code,
-      pre {
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      }
-      code {
-        font-size: 0.92em;
-      }
-      img {
-        display: block;
-        max-width: 100%;
-      }
+      a { color: var(--link); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      a:focus-visible, pre:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; }
+      code { padding: 0.12em 0.3em; border-radius: 4px; background: var(--subtle); font-size: 0.88em; }
       .skip-link {
         position: fixed;
-        top: 12px;
-        left: 12px;
+        inset-block-start: 8px;
+        inset-inline-start: 8px;
         z-index: 10;
-        padding: 9px 13px;
-        background: var(--ink);
+        padding: 8px 12px;
+        background: var(--text);
         color: #fff;
-        transform: translateY(-160%);
+        transform: translateY(-150%);
       }
-      .skip-link:focus {
-        transform: translateY(0);
-      }
-      .shell {
-        width: min(var(--max), calc(100% - 48px));
-        margin: 0 auto;
-      }
-      .site-header {
+      .skip-link:focus { transform: translateY(0); }
+      .container { inline-size: min(880px, calc(100% - 40px)); margin-inline: auto; }
+      header { border-block-end: 1px solid var(--border); background: var(--subtle); }
+      .header-inner {
         display: flex;
+        min-block-size: 64px;
         align-items: center;
         justify-content: space-between;
-        gap: 28px;
-        min-height: 78px;
-        border-bottom: 1px solid var(--line-strong);
+        gap: 20px;
       }
       .brand {
         display: inline-flex;
+        min-inline-size: 0;
         align-items: center;
-        gap: 10px;
-        color: var(--ink);
-        font-weight: 700;
-        line-height: 1.2;
-        text-decoration: none;
+        color: var(--text);
+        font-weight: 600;
       }
-      .brand:hover {
-        color: var(--ink);
-        text-decoration: underline;
-      }
-      .brand-mark {
-        width: 28px;
-        height: 28px;
-        flex: 0 0 auto;
-      }
-      .primary-nav {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        gap: 10px 22px;
-        font-size: 0.92rem;
-      }
-      .primary-nav a {
-        color: var(--ink-soft);
-        text-decoration: none;
-      }
-      .primary-nav a:hover {
-        color: var(--ink);
-        text-decoration: underline;
-      }
-      main:focus {
-        outline: none;
-      }
-      .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1.45fr) minmax(290px, 0.75fr);
-        gap: clamp(48px, 8vw, 108px);
-        align-items: end;
-        padding: clamp(68px, 10vw, 132px) 0 clamp(76px, 10vw, 124px);
-      }
-      .eyebrow,
-      .section-label,
-      .path-status {
-        margin: 0 0 16px;
-        color: var(--accent-dark);
-        font-size: 0.82rem;
-        font-weight: 700;
-      }
-      h1,
-      h2,
-      h3 {
-        margin: 0;
-        color: var(--ink);
-        line-height: 1.12;
-      }
-      h1 {
-        max-width: 17ch;
-        font-size: clamp(2.65rem, 6.2vw, 5.2rem);
-        font-weight: 680;
-      }
-      h2 {
-        max-width: 21ch;
-        font-size: clamp(2rem, 4vw, 3.35rem);
-        font-weight: 660;
-      }
-      h3 {
-        font-size: 1.05rem;
-        font-weight: 700;
-      }
-      .hero-copy {
-        max-width: 64ch;
-        margin: 28px 0 0;
-        color: var(--ink-soft);
-        font-size: clamp(1.05rem, 1.5vw, 1.22rem);
-      }
-      .action-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 11px;
-        margin-top: 30px;
-      }
+      nav { display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.9rem; }
+      nav a { display: inline-flex; min-block-size: 32px; align-items: center; }
+      main { padding-block: 48px 72px; }
+      main:focus { outline: 2px solid var(--link); outline-offset: 4px; }
+      h1, h2 { padding-block-end: 0.3em; border-block-end: 1px solid var(--border); line-height: 1.25; }
+      h1 { margin: 0; font-size: clamp(2rem, 6vw, 2.5rem); font-weight: 600; }
+      h2 { margin-block: 48px 16px; font-size: 1.5rem; font-weight: 600; }
+      .lead { max-inline-size: 68ch; margin-block: 18px 0; color: var(--muted); font-size: 1.08rem; }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-block-start: 24px; }
       .button {
         display: inline-flex;
+        min-block-size: 36px;
         align-items: center;
-        min-height: 44px;
-        padding: 8px 14px;
-        border: 1px solid var(--ink);
-        background: var(--ink);
-        color: #fff;
-        font-size: 0.94rem;
-        font-weight: 650;
-        text-decoration: none;
-      }
-      .button:hover {
-        background: var(--accent-dark);
-        border-color: var(--accent-dark);
-        color: #fff;
-        text-decoration: none;
-      }
-      .button.secondary {
-        background: transparent;
-        color: var(--ink);
-      }
-      .button.secondary:hover {
-        background: var(--surface);
-        border-color: var(--accent-dark);
-        color: var(--accent-dark);
-      }
-      .availability {
-        margin: 0;
-        border-top: 2px solid var(--ink);
-      }
-      .availability > div {
-        display: grid;
-        grid-template-columns: 7.5rem minmax(0, 1fr);
-        gap: 14px;
-        padding: 15px 0;
-        border-bottom: 1px solid var(--line);
-      }
-      .availability dt {
-        color: var(--muted);
-        font-size: 0.8rem;
-        font-weight: 700;
-      }
-      .availability dd {
-        min-width: 0;
-        margin: 0;
-        color: var(--ink-soft);
-        font-size: 0.91rem;
-      }
-      .availability strong,
-      .proof-note strong,
-      .registry-note strong {
-        color: var(--ink);
-      }
-      .section {
-        display: grid;
-        grid-template-columns: minmax(180px, 0.32fr) minmax(0, 1fr);
-        gap: clamp(36px, 8vw, 116px);
-        padding: clamp(72px, 9vw, 118px) 0;
-        border-top: 1px solid var(--line-strong);
-      }
-      .section-label {
-        margin: 3px 0 0;
-        color: var(--muted);
-      }
-      .section-intro {
-        max-width: 66ch;
-        margin: 22px 0 0;
-        color: var(--ink-soft);
-        font-size: 1.03rem;
-      }
-      .evidence-lead {
-        display: grid;
-        grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
-        gap: 32px;
-        margin-top: 48px;
-        padding: 28px 0;
-        border-top: 2px solid var(--ink);
-        border-bottom: 1px solid var(--line-strong);
-      }
-      .evidence-lead p,
-      .usage-path > p:not(.path-status),
-      .boundary > p {
-        max-width: 62ch;
-        margin: 11px 0 0;
-        color: var(--ink-soft);
-      }
-      .report-link {
-        display: inline-block;
-        margin-top: 20px;
-        font-weight: 700;
-      }
-      .run-record {
-        margin: 0;
-      }
-      .run-record > div {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        gap: 16px;
-        padding: 9px 0;
-        border-bottom: 1px solid var(--line);
-      }
-      .run-record > div:first-child {
-        padding-top: 0;
-      }
-      .run-record dt {
-        color: var(--muted);
-        font-size: 0.87rem;
-      }
-      .run-record dd {
-        margin: 0;
-        color: var(--ink);
-        font-variant-numeric: tabular-nums;
-        font-weight: 650;
-      }
-      .artifact-index {
-        margin: 44px 0 0;
-        padding: 0;
-        list-style: none;
-        border-top: 1px solid var(--line-strong);
-      }
-      .artifact-index li {
-        display: grid;
-        grid-template-columns: minmax(190px, 0.55fr) minmax(0, 1fr);
-        gap: 30px;
-        padding: 18px 0;
-        border-bottom: 1px solid var(--line);
-      }
-      .artifact-index a {
-        align-self: start;
-        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-        font-size: 0.88rem;
-        font-weight: 700;
-      }
-      .artifact-index span {
-        color: var(--ink-soft);
-        font-size: 0.94rem;
-      }
-      .proof-note {
-        margin: 30px 0 0;
-        padding-left: 18px;
-        border-left: 3px solid var(--accent);
-        color: var(--ink-soft);
-      }
-      .usage-grid,
-      .boundary-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 42px;
-        margin-top: 52px;
-      }
-      .usage-path,
-      .boundary {
-        min-width: 0;
-        border-top: 2px solid var(--ink);
-        padding-top: 20px;
-      }
-      .path-status {
-        margin: 0 0 8px;
-        font-size: 0.78rem;
-      }
-      pre {
-        width: 100%;
-        max-width: 100%;
-        margin: 20px 0 0;
-        padding: 18px;
-        border: 1px solid #31383c;
-        background: var(--code-bg);
-        color: var(--code-ink);
-        font-size: 0.82rem;
-        line-height: 1.55;
-        overflow-x: auto;
-        overscroll-behavior-inline: contain;
-        white-space: pre;
-      }
-      pre code {
-        color: inherit;
-        font-size: inherit;
-      }
-      .registry-note {
-        margin: 36px 0 0;
-        padding: 18px 20px;
-        border: 1px solid var(--line-strong);
-        background: var(--surface);
-        color: var(--ink-soft);
-      }
-      .reproduce-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.72fr);
-        gap: 42px;
-        margin-top: 48px;
-      }
-      .reproduce-grid > * {
-        min-width: 0;
-      }
-      .repro-links {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-        border-top: 2px solid var(--ink);
-      }
-      .repro-links li {
-        padding: 16px 0;
-        border-bottom: 1px solid var(--line);
-      }
-      .repro-links a {
-        font-weight: 700;
-      }
-      .repro-links span {
-        display: block;
-        margin-top: 4px;
-        color: var(--muted);
+        padding-inline: 14px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--subtle);
+        color: var(--text);
         font-size: 0.9rem;
+        font-weight: 600;
       }
-      .boundary ul {
-        margin: 18px 0 0;
-        padding-left: 20px;
+      .button:hover { background: #eef1f4; text-decoration: none; }
+      .button.primary { border-color: #1f883d; background: #1f883d; color: #fff; }
+      .button.primary:hover { background: #1a7f37; }
+      .availability { inline-size: 100%; margin-block-start: 32px; border-collapse: collapse; font-size: 0.94rem; }
+      .availability th, .availability td { padding: 10px 12px; border: 1px solid var(--border); text-align: start; }
+      .availability th { inline-size: 32%; background: var(--subtle); font-weight: 600; }
+      .available { color: var(--success); font-weight: 600; }
+      .checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 32px; padding-inline-start: 22px; }
+      .report { margin: 24px 0 0; }
+      .report img { display: block; inline-size: 100%; block-size: auto; border: 1px solid var(--border); border-radius: 6px; }
+      figcaption { margin-block-start: 8px; color: var(--muted); font-size: 0.88rem; }
+      pre {
+        max-inline-size: 100%;
+        margin-block: 16px 0;
+        overflow: auto;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--subtle);
+        font-size: 0.84rem;
+        line-height: 1.55;
       }
-      .boundary li {
-        margin: 0 0 10px;
-        color: var(--ink-soft);
+      pre code { padding: 0; background: transparent; font-size: inherit; }
+      .note { margin-block-start: 20px; padding: 12px 16px; border-inline-start: 4px solid #bf8700; background: #fff8c5; }
+      footer { padding-block: 28px; border-block-start: 1px solid var(--border); color: var(--muted); font-size: 0.88rem; }
+      .footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 24px; }
+      .footer-links { display: flex; flex-wrap: wrap; gap: 16px; }
+      @media (max-width: 600px) {
+        .container { inline-size: min(100% - 28px, 880px); }
+        .header-inner { align-items: flex-start; flex-direction: column; gap: 8px; padding-block: 12px; }
+        nav { gap: 12px; }
+        main { padding-block-start: 36px; }
+        .checks { grid-template-columns: 1fr; }
+        .availability th { inline-size: 42%; }
       }
-      .reference-links {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px 20px;
-        margin-top: 38px;
-        padding-top: 18px;
-        border-top: 1px solid var(--line);
-        font-size: 0.92rem;
-      }
-      .site-footer {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 30px;
-        padding: 28px 0 44px;
-        border-top: 1px solid var(--line-strong);
-        color: var(--muted);
-        font-size: 0.88rem;
-      }
-      .footer-links {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        gap: 8px 18px;
-      }
-      @media (max-width: 900px) {
-        .hero,
-        .section,
-        .evidence-lead,
-        .reproduce-grid {
-          grid-template-columns: 1fr;
-        }
-        .hero {
-          align-items: start;
-          gap: 50px;
-        }
-        .section {
-          gap: 18px;
-        }
-        .section-label {
-          margin-bottom: 6px;
-        }
-      }
-      @media (max-width: 700px) {
-        .shell {
-          width: min(100% - 32px, var(--max));
-        }
-        .site-header {
-          align-items: flex-start;
-          flex-direction: column;
-          gap: 14px;
-          padding: 18px 0;
-        }
-        .primary-nav {
-          justify-content: flex-start;
-          width: 100%;
-        }
-        .usage-grid,
-        .boundary-grid {
-          grid-template-columns: 1fr;
-        }
-        .artifact-index li {
-          grid-template-columns: 1fr;
-          gap: 5px;
-        }
-        .site-footer {
-          flex-direction: column;
-        }
-        .footer-links {
-          justify-content: flex-start;
-        }
-      }
-      @media (max-width: 420px) {
-        .shell {
-          width: min(100% - 24px, var(--max));
-        }
-        .primary-nav {
-          gap: 8px 15px;
-        }
-        .availability > div {
-          grid-template-columns: 1fr;
-          gap: 3px;
-        }
-        .action-row {
-          align-items: stretch;
-          flex-direction: column;
-        }
-        .button {
-          justify-content: center;
-          width: 100%;
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        html {
-          scroll-behavior: auto;
-        }
-        .skip-link {
-          transition: none;
-        }
-      }
+      @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
     </style>
   </head>
   <body>
-    <a class="skip-link" href="#content">Skip to main content</a>
-    <div class="shell">
-      <header class="site-header">
-        <a class="brand" href="#content" aria-label="Web Quality Gatekeeper home"
-          ><span class="brand-mark" aria-hidden="true"
-            ><img src="assets/brand-mark.svg" alt="" /></span
-          ><span>Web Quality Gatekeeper</span></a
-        >
-        <nav class="primary-nav" aria-label="Primary navigation">
-          <a href="#evidence">Evidence</a><a href="#use">Use it</a><a href="#reproduce">Reproduce</a
-          ><a href="#boundaries">Boundaries</a
-          ><a href="https://github.com/Jahrome907/web-quality-gatekeeper">Repository</a>
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <header>
+      <div class="container header-inner">
+        <a class="brand" href="#main">Web Quality Gatekeeper</a>
+        <nav aria-label="Primary navigation">
+          <a href="#install">Install</a>
+          <a href="proof/fixture-report.html">Sample report</a>
+          <a href="https://github.com/Jahrome907/web-quality-gatekeeper">Repository</a>
         </nav>
-      </header>
-      <main id="content" tabindex="-1">
-        <section class="hero" aria-labelledby="hero-title">
-          <div>
-            <p class="eyebrow">Open-source browser quality gate</p>
-            <h1 id="hero-title">Browser quality checks with reviewable evidence.</h1>
-            <p class="hero-copy">
-              Web Quality Gatekeeper runs browser smoke checks, axe accessibility scans, Lighthouse
-              budgets, and visual comparisons through one CLI and GitHub Action. It returns
-              reviewable HTML and stable JSON instead of a pass badge with no evidence behind it.
-            </p>
-            <div class="action-row">
-              <a class="button" href="proof/fixture-report.html">Inspect the fixture report</a
-              ><a class="button secondary" href="#use">Choose a usage path</a>
-            </div>
-          </div>
-          <dl class="availability" aria-label="Current project availability">
-            <div>
-              <dt>GitHub Action</dt>
-              <dd><strong>Published.</strong> Consume the stable major tag <code>@v3</code>.</dd>
-            </div>
-            <div>
-              <dt>CLI</dt>
-              <dd><strong>Build from source.</strong> Run <code>node dist/cli.js</code>.</dd>
-            </div>
-            <div>
-              <dt>npm</dt>
-              <dd>
-                <strong>3.2.3 is unavailable.</strong> No registry installation path is available
-                for this version.
-              </dd>
-            </div>
-            <div>
-              <dt>Outputs</dt>
-              <dd><strong>Inspectable.</strong> HTML, JSON, markdown, and screenshots.</dd>
-            </div>
-          </dl>
-        </section>
-        <section class="section" id="evidence" aria-labelledby="evidence-title">
-          <p class="section-label">01 / Evidence</p>
-          <div>
-            <h2 id="evidence-title">Inspect the output before adopting the tool.</h2>
-            <p class="section-intro">
-              The links below are committed files from the repository fixture. They are ordinary
-              artifacts, not a hosted product UI or a reconstructed marketing demo.
-            </p>
-            <div class="evidence-lead">
-              <div>
-                <h3>Committed fixture report</h3>
-                <p>
-                  The human-readable report records step status, runtime signals, findings, and
-                  screenshot references. The same run also publishes contract-checked JSON formats
-                  covered by versioned schemas and contract tests, so automation can rely on
-                  documented fields.
-                </p>
-                <a class="report-link" href="proof/fixture-report.html">Open fixture-report.html</a>
-              </div>
-              <dl class="run-record" aria-label="Fixture run record">
-                <div>
-                  <dt>Overall status</dt>
-                  <dd>pass</dd>
-                </div>
-                <div>
-                  <dt>Runtime</dt>
-                  <dd>11.5 s</dd>
-                </div>
-                <div>
-                  <dt>Accessibility violations</dt>
-                  <dd>0</dd>
-                </div>
-                <div>
-                  <dt>Lighthouse performance</dt>
-                  <dd>0.99</dd>
-                </div>
-                <div>
-                  <dt>Visual step</dt>
-                  <dd>skipped</dd>
-                </div>
-              </dl>
-            </div>
-            <ul class="artifact-index" aria-label="Committed proof artifacts">
-              <li>
-                <a href="proof/fixture-summary.v2.json">fixture-summary.v2.json</a
-                ><span>Versioned aggregate status, per-page step results, and artifact paths.</span>
-              </li>
-              <li>
-                <a href="proof/fixture-lighthouse.json">fixture-lighthouse.json</a
-                ><span>Raw Lighthouse evidence behind the reported performance score.</span>
-              </li>
-              <li>
-                <a href="proof/fixture-action-plan.md">fixture-action-plan.md</a
-                ><span>Portable remediation notes intended for review and issue follow-up.</span>
-              </li>
-              <li>
-                <a href="proof/fixture-pr-risk-ledger.json">fixture-pr-risk-ledger.json</a
-                ><span>Machine-readable merge-risk summary with a stable public schema.</span>
-              </li>
-              <li>
-                <a href="proof/fixture-pr-risk-ledger.md">fixture-pr-risk-ledger.md</a
-                ><span>Readable companion to the JSON risk ledger.</span>
-              </li>
-              <li>
-                <a href="proof/fixture-proof-config.json">fixture-proof-config.json</a
-                ><span>The exact audit configuration associated with this proof bundle.</span>
-              </li>
-              <li>
-                <a href="proof/screenshots/home.png">screenshots/home.png</a
-                ><span>The page capture referenced by the fixture report and summary.</span>
-              </li>
-            </ul>
-            <p class="proof-note">
-              <strong>Source fixture:</strong> <code>tests/fixtures/site</code>.
-              <strong>Fixture bundle:</strong> source checkout 3.2.3.
-              <strong>Release source of truth:</strong>
-              <a href="https://github.com/Jahrome907/web-quality-gatekeeper/releases"
-                >GitHub tags and Releases</a
-              >. This bundle is not evidence of npm publication.
-            </p>
-          </div>
-        </section>
-        <section class="section" id="use" aria-labelledby="use-title">
-          <p class="section-label">02 / Use it</p>
-          <div>
-            <h2 id="use-title">Two supported paths, stated plainly.</h2>
-            <p class="section-intro">
-              Use the published major Action tag for a repository workflow. Use a source checkout
-              for local CLI evaluation. Both paths emit the same core artifact set.
-            </p>
-            <div class="usage-grid">
-              <article class="usage-path">
-                <p class="path-status">Published path</p>
-                <h3>GitHub Action</h3>
-                <p>
-                  Pin the stable major tag, provide a public target, and upload outputs only when
-                  the run is not sensitive.
-                </p>
-                <pre tabindex="0" aria-label="GitHub Action usage example"><code>jobs:
-  web-quality:
-    runs-on: ubuntu-latest
-    env:
-      WQG_SENSITIVE_AUDIT: "false"
-      WQG_ALLOW_SENSITIVE_OUTPUTS: "false"
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          persist-credentials: false
-      - id: wqg
-        uses: Jahrome907/web-quality-gatekeeper@v3
-        with:
-          url: https://your-site.example
-          baseline-dir: .github/web-quality/baselines
-      - name: Upload artifacts
-        if: always() &amp;&amp; (steps.wqg.outputs.sensitive-audit != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: wqg-artifacts
-          path: |
-            ${{ steps.wqg.outputs.summary-path }}
-            ${{ steps.wqg.outputs.summary-v2-path }}
-            ${{ steps.wqg.outputs.report-path }}
-            ${{ steps.wqg.outputs.action-plan-path }}
-            ${{ steps.wqg.outputs.pr-risk-ledger-path }}
-            ${{ steps.wqg.outputs.pr-risk-ledger-md-path }}
-          if-no-files-found: warn</code></pre>
-                <p>
-                  The <code>policy</code> input is optional; this minimal example uses the Action
-                  defaults. The
-                  <a
-                    href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/examples/consumer-workflow.yml"
-                    >consumer workflow</a
-                  >
-                  is the canonical reference for optional inputs and safe artifact uploads.
-                </p>
-              </article>
-              <article class="usage-path">
-                <p class="path-status">Source path</p>
-                <h3>Local CLI</h3>
-                <p>
-                  Build the current checkout with Node 22.19 or later, install Chromium, and invoke
-                  the compiled CLI directly.
-                </p>
-                <pre
-                  tabindex="0"
-                  aria-label="Source CLI usage example"
-                ><code>git clone https://github.com/Jahrome907/web-quality-gatekeeper.git
-cd web-quality-gatekeeper
-npm run engines:check
-npm ci
-npx playwright install chromium
-npm run build
-node dist/cli.js audit https://your-site.example --policy marketing</code></pre>
-              </article>
-            </div>
-            <p class="registry-note">
-              <strong>Registry status:</strong> Version <code>3.2.3</code> is not published to npm.
-              Do not use <code>npm install web-quality-gatekeeper</code> or <code>npx wqg</code> as
-              a path to this version; wait for a release that explicitly publishes the requested
-              version.
-            </p>
-          </div>
-        </section>
-        <section class="section" id="reproduce" aria-labelledby="reproduce-title">
-          <p class="section-label">03 / Reproduce</p>
-          <div>
-            <h2 id="reproduce-title">Rebuild the fixture proof from a clean clone.</h2>
-            <p class="section-intro">
-              The repository includes a deterministic fixture site, audit configuration, and
-              scripted case-study run. The command writes the normal report and summary bundle plus
-              a provenance manifest.
-            </p>
-            <div class="reproduce-grid">
-              <pre
-                tabindex="0"
-                aria-label="Fixture reproduction commands"
-              ><code>npm run engines:check
-npm ci
-npx playwright install chromium
-npm run build
-npm run case-study:fixture</code></pre>
-              <ul class="repro-links">
-                <li>
-                  <a
-                    href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study-run.md"
-                    >Fixture run guide</a
-                  ><span>Prerequisites, command, expected outputs, and pass conditions.</span>
-                </li>
-                <li>
-                  <a
-                    href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md"
-                    >Public OSS protocol</a
-                  ><span>Baseline and improved commit evidence for third-party case studies.</span>
-                </li>
-                <li>
-                  <a
-                    href="https://github.com/Jahrome907/web-quality-gatekeeper/tree/main/tests/fixtures/site"
-                    >Fixture source</a
-                  ><span>The static pages audited by the committed proof run.</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </section>
-        <section class="section" id="boundaries" aria-labelledby="boundaries-title">
-          <p class="section-label">04 / Boundaries</p>
-          <div>
-            <h2 id="boundaries-title">Know what the gate sees and what it can expose.</h2>
-            <p class="section-intro">
-              Browser evidence can contain page content, request failures, console output, and
-              screenshots. Treat authentication and artifact publication as separate decisions.
-            </p>
-            <div class="boundary-grid">
-              <article class="boundary">
-                <h3>Target and network boundary</h3>
-                <ul>
-                  <li>
-                    Internal and private targets are blocked by default in CI and authenticated
-                    runs.
-                  </li>
-                  <li>
-                    Requested targets, redirect destinations, browser requests, and Lighthouse's
-                    final URL are checked in sensitive mode.
-                  </li>
-                  <li>
-                    Local unauthenticated development runs warn on internal targets; they do not
-                    silently turn them into public-safe evidence.
-                  </li>
-                </ul>
-              </article>
-              <article class="boundary">
-                <h3>Credentials and output boundary</h3>
-                <ul>
-                  <li>
-                    Headers, cookies, internal-target overrides, or
-                    <code>WQG_SENSITIVE_AUDIT=true</code> mark a run as sensitive.
-                  </li>
-                  <li>
-                    Sensitive runs suppress artifact uploads and pull-request comments by default.
-                  </li>
-                  <li>
-                    Reports and screenshots may contain audited page content. Set
-                    <code>WQG_ALLOW_SENSITIVE_OUTPUTS=true</code> only when publication is
-                    intentional.
-                  </li>
-                </ul>
-              </article>
-            </div>
-            <div class="reference-links" aria-label="Project references">
-              <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/SECURITY.md"
-                >Security policy</a
-              ><a
-                href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/provenance.md"
-                >Provenance</a
-              ><a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/sbom.md"
-                >SBOM</a
-              ><a
-                href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/roadmap.md"
-                >Roadmap</a
-              ><a
-                href="https://github.com/Jahrome907/web-quality-gatekeeper/tree/main/docs/contracts"
-                >Output contracts</a
-              ><a
-                href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/CONTRIBUTING.md"
-                >Contributing</a
-              >
-            </div>
-          </div>
-        </section>
-      </main>
-      <footer class="site-footer">
-        <span>MIT licensed. Evidence published from the repository fixture.</span>
+      </div>
+    </header>
+    <main id="main" class="container" tabindex="-1">
+      <h1>Web Quality Gatekeeper</h1>
+      <p class="lead">
+        A GitHub Action and source-checkout CLI for browser smoke checks, accessibility scans,
+        Lighthouse budgets, and visual comparisons. Each run produces an HTML report plus stable
+        JSON and Markdown artifacts for CI.
+      </p>
+      <p>Contract-checked JSON formats are covered by versioned schemas and contract tests.</p>
+      <div class="actions">
+        <a class="button primary" href="#install">Use the GitHub Action</a>
+        <a class="button" href="proof/fixture-report.html">Open the sample report</a>
+      </div>
+      <table class="availability" aria-label="Project availability">
+        <tbody>
+          <tr><th scope="row">GitHub Action</th><td class="available">Available at <code>@v3</code></td></tr>
+          <tr><th scope="row">Local CLI</th><td>Build from source with Node.js 22.19 or later</td></tr>
+          <tr><th scope="row">npm</th><td>Version 3.2.3 is not published</td></tr>
+        </tbody>
+      </table>
+      <h2>What it checks</h2>
+      <ul class="checks">
+        <li>Playwright navigation and runtime errors</li>
+        <li>axe-core accessibility violations</li>
+        <li>Lighthouse performance budgets</li>
+        <li>Pixel-level visual differences</li>
+        <li>Screenshot capture</li>
+        <li>Multi-page rollups and trend history</li>
+      </ul>
+      <figure class="report">
+        <img
+          src="assets/report-screenshot.png"
+          alt="Web Quality Gatekeeper report showing audit status and category scores"
+          width="2313"
+          height="1098"
+          loading="lazy"
+        />
+        <figcaption>
+          Report from the committed fixture run. Open the <a href="proof/fixture-report.html">HTML report</a>
+          or <a href="proof/fixture-summary.v2.json">summary JSON</a>.
+        </figcaption>
+      </figure>
+      <h2 id="install">GitHub Actions</h2>
+      <p>Add the stable major tag to a workflow. The <code>policy</code> input is optional; this example uses the Action defaults.</p>
+      <pre tabindex="0" aria-label="GitHub Action usage example"><code>- uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+  with:
+    persist-credentials: false
+- id: wqg
+  uses: Jahrome907/web-quality-gatekeeper@v3
+  with:
+    url: https://your-site.example
+
+- name: Upload audit artifacts
+  if: always() &amp;&amp; steps.wqg.outputs.sensitive-audit != 'true'
+  uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+  with:
+    name: wqg-artifacts
+    path: |
+      ${{ steps.wqg.outputs.report-path }}
+      ${{ steps.wqg.outputs.summary-v2-path }}</code></pre>
+      <p>
+        See the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/examples/consumer-workflow.yml">complete consumer workflow</a>
+        for every input and output.
+      </p>
+      <div class="note">
+        <strong>Security:</strong> Authenticated and internal audits can contain sensitive page content.
+        Keep artifact uploads disabled unless the output is deliberately safe to share.
+      </div>
+      <h2>Reproduce the proof</h2>
+      <p>
+        Follow the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study-run.md">fixture run guide</a>
+        or review the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md">public comparison protocol</a>.
+      </p>
+    </main>
+    <footer>
+      <div class="container footer-inner">
+        <span>MIT licensed</span>
         <div class="footer-links">
-          <a href="https://github.com/Jahrome907/web-quality-gatekeeper">Repository</a
-          ><a href="https://github.com/Jahrome907/web-quality-gatekeeper/releases">Releases</a
-          ><a href="https://github.com/Jahrome907/web-quality-gatekeeper/issues">Issues</a>
+          <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/SECURITY.md">Security</a>
+          <a href="https://github.com/Jahrome907/web-quality-gatekeeper/releases">Releases</a>
+          <a href="https://github.com/Jahrome907/web-quality-gatekeeper/issues">Issues</a>
         </div>
-      </footer>
-    </div>
+      </div>
+    </footer>
   </body>
 </html>
