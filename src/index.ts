@@ -168,6 +168,10 @@ async function runTargetAudit(params: {
   const summaryV2Path = path.join(target.outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.summaryV2);
   const reportPath = path.join(target.outDir, summaryReport.SUMMARY_ARTIFACT_NAMES.report);
 
+  validateOutputDirectory(target.outDir);
+  validateOutputDirectory(target.baselineDir);
+  validateOutputDirectory(screenshotsDir);
+  validateOutputDirectory(diffsDir);
   await ensureDir(target.outDir);
   await ensureDir(screenshotsDir);
   await ensureDir(diffsDir);
@@ -428,6 +432,8 @@ export async function runAudit(
 
   if (trendSettings.enabled) {
     validateOutputDirectory(trendHistoryDir);
+    validateOutputDirectory(trendHistoryJsonPath);
+    validateOutputDirectory(trendDashboardHtmlPath);
   }
 
   const summaryV2: AuditSummaryV2 = {

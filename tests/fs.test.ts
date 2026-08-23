@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   validateOutputDirectory,
   validatePathWithinBase,
+  validateResolvedPathWithinBase,
   writeJson,
   writeText
 } from "../src/utils/fs.js";
@@ -112,6 +113,33 @@ describe("validatePathWithinBase", () => {
     expect(() => validatePathWithinBase("/etc/passwd", "/workspace/user")).toThrow(
       "Path traversal detected"
     );
+  });
+});
+
+describe("validateResolvedPathWithinBase", () => {
+  it("rejects a file whose existing parent junction escapes its trusted base", async () => {
+    const workspace = await mkdtemp(path.join(tmpdir(), "wqg-fs-base-"));
+    const outside = await mkdtemp(path.join(tmpdir(), "wqg-fs-outside-"));
+    const baseDir = path.join(workspace, "artifacts");
+
+    try {
+      await mkdir(baseDir);
+      await symlink(
+        outside,
+        path.join(baseDir, "screenshots"),
+        process.platform === "win32" ? "junction" : "dir"
+      );
+
+      expect(() =>
+        validateResolvedPathWithinBase(
+          path.join(baseDir, "screenshots", "home.png"),
+          baseDir
+        )
+      ).toThrow("Resolved path escapes base directory");
+    } finally {
+      await rm(workspace, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 });
 

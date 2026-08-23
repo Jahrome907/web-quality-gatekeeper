@@ -318,9 +318,11 @@ describe("runAudit orchestration", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(mockValidateOutputDirectory).toHaveBeenCalledTimes(4);
+    expect(mockValidateOutputDirectory).toHaveBeenCalledTimes(8);
     expect(mockValidateOutputDirectory).toHaveBeenCalledWith(outDir);
     expect(mockValidateOutputDirectory).toHaveBeenCalledWith(baselineDir);
+    expect(mockValidateOutputDirectory).toHaveBeenCalledWith(path.join(outDir, "screenshots"));
+    expect(mockValidateOutputDirectory).toHaveBeenCalledWith(path.join(outDir, "diffs"));
     expect(mockRunAxeScan).toHaveBeenCalledWith(
       expect.anything(),
       outDir,

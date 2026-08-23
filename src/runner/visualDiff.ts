@@ -3,7 +3,13 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { PNG } from "pngjs";
 import { DEFAULT_PIXELMATCH_INCLUDE_AA, DEFAULT_PIXELMATCH_THRESHOLD } from "../config/schema.js";
-import { copyFileSafe, ensureDir, pathExists, writeJson } from "../utils/fs.js";
+import {
+  copyFileSafe,
+  ensureDir,
+  pathExists,
+  validateResolvedPathWithinBase,
+  writeJson
+} from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import type { ScreenshotResult } from "./playwright.js";
 import {
@@ -50,6 +56,7 @@ function isBaselineManifest(value: unknown): value is BaselineManifest {
 
 async function loadBaselineManifest(baselineDir: string): Promise<LoadedBaselineManifest> {
   const manifestPath = path.join(baselineDir, MANIFEST_FILENAME);
+  validateResolvedPathWithinBase(manifestPath, baselineDir);
   if (!(await pathExists(manifestPath))) {
     return { manifest: null, corrupt: false };
   }
@@ -72,7 +79,9 @@ async function saveManifest(baselineDir: string, checksums: Record<string, strin
     generatedAt: new Date().toISOString(),
     checksums
   };
-  await writeJson(path.join(baselineDir, MANIFEST_FILENAME), manifest);
+  const manifestPath = path.join(baselineDir, MANIFEST_FILENAME);
+  validateResolvedPathWithinBase(manifestPath, baselineDir);
+  await writeJson(manifestPath, manifest);
 }
 
 function checksumsSignature(checksums: Record<string, string>): string {
@@ -268,6 +277,7 @@ export async function runVisualDiff(
         continue;
       }
       const baselinePath = path.join(baselineDir, fileName);
+      validateResolvedPathWithinBase(baselinePath, baselineDir);
       if (!(await pathExists(baselinePath))) {
         continue;
       }
@@ -289,6 +299,8 @@ export async function runVisualDiff(
     const baseName = path.basename(shot.path);
     const baselinePath = path.join(baselineDir, baseName);
     const diffPath = path.join(diffDir, baseName);
+    validateResolvedPathWithinBase(baselinePath, baselineDir);
+    validateResolvedPathWithinBase(diffPath, diffDir);
 
     const baselineExists = await pathExists(baselinePath);
     if (!baselineExists || setBaseline) {
@@ -402,6 +414,7 @@ export async function runVisualDiff(
 
   for (const [fileName] of Object.entries(newChecksums)) {
     const baselinePath = path.join(baselineDir, fileName);
+    validateResolvedPathWithinBase(baselinePath, baselineDir);
     if (!(await pathExists(baselinePath))) {
       delete newChecksums[fileName];
     }

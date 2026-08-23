@@ -55,6 +55,20 @@ export function validatePathWithinBase(targetPath: string, baseDir: string): voi
 }
 
 /**
+ * Validates a destination against existing symlinks or junctions in its path.
+ * The supplied base directory is the trusted boundary for the caller.
+ */
+export function validateResolvedPathWithinBase(targetPath: string, baseDir: string): void {
+  const resolvedTarget = resolveSymlinkAwarePath(targetPath);
+  const resolvedBase = resolveExistingPath(baseDir);
+  const relativePath = relative(resolvedBase, resolvedTarget);
+
+  if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
+    throw new Error(`Resolved path escapes base directory: ${targetPath} is outside ${baseDir}`);
+  }
+}
+
+/**
  * Validates that an output directory is within the current working directory.
  * Prevents writing to arbitrary system locations.
  */
