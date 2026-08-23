@@ -27,12 +27,25 @@ import {
   type TargetResolutionPolicy,
   type VerifiedAuditTarget
 } from "../utils/url.js";
+import {
+  addVerifiedResolverHost,
+  assertResolverRelaunchAvailable,
+  buildHostResolverRuleArgument,
+  combineHostResolverRules,
+  ResolverPinningBudgetError
+} from "./resolverPinning.js";
 
 const requireSync = createRequire(import.meta.url);
 
 const MAX_OPPORTUNITIES = 10;
-const MAX_LIGHTHOUSE_RELAUNCHES = 4;
 const LOCAL_DATA_ENV_KEY = "LOCAL" + "APP" + "DATA";
+
+class ResolverPinningRequiredError extends Error {
+  constructor(readonly hostname: string) {
+    super(`Lighthouse resolver pinning required for ${hostname}`);
+    this.name = "ResolverPinningRequiredError";
+  }
+}
 
 export interface LighthouseBudgets {
   performance: number;
@@ -400,8 +413,13 @@ export async function runLighthouseAudit(
     launchPinnedHostResolverRules: Map<string, string | null>
   ): Promise<LighthouseAttemptResult> {
     const chromeFlags = getChromeFlags();
-    if (launchHostResolverRules) {
-      chromeFlags.push(`--host-resolver-rules=${launchHostResolverRules}`);
+    const resolverRuleArgument = buildHostResolverRuleArgument(
+      launchHostResolverRules,
+      "Lighthouse",
+      normalizeUrlHostname(auditUrl)
+    );
+    if (resolverRuleArgument) {
+      chromeFlags.push(resolverRuleArgument);
     }
     const chrome = await launch({
       chromeFlags,
@@ -412,8 +430,9 @@ export async function runLighthouseAudit(
     let puppeteerPage: PuppeteerPageLike | null = null;
     let blockedRequestError: Error | null = null;
     try {
+      const activePinnedHosts = new Map(launchPinnedHostResolverRules);
       const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
-        initialTrustedHosts: launchPinnedHostResolverRules,
+        initialTrustedHosts: activePinnedHosts,
         trustResolvedHosts: false
       });
 
@@ -431,7 +450,23 @@ export async function runLighthouseAudit(
               const contextLabel = request.isNavigationRequest()
                 ? "Lighthouse navigation target"
                 : "Lighthouse request target";
-              await navigationTargetVerifier.verify(request.url(), contextLabel);
+              const verifiedTarget = await navigationTargetVerifier.verify(
+                request.url(),
+                contextLabel
+              );
+              const hostname = normalizeUrlHostname(request.url());
+              if (!activePinnedHosts.has(hostname)) {
+                addVerifiedResolverHost(
+                  launchPinnedHostResolverRules,
+                  hostname,
+                  verifiedTarget?.hostResolverRules ?? null,
+                  "Lighthouse"
+                );
+                if (verifiedTarget?.hostResolverRules) {
+                  throw new ResolverPinningRequiredError(hostname);
+                }
+                activePinnedHosts.set(hostname, null);
+              }
             }
 
             const scopedHeaders = applyScopedAuthHeaders({
@@ -442,7 +477,14 @@ export async function runLighthouseAudit(
             });
             await request.continue({ headers: scopedHeaders });
           } catch (error) {
-            blockedRequestError ??= toError(error, "Blocked Lighthouse request");
+            const nextError = toError(error, "Blocked Lighthouse request");
+            if (
+              !blockedRequestError ||
+              (nextError instanceof ResolverPinningBudgetError &&
+                blockedRequestError instanceof ResolverPinningRequiredError)
+            ) {
+              blockedRequestError = nextError;
+            }
             await request.abort("blockedbyclient");
           }
         });
@@ -497,7 +539,8 @@ export async function runLighthouseAudit(
           maxRetries: retryCount,
           baseDelayMs: retryDelayMs,
           logger,
-          isRetryable: (error) => !(error instanceof UsageError)
+          isRetryable: (error) =>
+            !(error instanceof UsageError) && !(error instanceof ResolverPinningRequiredError)
         }
       );
 
@@ -573,43 +616,59 @@ export async function runLighthouseAudit(
     let currentAuditUrl = url;
     let currentLaunchHostResolverRules =
       options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;
-    let launchPinnedHostResolverRules = new Map<string, string | null>();
+    const launchPinnedHostResolverRules = new Map<string, string | null>();
 
     if (initialTarget) {
-      launchPinnedHostResolverRules.set(
+      addVerifiedResolverHost(
+        launchPinnedHostResolverRules,
         initialTarget.classification.hostname,
-        currentLaunchHostResolverRules
+        currentLaunchHostResolverRules,
+        "Lighthouse"
       );
     }
 
     for (let relaunchCount = 0; ; relaunchCount += 1) {
-      const attempt = await runAttempt(
-        currentAuditUrl,
-        currentLaunchHostResolverRules,
-        launchPinnedHostResolverRules
-      );
+      let attempt: LighthouseAttemptResult;
+      try {
+        attempt = await runAttempt(
+          currentAuditUrl,
+          currentLaunchHostResolverRules,
+          launchPinnedHostResolverRules
+        );
+      } catch (error) {
+        if (!(error instanceof ResolverPinningRequiredError) || !options.targetPolicy) {
+          throw error;
+        }
+        assertResolverRelaunchAvailable("Lighthouse", relaunchCount, error.hostname);
+        currentLaunchHostResolverRules = combineHostResolverRules(
+          launchPinnedHostResolverRules
+        );
+        logger.debug(`Relaunching Lighthouse Chrome with resolver pin for ${error.hostname}`);
+        continue;
+      }
 
-      const nextHostResolverRules = attempt.finalTarget?.hostResolverRules ?? null;
-      if (
-        !options.targetPolicy ||
-        !attempt.finalTarget ||
-        nextHostResolverRules === currentLaunchHostResolverRules
-      ) {
+      if (!options.targetPolicy || !attempt.finalTarget) {
         return attempt.summary;
       }
 
-      if (relaunchCount >= MAX_LIGHTHOUSE_RELAUNCHES) {
-        throw new Error(
-          `Lighthouse resolver pinning did not stabilize after ${MAX_LIGHTHOUSE_RELAUNCHES + 1} launches.`
-        );
+      const finalHostname = normalizeUrlHostname(attempt.finalTarget.url);
+      if (launchPinnedHostResolverRules.has(finalHostname)) {
+        return attempt.summary;
       }
+
+      assertResolverRelaunchAvailable("Lighthouse", relaunchCount, finalHostname);
 
       logger.debug("Relaunching Lighthouse Chrome with landing host resolver rules");
       currentAuditUrl = attempt.finalTarget.url;
-      currentLaunchHostResolverRules = nextHostResolverRules;
-      launchPinnedHostResolverRules = new Map([
-        [normalizeUrlHostname(currentAuditUrl), currentLaunchHostResolverRules]
-      ]);
+      addVerifiedResolverHost(
+        launchPinnedHostResolverRules,
+        finalHostname,
+        attempt.finalTarget.hostResolverRules,
+        "Lighthouse"
+      );
+      currentLaunchHostResolverRules = combineHostResolverRules(
+        launchPinnedHostResolverRules
+      );
     }
   } finally {
     await restoreRuntimeQuietly(runtime, logger);

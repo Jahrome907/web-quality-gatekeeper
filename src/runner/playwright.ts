@@ -9,7 +9,7 @@ import {
   type Route
 } from "playwright";
 import type { Config, ScreenshotDefinition } from "../config/schema.js";
-import { ensureDir } from "../utils/fs.js";
+import { ensureDir, validateResolvedPathWithinBase } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import { retry } from "../utils/retry.js";
 import type { AuditAuth } from "../utils/auth.js";
@@ -22,12 +22,24 @@ import {
   UsageError,
   type TargetResolutionPolicy
 } from "../utils/url.js";
+import {
+  addVerifiedResolverHost,
+  assertResolverRelaunchAvailable,
+  buildHostResolverRuleArgument,
+  combineHostResolverRules,
+  ResolverPinningBudgetError
+} from "./resolverPinning.js";
 
 const MAX_CONSOLE_MESSAGES = 200;
 const MAX_JS_ERRORS = 100;
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_SEGMENT_CAPTURE_POINTS = 200;
-const MAX_BROWSER_RELAUNCHES = 4;
+class ResolverPinningRequiredError extends Error {
+  constructor(readonly hostname: string) {
+    super(`Browser resolver pinning required for ${hostname}`);
+    this.name = "ResolverPinningRequiredError";
+  }
+}
 
 function resolveChromePath(): string | undefined {
   return resolveBrowserExecutablePath(process.env.CHROME_PATH);
@@ -300,8 +312,13 @@ function toError(error: unknown, fallbackMessage: string): Error {
 }
 
 function recordBlockedRequest(state: BlockedRequestState, error: unknown): void {
-  if (!state.error) {
-    state.error = toError(error, "Blocked outbound request");
+  const nextError = toError(error, "Blocked outbound request");
+  if (
+    !state.error ||
+    (nextError instanceof ResolverPinningBudgetError &&
+      state.error instanceof ResolverPinningRequiredError)
+  ) {
+    state.error = nextError;
   }
 }
 
@@ -351,9 +368,12 @@ async function launchNavigatedPage(
   initialTrustedHosts: Map<string, string | null>
 ): Promise<OpenPageNavigationResult> {
   logger.debug("Launching Playwright browser");
-  const launchArgs = launchHostResolverRules
-    ? [`--host-resolver-rules=${launchHostResolverRules}`]
-    : undefined;
+  const resolverRuleArgument = buildHostResolverRuleArgument(
+    launchHostResolverRules,
+    "Playwright",
+    normalizeUrlHostname(navigationUrl)
+  );
+  const launchArgs = resolverRuleArgument ? [resolverRuleArgument] : undefined;
   const chromePath = resolveChromePath();
   if (chromePath) {
     logger.debug(`Using Chrome at: ${chromePath}`);
@@ -367,9 +387,10 @@ async function launchNavigatedPage(
   let context: BrowserContext | null = null;
   let page: Page | null = null;
   const blockedRequestState: BlockedRequestState = { error: null };
+  const activePinnedHosts = new Map(initialTrustedHosts);
   const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
-    initialTrustedHosts,
-    trustResolvedHosts: true
+    initialTrustedHosts: activePinnedHosts,
+    trustResolvedHosts: false
   });
 
   try {
@@ -399,7 +420,20 @@ async function launchNavigatedPage(
             const contextLabel = request.isNavigationRequest()
               ? "navigation target"
               : "request target";
-            await navigationTargetVerifier.verify(request.url(), contextLabel);
+            const verifiedTarget = await navigationTargetVerifier.verify(request.url(), contextLabel);
+            const hostname = normalizeUrlHostname(request.url());
+            if (!activePinnedHosts.has(hostname)) {
+              addVerifiedResolverHost(
+                initialTrustedHosts,
+                hostname,
+                verifiedTarget?.hostResolverRules ?? null,
+                "Playwright"
+              );
+              if (verifiedTarget?.hostResolverRules) {
+                throw new ResolverPinningRequiredError(hostname);
+              }
+              activePinnedHosts.set(hostname, null);
+            }
           } catch (error) {
             recordBlockedRequest(blockedRequestState, error);
             await route.abort("blockedbyclient");
@@ -438,19 +472,35 @@ async function launchNavigatedPage(
         maxRetries: retryCount,
         baseDelayMs: retryDelayMs,
         logger,
-        isRetryable: (error) => !(error instanceof UsageError)
+        isRetryable: (error) =>
+          !(error instanceof UsageError) && !(error instanceof ResolverPinningRequiredError)
       }
     );
+
+    const resolvedTarget = await navigationTargetVerifier.verify(
+      createdPage.url(),
+      "final navigation target"
+    );
+    const resolvedHostname = normalizeUrlHostname(resolvedTarget?.url ?? createdPage.url());
+    if (!activePinnedHosts.has(resolvedHostname)) {
+      addVerifiedResolverHost(
+        initialTrustedHosts,
+        resolvedHostname,
+        resolvedTarget?.hostResolverRules ?? null,
+        "Playwright"
+      );
+      if (resolvedTarget?.hostResolverRules) {
+        throw new ResolverPinningRequiredError(resolvedHostname);
+      }
+      activePinnedHosts.set(resolvedHostname, null);
+    }
 
     return {
       browser,
       context,
       page: createdPage,
       runtimeSignals,
-      resolvedTarget: await navigationTargetVerifier.verify(
-        createdPage.url(),
-        "final navigation target"
-      )
+      resolvedTarget
     };
   } catch (error) {
     await closeQuietly(page, logger, "page");
@@ -474,60 +524,58 @@ export async function openPage(
   resolvedHostResolverRules: string | null;
 }> {
   const initialTrustedHosts = new Map<string, string | null>();
-  if (options.targetPolicy && options.hostResolverRules !== undefined) {
-    initialTrustedHosts.set(normalizeUrlHostname(url), options.hostResolverRules ?? null);
+  if (options.hostResolverRules !== undefined) {
+    addVerifiedResolverHost(
+      initialTrustedHosts,
+      normalizeUrlHostname(url),
+      options.hostResolverRules ?? null,
+      "Playwright"
+    );
   }
 
-  let currentLaunchHostResolverRules = options.hostResolverRules ?? null;
+  let currentLaunchHostResolverRules = combineHostResolverRules(initialTrustedHosts);
   const authScopeUrl = new URL(url).toString();
-  let navigation = await launchNavigatedPage(
-    url,
-    authScopeUrl,
-    currentLaunchHostResolverRules,
-    config,
-    logger,
-    auth,
-    options,
-    initialTrustedHosts
-  );
+  let navigation: OpenPageNavigationResult | null = null;
 
   try {
-    let resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
-    let resolvedHostResolverRules = navigation.resolvedTarget?.hostResolverRules ?? null;
-
-    for (
-      let relaunchCount = 0;
-      options.targetPolicy && resolvedHostResolverRules !== currentLaunchHostResolverRules;
-      relaunchCount += 1
-    ) {
-      if (relaunchCount >= MAX_BROWSER_RELAUNCHES) {
-        throw new Error(
-          `Playwright resolver pinning did not stabilize after ${MAX_BROWSER_RELAUNCHES + 1} launches.`
+    for (let relaunchCount = 0; ; relaunchCount += 1) {
+      let attemptNavigation: OpenPageNavigationResult | null = null;
+      try {
+        attemptNavigation = await launchNavigatedPage(
+          url,
+          authScopeUrl,
+          currentLaunchHostResolverRules,
+          config,
+          logger,
+          auth,
+          options,
+          initialTrustedHosts
         );
+        await applyStabilityOverrides(attemptNavigation.page);
+        await attemptNavigation.page.waitForTimeout(config.timeouts.waitAfterLoadMs);
+        throwIfBlockedRequest(attemptNavigation.page);
+        navigation = attemptNavigation;
+        break;
+      } catch (error) {
+        await closeQuietly(attemptNavigation?.page ?? null, logger, "page");
+        await closeQuietly(attemptNavigation?.context ?? null, logger, "context");
+        await closeQuietly(attemptNavigation?.browser ?? null, logger, "browser");
+        if (!(error instanceof ResolverPinningRequiredError) || !options.targetPolicy) {
+          throw error;
+        }
+        assertResolverRelaunchAvailable("Playwright", relaunchCount, error.hostname);
+        currentLaunchHostResolverRules = combineHostResolverRules(initialTrustedHosts);
+        logger.debug(`Relaunching Playwright browser with resolver pin for ${error.hostname}`);
       }
-
-      logger.debug("Relaunching Playwright browser with landing host resolver rules");
-      await closeQuietly(navigation.page, logger, "page");
-      await closeQuietly(navigation.context, logger, "context");
-      await closeQuietly(navigation.browser, logger, "browser");
-      currentLaunchHostResolverRules = resolvedHostResolverRules;
-      navigation = await launchNavigatedPage(
-        resolvedUrl,
-        authScopeUrl,
-        currentLaunchHostResolverRules,
-        config,
-        logger,
-        auth,
-        options,
-        new Map([[normalizeUrlHostname(resolvedUrl), currentLaunchHostResolverRules]])
-      );
-      resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
-      resolvedHostResolverRules = navigation.resolvedTarget?.hostResolverRules ?? null;
     }
 
-    await applyStabilityOverrides(navigation.page);
-    await navigation.page.waitForTimeout(config.timeouts.waitAfterLoadMs);
-    throwIfBlockedRequest(navigation.page);
+    if (!navigation) {
+      throw new Error("Playwright navigation did not produce a page.");
+    }
+    const resolvedUrl = navigation.resolvedTarget?.url ?? navigation.page.url();
+    const resolvedHostResolverRules = options.targetPolicy
+      ? (initialTrustedHosts.get(normalizeUrlHostname(resolvedUrl)) ?? null)
+      : null;
 
     return {
       browser: navigation.browser,
@@ -537,9 +585,9 @@ export async function openPage(
       resolvedHostResolverRules
     };
   } catch (error) {
-    await closeQuietly(navigation.page, logger, "page");
-    await closeQuietly(navigation.context, logger, "context");
-    await closeQuietly(navigation.browser, logger, "browser");
+    await closeQuietly(navigation?.page ?? null, logger, "page");
+    await closeQuietly(navigation?.context ?? null, logger, "context");
+    await closeQuietly(navigation?.browser ?? null, logger, "browser");
     throw error;
   }
 }
@@ -563,7 +611,8 @@ async function captureScreenshot(
       maxRetries: retryCount,
       baseDelayMs: retryDelayMs,
       logger,
-      isRetryable: (error) => !(error instanceof UsageError)
+      isRetryable: (error) =>
+        !(error instanceof UsageError) && !(error instanceof ResolverPinningRequiredError)
     }
   );
   await applyStabilityOverrides(page);
@@ -579,6 +628,7 @@ async function captureScreenshot(
 
   const filename = `${screenshotBaseName}.png`;
   const filePath = path.join(outDir, filename);
+  validateResolvedPathWithinBase(filePath, outDir);
   await page.screenshot({ path: filePath, fullPage: shot.fullPage, animations: "disabled" });
 
   return {
@@ -659,6 +709,7 @@ async function captureViewportSegments(
 
     const filename = `${screenshotBaseName}--vp-${String(index + 1).padStart(2, "0")}.png`;
     const filePath = path.join(outDir, filename);
+    validateResolvedPathWithinBase(filePath, outDir);
     await page.screenshot({ path: filePath, fullPage: false, animations: "disabled" });
     results.push({
       name: `${shot.name} viewport ${index + 1}`,
