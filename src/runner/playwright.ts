@@ -27,7 +27,8 @@ import {
   assertResolverRelaunchAvailable,
   buildHostResolverRuleArgument,
   combineHostResolverRules,
-  ResolverPinningBudgetError
+  ResolverPinningBudgetError,
+  reserveResolverHost
 } from "./resolverPinning.js";
 
 const MAX_CONSOLE_MESSAGES = 200;
@@ -388,6 +389,7 @@ async function launchNavigatedPage(
   let page: Page | null = null;
   const blockedRequestState: BlockedRequestState = { error: null };
   const activePinnedHosts = new Map(initialTrustedHosts);
+  const pendingResolverHosts = new Set<string>();
   const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
     initialTrustedHosts: activePinnedHosts,
     trustResolvedHosts: false
@@ -416,12 +418,24 @@ async function launchNavigatedPage(
         const request = route.request() as Request;
 
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
+          const hostname = normalizeUrlHostname(request.url());
+          let reservedHostname = false;
           try {
+            const reservation = reserveResolverHost(
+              initialTrustedHosts,
+              pendingResolverHosts,
+              hostname,
+              "Playwright"
+            );
+            if (reservation === "pending") {
+              await route.abort("blockedbyclient");
+              return;
+            }
+            reservedHostname = reservation === "reserved";
             const contextLabel = request.isNavigationRequest()
               ? "navigation target"
               : "request target";
             const verifiedTarget = await navigationTargetVerifier.verify(request.url(), contextLabel);
-            const hostname = normalizeUrlHostname(request.url());
             if (!activePinnedHosts.has(hostname)) {
               addVerifiedResolverHost(
                 initialTrustedHosts,
@@ -438,6 +452,10 @@ async function launchNavigatedPage(
             recordBlockedRequest(blockedRequestState, error);
             await route.abort("blockedbyclient");
             return;
+          } finally {
+            if (reservedHostname) {
+              pendingResolverHosts.delete(hostname);
+            }
           }
         }
 

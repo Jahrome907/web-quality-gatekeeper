@@ -1023,7 +1023,24 @@ describe("lighthouse runner", () => {
     killSpies.forEach((kill) => expect(kill).toHaveBeenCalledTimes(1));
   });
 
-  it("stops a concurrent Lighthouse hostname burst before relaunching", async () => {
+  it("caps pending distinct and duplicate Lighthouse DNS discovery", async () => {
+    const releaseLookups: Array<() => void> = [];
+    const requestAborts: ReturnType<typeof vi.fn>[] = [];
+    const requestHostnames = [
+      ...Array.from(
+        { length: MAX_RESOLVER_PINNING_HOSTS + 8 },
+        (_, index) => `burst-${index}.example.net`
+      ),
+      ...Array.from({ length: MAX_RESOLVER_PINNING_HOSTS + 8 }, () => "burst-0.example.net")
+    ];
+    mockLookup.mockImplementation((hostname: string) => {
+      if (hostname === "example.com") {
+        return Promise.resolve([{ address: "203.0.113.10", family: 4 }]);
+      }
+      return new Promise((resolve) => {
+        releaseLookups.push(() => resolve([{ address: "203.0.113.10", family: 4 }]));
+      });
+    });
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
     const puppeteer = createPuppeteerHarness();
@@ -1034,15 +1051,17 @@ describe("lighthouse runner", () => {
         throw new Error("request handler not registered");
       }
       await Promise.all(
-        Array.from({ length: MAX_RESOLVER_PINNING_HOSTS }, (_, index) =>
-          requestHandler({
+        requestHostnames.map((hostname) => {
+          const abort = vi.fn().mockResolvedValue(undefined);
+          requestAborts.push(abort);
+          return requestHandler({
             isNavigationRequest: () => false,
-            url: () => `https://burst-${index}.example.net/app.js`,
+            url: () => `https://${hostname}/app.js`,
             headers: () => ({}),
             continue: vi.fn().mockResolvedValue(undefined),
-            abort: vi.fn().mockResolvedValue(undefined)
-          })
-        )
+            abort
+          });
+        })
       );
       return {
         lhr: {
@@ -1062,8 +1081,7 @@ describe("lighthouse runner", () => {
       };
     });
 
-    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
-    await expect(
+    const auditPromise = import("../src/runner/lighthouse.js").then(({ runLighthouseAudit }) =>
       runLighthouseAudit(
         "https://example.com",
         "/tmp/artifacts",
@@ -1075,11 +1093,23 @@ describe("lighthouse runner", () => {
           targetPolicy: { allowInternalTargets: false, blockInternalTargets: true }
         }
       )
+    );
+
+    await vi.waitFor(() => {
+      expect(mockLookup).toHaveBeenCalledTimes(MAX_RESOLVER_PINNING_HOSTS);
+    });
+    releaseLookups.forEach((release) => release());
+
+    await expect(
+      auditPromise
     ).rejects.toThrow(
       `Lighthouse resolver pinning hostname budget exceeded while adding burst-${MAX_RESOLVER_PINNING_HOSTS - 1}.example.net: ` +
         `${MAX_RESOLVER_PINNING_HOSTS + 1} hosts exceeds the ${MAX_RESOLVER_PINNING_HOSTS}-host limit.`
     );
 
+    expect(mockLookup).toHaveBeenCalledTimes(MAX_RESOLVER_PINNING_HOSTS);
+    expect(requestAborts).toHaveLength(requestHostnames.length);
+    requestAborts.forEach((abort) => expect(abort).toHaveBeenCalledWith("blockedbyclient"));
     expect(mockLaunch).toHaveBeenCalledTimes(1);
     expect(puppeteer.page.close).toHaveBeenCalledTimes(1);
     expect(puppeteer.browser.disconnect).toHaveBeenCalledTimes(1);

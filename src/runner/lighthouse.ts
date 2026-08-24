@@ -32,7 +32,8 @@ import {
   assertResolverRelaunchAvailable,
   buildHostResolverRuleArgument,
   combineHostResolverRules,
-  ResolverPinningBudgetError
+  ResolverPinningBudgetError,
+  reserveResolverHost
 } from "./resolverPinning.js";
 
 const requireSync = createRequire(import.meta.url);
@@ -431,6 +432,7 @@ export async function runLighthouseAudit(
     let blockedRequestError: Error | null = null;
     try {
       const activePinnedHosts = new Map(launchPinnedHostResolverRules);
+      const pendingResolverHosts = new Set<string>();
       const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
         initialTrustedHosts: activePinnedHosts,
         trustResolvedHosts: false
@@ -445,8 +447,23 @@ export async function runLighthouseAudit(
         puppeteerPage = await puppeteerBrowser.newPage();
         await puppeteerPage.setRequestInterception(true);
         puppeteerPage.on("request", async (request) => {
+          let reservedHostname: string | null = null;
           try {
             if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
+              const hostname = normalizeUrlHostname(request.url());
+              const reservation = reserveResolverHost(
+                launchPinnedHostResolverRules,
+                pendingResolverHosts,
+                hostname,
+                "Lighthouse"
+              );
+              if (reservation === "pending") {
+                await request.abort("blockedbyclient");
+                return;
+              }
+              if (reservation === "reserved") {
+                reservedHostname = hostname;
+              }
               const contextLabel = request.isNavigationRequest()
                 ? "Lighthouse navigation target"
                 : "Lighthouse request target";
@@ -454,7 +471,6 @@ export async function runLighthouseAudit(
                 request.url(),
                 contextLabel
               );
-              const hostname = normalizeUrlHostname(request.url());
               if (!activePinnedHosts.has(hostname)) {
                 addVerifiedResolverHost(
                   launchPinnedHostResolverRules,
@@ -486,6 +502,10 @@ export async function runLighthouseAudit(
               blockedRequestError = nextError;
             }
             await request.abort("blockedbyclient");
+          } finally {
+            if (reservedHostname) {
+              pendingResolverHosts.delete(reservedHostname);
+            }
           }
         });
       }

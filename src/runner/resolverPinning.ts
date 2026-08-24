@@ -10,6 +10,34 @@ export const MAX_HOST_RESOLVER_RULE_ARGUMENT_BYTES = 4 * 1024;
 
 export class ResolverPinningBudgetError extends UsageError {}
 
+export type ResolverHostReservation = "known" | "pending" | "reserved";
+
+export function reserveResolverHost(
+  hosts: ReadonlyMap<string, string | null>,
+  pendingHosts: Set<string>,
+  hostname: string,
+  runnerName: string
+): ResolverHostReservation {
+  if (hosts.has(hostname)) {
+    return "known";
+  }
+  if (pendingHosts.has(hostname)) {
+    return "pending";
+  }
+
+  const nextHostCount = hosts.size + pendingHosts.size + 1;
+  if (nextHostCount > MAX_RESOLVER_PINNING_HOSTS) {
+    throw new ResolverPinningBudgetError(
+      `${runnerName} resolver pinning hostname budget exceeded while adding ${hostname}: ` +
+        `${nextHostCount} hosts exceeds the ${MAX_RESOLVER_PINNING_HOSTS}-host limit. ` +
+        "Reduce the number of cross-host redirects or subresources."
+    );
+  }
+
+  pendingHosts.add(hostname);
+  return "reserved";
+}
+
 export function combineHostResolverRules(hosts: Map<string, string | null>): string | null {
   const rules = Array.from(
     new Set(Array.from(hosts.values()).filter((rule): rule is string => !!rule))
