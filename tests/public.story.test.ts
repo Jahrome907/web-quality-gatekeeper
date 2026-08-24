@@ -59,6 +59,7 @@ describe("public story surface", () => {
     expect(source).toContain("max-inline-size: 100%");
     expect(source).toContain("overflow: auto");
     expect(source).toContain("main:focus { outline: 2px solid var(--link)");
+    expect(source).toContain("main p a:not(.button), figcaption a { text-decoration: underline");
     expect(source).toContain("nav a { display: inline-flex; min-block-size: 32px");
     expect(source).not.toContain("<iframe");
     expect(source).not.toContain("metric-row");
