@@ -44,7 +44,7 @@ describe("public story surface", () => {
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
     );
     expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action usage example"/);
-    expect(source).toContain("Version 3.2.3 is not published");
+    expect(source).not.toMatch(/not published|E404|security bootstrap/i);
     expect(source).not.toContain("wqg audit https://your-site.example");
     expect(source).not.toMatch(GENERATED_FROM_PATTERN);
   });
@@ -54,7 +54,7 @@ describe("public story surface", () => {
 
     expect(source).toContain('<a class="skip-link" href="#main">');
     expect(source).toContain('<main id="main" class="container" tabindex="-1">');
-    expect(source).toContain('aria-label="Project availability"');
+    expect(source).toContain('aria-label="Supported entry points"');
     expect(source).toContain("@media (prefers-reduced-motion: reduce)");
     expect(source).toContain("max-inline-size: 100%");
     expect(source).toContain("overflow: auto");
@@ -126,7 +126,7 @@ describe("public story surface", () => {
     expect(source).not.toMatch(
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
     );
-    expect(source).toContain("Version `3.2.3` is not published to npm");
+    expect(source).not.toMatch(/not published|E404|security bootstrap/i);
     expect(source).toContain("On successful runs, `node dist/cli.js audit` writes artifact files");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
     expect(source).toContain("docs/case-study-run.md");

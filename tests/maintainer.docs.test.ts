@@ -37,7 +37,10 @@ describe("maintainer documentation", () => {
     expect(readme).not.toMatch(
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
     );
-    expect(readme).toContain("Version `3.2.3` is not published to npm");
+    expect(readme).toContain(
+      "Use the published GitHub Action at `Jahrome907/web-quality-gatekeeper@v3`, or build the CLI from source."
+    );
+    expect(readme).not.toMatch(/not published|E404|security bootstrap/i);
     expect(readme).toContain("node dist/cli.js audit");
     expect(readme).toContain("steps.wqg.outputs.sensitive-audit");
     expect(readme).toContain("docs/case-study-run.md");

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.4] - 2026-08-25
+
+### Fixed
+
+- Bound browser resolver pinning by relaunch count, hostname count, and command-line size while preserving late hostname discovery and DNS-rebinding protection.
+- Reject report, baseline, and evidence paths that escape their allowed roots through symbolic links or Windows junctions.
+
+### Changed
+
+- Simplified the project site and README around the supported GitHub Action and source-build paths, with an updated fixture report screenshot and accessible responsive navigation.
+
 ## [3.2.3] - 2026-08-21
 
 ### Added
@@ -361,7 +372,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [0.2.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/releases/tag/v0.1.0
 [3.1.0]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.0.0...v3.1.0
-[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.3...HEAD
+[Unreleased]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.4...HEAD
+[3.2.4]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.3...v3.2.4
 [3.2.3]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.2...v3.2.3
 [3.2.2]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.1...v3.2.2
 [3.2.1]: https://github.com/Jahrome907/web-quality-gatekeeper/compare/v3.2.0...v3.2.1

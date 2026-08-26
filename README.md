@@ -7,7 +7,7 @@
 
 Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual comparisons in one CI job. It produces a readable HTML report plus JSON and Markdown artifacts for automation. Contract-checked JSON formats are covered by versioned schemas and contract tests.
 
-Use the published GitHub Action at `Jahrome907/web-quality-gatekeeper@v3`, or build the CLI from source. Version `3.2.3` is not published to npm. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) are the source of truth for published versions.
+Use the published GitHub Action at `Jahrome907/web-quality-gatekeeper@v3`, or build the CLI from source. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) are the source of truth for published versions.
 
 [![Web Quality Gatekeeper report showing audit status and category scores](docs/assets/report-screenshot.png)](https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-report.html)
 
