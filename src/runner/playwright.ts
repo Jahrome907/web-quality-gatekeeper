@@ -27,6 +27,7 @@ import {
   assertResolverRelaunchAvailable,
   buildHostResolverRuleArgument,
   combineHostResolverRules,
+  createResolverLaunchSnapshot,
   ResolverPinningBudgetError,
   reserveResolverHost
 } from "./resolverPinning.js";
@@ -369,8 +370,12 @@ async function launchNavigatedPage(
   initialTrustedHosts: Map<string, string | null>
 ): Promise<OpenPageNavigationResult> {
   logger.debug("Launching Playwright browser");
+  const resolverSnapshot = createResolverLaunchSnapshot(
+    initialTrustedHosts,
+    launchHostResolverRules
+  );
   const resolverRuleArgument = buildHostResolverRuleArgument(
-    launchHostResolverRules,
+    resolverSnapshot.hostResolverRules,
     "Playwright",
     normalizeUrlHostname(navigationUrl)
   );
@@ -388,7 +393,7 @@ async function launchNavigatedPage(
   let context: BrowserContext | null = null;
   let page: Page | null = null;
   const blockedRequestState: BlockedRequestState = { error: null };
-  const activePinnedHosts = new Map(initialTrustedHosts);
+  const activePinnedHosts = resolverSnapshot.pinnedHosts;
   const pendingResolverHosts = new Set<string>();
   const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
     initialTrustedHosts: activePinnedHosts,

@@ -938,6 +938,132 @@ describe("lighthouse runner", () => {
     ]);
   });
 
+  it("does not trust a stale Lighthouse resolver result in Chrome launched without its pin", async () => {
+    const harnesses: ReturnType<typeof createPuppeteerHarness>[] = [];
+    const killSpies: ReturnType<typeof vi.fn>[] = [];
+    const requestAborts: ReturnType<typeof vi.fn>[] = [];
+    const requestContinues: ReturnType<typeof vi.fn>[] = [];
+    let releaseLateLookup: (() => void) | null = null;
+    let lateLookupCount = 0;
+    let lateHandlerPromise: Promise<void> | null = null;
+    let launchIndex = 0;
+    let lighthouseAttemptIndex = 0;
+
+    mockLookup.mockImplementation((hostname: string) => {
+      if (hostname === "late.example.net") {
+        lateLookupCount += 1;
+        if (lateLookupCount === 1) {
+          return new Promise((resolve) => {
+            releaseLateLookup = () =>
+              resolve([{ address: "203.0.113.30", family: 4 }] as never);
+          });
+        }
+        return Promise.resolve([{ address: "203.0.113.30", family: 4 }]);
+      }
+      if (hostname === "fast.example.net") {
+        return Promise.resolve([{ address: "203.0.113.20", family: 4 }]);
+      }
+      return Promise.resolve([{ address: "203.0.113.10", family: 4 }]);
+    });
+
+    mockLaunch.mockImplementation(async () => {
+      const attemptIndex = launchIndex;
+      launchIndex += 1;
+      if (attemptIndex === 1) {
+        if (!releaseLateLookup || !lateHandlerPromise) {
+          throw new Error("stale Lighthouse resolver callback was not pending");
+        }
+        releaseLateLookup();
+        await lateHandlerPromise;
+      }
+      const kill = vi.fn().mockResolvedValue(undefined);
+      killSpies.push(kill);
+      return { port: 9222 + attemptIndex, kill };
+    });
+    mockLoadLighthousePuppeteer.mockImplementation(async () => {
+      const harness = createPuppeteerHarness();
+      harnesses.push(harness);
+      return { connect: harness.connect };
+    });
+
+    const createRequest = (hostname: string) => {
+      const abort = vi.fn().mockResolvedValue(undefined);
+      const continueRequest = vi.fn().mockResolvedValue(undefined);
+      requestAborts.push(abort);
+      requestContinues.push(continueRequest);
+      return {
+        isNavigationRequest: () => false,
+        url: () => `https://${hostname}/app.js`,
+        headers: () => ({}),
+        continue: continueRequest,
+        abort
+      };
+    };
+    mockLighthouse.mockImplementation(async () => {
+      const attemptIndex = lighthouseAttemptIndex;
+      lighthouseAttemptIndex += 1;
+      const requestHandler = harnesses[attemptIndex]?.getRequestHandler();
+      if (!requestHandler) {
+        throw new Error("request handler not registered");
+      }
+      if (attemptIndex === 0) {
+        lateHandlerPromise = requestHandler(createRequest("late.example.net"));
+        await requestHandler(createRequest("fast.example.net"));
+      } else {
+        await requestHandler(createRequest("late.example.net"));
+      }
+      return {
+        lhr: {
+          categories: { performance: { score: 0.95 } },
+          audits: {
+            "largest-contentful-paint": {
+              id: "largest-contentful-paint",
+              numericValue: 1500
+            },
+            "cumulative-layout-shift": {
+              id: "cumulative-layout-shift",
+              numericValue: 0.01
+            },
+            "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+          }
+        }
+      };
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never,
+        null,
+        {
+          hostResolverRules: "MAP example.com 203.0.113.10",
+          targetPolicy: { allowInternalTargets: false, blockInternalTargets: true }
+        }
+      )
+    ).resolves.toMatchObject({ metrics: expect.any(Object) });
+
+    expect(mockLaunch).toHaveBeenCalledTimes(3);
+    expect(mockLaunch.mock.calls[1]?.[0]?.chromeFlags).not.toContain(
+      expect.stringContaining("late.example.net")
+    );
+    expect(mockLaunch.mock.calls[2]?.[0]?.chromeFlags).toContain(
+      "--host-resolver-rules=MAP example.com 203.0.113.10, MAP fast.example.net 203.0.113.20, MAP late.example.net 203.0.113.30"
+    );
+    expect(requestContinues.filter((continueRequest) => continueRequest.mock.calls.length)).toHaveLength(
+      1
+    );
+    expect(requestAborts.filter((abort) => abort.mock.calls.length)).toHaveLength(3);
+    harnesses.forEach((harness) => {
+      expect(harness.page.close).toHaveBeenCalledTimes(1);
+      expect(harness.browser.disconnect).toHaveBeenCalledTimes(1);
+    });
+    killSpies.forEach((kill) => expect(kill).toHaveBeenCalledTimes(1));
+  });
+
   it("caps hostile Lighthouse relaunches and cleans every failed attempt", async () => {
     const harnesses: ReturnType<typeof createPuppeteerHarness>[] = [];
     const killSpies: ReturnType<typeof vi.fn>[] = [];

@@ -681,6 +681,149 @@ describe("playwright runner", () => {
     });
   });
 
+  it("does not trust a stale resolver result in a browser launched without its pin", async () => {
+    type RouteHandler = (route: {
+      request: () => {
+        isNavigationRequest: () => boolean;
+        url: () => string;
+        headers: () => Record<string, string>;
+      };
+      abort: (reason?: string) => Promise<void>;
+      continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
+    }) => Promise<void>;
+
+    const closePages: ReturnType<typeof vi.fn>[] = [];
+    const closeContexts: ReturnType<typeof vi.fn>[] = [];
+    const closeBrowsers: ReturnType<typeof vi.fn>[] = [];
+    const requestAborts: ReturnType<typeof vi.fn>[] = [];
+    const requestContinues: ReturnType<typeof vi.fn>[] = [];
+    let releaseLateLookup: (() => void) | null = null;
+    let lateLookupCount = 0;
+    let lateHandlerPromise: Promise<void> | null = null;
+    let launchIndex = 0;
+
+    mockLookup.mockImplementation((hostname: string) => {
+      if (hostname === "late.example.net") {
+        lateLookupCount += 1;
+        if (lateLookupCount === 1) {
+          return new Promise((resolve) => {
+            releaseLateLookup = () =>
+              resolve([{ address: "203.0.113.30", family: 4 }] as never);
+          });
+        }
+        return Promise.resolve([{ address: "203.0.113.30", family: 4 }]);
+      }
+      return Promise.resolve([{ address: "203.0.113.20", family: 4 }]);
+    });
+
+    mockLaunch.mockImplementation(async () => {
+      const attemptIndex = launchIndex;
+      launchIndex += 1;
+      if (attemptIndex === 1) {
+        if (!releaseLateLookup || !lateHandlerPromise) {
+          throw new Error("stale resolver callback was not pending");
+        }
+        releaseLateLookup();
+        await lateHandlerPromise;
+      }
+
+      const page = createPageDouble();
+      let routeHandler: RouteHandler | null = null;
+      const createRoute = (hostname: string) => {
+        const abort = vi.fn().mockResolvedValue(undefined);
+        const continueRequest = vi.fn().mockResolvedValue(undefined);
+        requestAborts.push(abort);
+        requestContinues.push(continueRequest);
+        return {
+          request: () => ({
+            isNavigationRequest: () => false,
+            url: () => `https://${hostname}/app.js`,
+            headers: () => ({})
+          }),
+          abort,
+          continue: continueRequest
+        };
+      };
+      page.goto.mockImplementation(async () => {
+        if (!routeHandler) {
+          throw new Error("route handler not registered");
+        }
+        if (attemptIndex === 0) {
+          lateHandlerPromise = routeHandler(createRoute("late.example.net"));
+          await routeHandler(createRoute("fast.example.net"));
+          return;
+        }
+        await routeHandler(createRoute("late.example.net"));
+      });
+
+      const closePage = vi.fn().mockResolvedValue(undefined);
+      const closeContext = vi.fn().mockResolvedValue(undefined);
+      const closeBrowser = vi.fn().mockResolvedValue(undefined);
+      closePages.push(closePage);
+      closeContexts.push(closeContext);
+      closeBrowsers.push(closeBrowser);
+      return {
+        newContext: vi.fn().mockResolvedValue({
+          addCookies: vi.fn().mockResolvedValue(undefined),
+          newPage: vi.fn().mockResolvedValue({ ...page, close: closePage }),
+          route: vi.fn().mockImplementation(async (_matcher, handler: RouteHandler) => {
+            routeHandler = handler;
+          }),
+          close: closeContext
+        }),
+        close: closeBrowser
+      };
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { openPage } = await import("../src/runner/playwright.js");
+    await expect(
+      openPage(
+        "https://example.com",
+        {
+          timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+          retries: { count: 1, delayMs: 10 },
+          playwright: {
+            viewport: { width: 1280, height: 720 },
+            userAgent: "wqg/3.0.0",
+            locale: "en-US",
+            colorScheme: "light"
+          },
+          screenshots: [{ name: "home", path: "/", fullPage: true }],
+          lighthouse: {
+            budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+            formFactor: "desktop"
+          },
+          visual: { threshold: 0.01 },
+          toggles: { a11y: true, perf: true, visual: true }
+        } as never,
+        logger as never,
+        null,
+        {
+          hostResolverRules: "MAP example.com 203.0.113.10",
+          targetPolicy: { allowInternalTargets: false, blockInternalTargets: true }
+        }
+      )
+    ).resolves.toMatchObject({ resolvedUrl: "https://example.com/" });
+
+    expect(mockLaunch).toHaveBeenCalledTimes(3);
+    expect(mockLaunch.mock.calls[1]?.[0]?.args?.[0]).not.toContain("late.example.net");
+    expect(mockLaunch.mock.calls[2]?.[0]?.args?.[0]).toContain(
+      "MAP late.example.net 203.0.113.30"
+    );
+    expect(requestContinues.filter((continueRequest) => continueRequest.mock.calls.length)).toHaveLength(
+      1
+    );
+    expect(requestAborts.filter((abort) => abort.mock.calls.length)).toHaveLength(3);
+    closePages.slice(0, 2).forEach((closePage) => expect(closePage).toHaveBeenCalledTimes(1));
+    closeContexts
+      .slice(0, 2)
+      .forEach((closeContext) => expect(closeContext).toHaveBeenCalledTimes(1));
+    closeBrowsers
+      .slice(0, 2)
+      .forEach((closeBrowser) => expect(closeBrowser).toHaveBeenCalledTimes(1));
+  });
+
   it("caps hostile resolver relaunches and cleans every failed attempt", async () => {
     const closePages: ReturnType<typeof vi.fn>[] = [];
     const closeContexts: ReturnType<typeof vi.fn>[] = [];

@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Bound browser resolver pinning by relaunch count, hostname count, and command-line size while preserving late hostname discovery and DNS-rebinding protection.
+- Bind each browser attempt to an immutable resolver snapshot and bound pinning by relaunch count, hostname count, and command-line size while preserving late hostname discovery and DNS-rebinding protection.
 - Reject report, baseline, and evidence paths that escape their allowed roots through symbolic links or Windows junctions.
 
 ### Changed

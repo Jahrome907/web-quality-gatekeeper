@@ -32,6 +32,7 @@ import {
   assertResolverRelaunchAvailable,
   buildHostResolverRuleArgument,
   combineHostResolverRules,
+  createResolverLaunchSnapshot,
   ResolverPinningBudgetError,
   reserveResolverHost
 } from "./resolverPinning.js";
@@ -413,9 +414,13 @@ export async function runLighthouseAudit(
     launchHostResolverRules: string | null,
     launchPinnedHostResolverRules: Map<string, string | null>
   ): Promise<LighthouseAttemptResult> {
+    const resolverSnapshot = createResolverLaunchSnapshot(
+      launchPinnedHostResolverRules,
+      launchHostResolverRules
+    );
     const chromeFlags = getChromeFlags();
     const resolverRuleArgument = buildHostResolverRuleArgument(
-      launchHostResolverRules,
+      resolverSnapshot.hostResolverRules,
       "Lighthouse",
       normalizeUrlHostname(auditUrl)
     );
@@ -431,7 +436,7 @@ export async function runLighthouseAudit(
     let puppeteerPage: PuppeteerPageLike | null = null;
     let blockedRequestError: Error | null = null;
     try {
-      const activePinnedHosts = new Map(launchPinnedHostResolverRules);
+      const activePinnedHosts = resolverSnapshot.pinnedHosts;
       const pendingResolverHosts = new Set<string>();
       const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
         initialTrustedHosts: activePinnedHosts,

@@ -45,6 +45,17 @@ export function combineHostResolverRules(hosts: Map<string, string | null>): str
   return rules.length > 0 ? rules.join(", ") : null;
 }
 
+export function createResolverLaunchSnapshot(
+  hosts: ReadonlyMap<string, string | null>,
+  fallbackRules: string | null = null
+): { pinnedHosts: Map<string, string | null>; hostResolverRules: string | null } {
+  const pinnedHosts = new Map(hosts);
+  return {
+    pinnedHosts,
+    hostResolverRules: combineHostResolverRules(pinnedHosts) ?? fallbackRules
+  };
+}
+
 export function buildHostResolverRuleArgument(
   rules: string | null,
   runnerName: string,
