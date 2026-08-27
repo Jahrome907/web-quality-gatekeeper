@@ -10,22 +10,27 @@ export const MAX_HOST_RESOLVER_RULE_ARGUMENT_BYTES = 4 * 1024;
 
 export class ResolverPinningBudgetError extends UsageError {}
 
-export type ResolverHostReservation = "known" | "pending" | "reserved";
+interface ResolverHostVerification {
+  hostResolverRules: string | null;
+}
 
-export function reserveResolverHost(
-  hosts: ReadonlyMap<string, string | null>,
-  pendingHosts: Set<string>,
+export function coordinateResolverHostVerification<T extends ResolverHostVerification | null>(
+  hosts: Map<string, string | null>,
+  pendingVerifications: Map<string, Promise<T>>,
   hostname: string,
-  runnerName: string
-): ResolverHostReservation {
+  runnerName: string,
+  verify: () => Promise<T>
+): Promise<T> {
   if (hosts.has(hostname)) {
-    return "known";
-  }
-  if (pendingHosts.has(hostname)) {
-    return "pending";
+    return verify();
   }
 
-  const nextHostCount = hosts.size + pendingHosts.size + 1;
+  const pendingVerification = pendingVerifications.get(hostname);
+  if (pendingVerification) {
+    return pendingVerification;
+  }
+
+  const nextHostCount = hosts.size + pendingVerifications.size + 1;
   if (nextHostCount > MAX_RESOLVER_PINNING_HOSTS) {
     throw new ResolverPinningBudgetError(
       `${runnerName} resolver pinning hostname budget exceeded while adding ${hostname}: ` +
@@ -34,8 +39,33 @@ export function reserveResolverHost(
     );
   }
 
-  pendingHosts.add(hostname);
-  return "reserved";
+  const verification = Promise.resolve()
+    .then(verify)
+    .then((verifiedTarget) => {
+      addVerifiedResolverHost(
+        hosts,
+        hostname,
+        verifiedTarget?.hostResolverRules ?? null,
+        runnerName
+      );
+      return verifiedTarget;
+    });
+  const coordinatedVerification = verification.then(
+    (verifiedTarget) => {
+      if (pendingVerifications.get(hostname) === coordinatedVerification) {
+        pendingVerifications.delete(hostname);
+      }
+      return verifiedTarget;
+    },
+    (error: unknown) => {
+      if (pendingVerifications.get(hostname) === coordinatedVerification) {
+        pendingVerifications.delete(hostname);
+      }
+      throw error;
+    }
+  );
+  pendingVerifications.set(hostname, coordinatedVerification);
+  return coordinatedVerification;
 }
 
 export function combineHostResolverRules(hosts: Map<string, string | null>): string | null {

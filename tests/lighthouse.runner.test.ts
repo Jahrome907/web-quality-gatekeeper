@@ -938,6 +938,87 @@ describe("lighthouse runner", () => {
     ]);
   });
 
+  it("coalesces concurrent Lighthouse requests to the same newly verified public IP", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({ connect: puppeteer.connect });
+    const requestAborts = [
+      vi.fn().mockResolvedValue(undefined),
+      vi.fn().mockResolvedValue(undefined)
+    ];
+    const requestContinues = [
+      vi.fn().mockResolvedValue(undefined),
+      vi.fn().mockResolvedValue(undefined)
+    ];
+    mockLookup.mockImplementation(async (hostname: string) => [
+      { address: hostname === "8.8.8.8" ? "8.8.8.8" : "203.0.113.10", family: 4 }
+    ]);
+    mockLighthouse.mockImplementation(async () => {
+      const requestHandler = puppeteer.getRequestHandler();
+      if (!requestHandler) {
+        throw new Error("request handler not registered");
+      }
+
+      await Promise.all(
+        ["app.js", "styles.css"].map((resource, index) =>
+          requestHandler({
+            isNavigationRequest: () => false,
+            url: () => `https://8.8.8.8/${resource}`,
+            headers: () => ({}),
+            continue: requestContinues[index]!,
+            abort: requestAborts[index]!
+          })
+        )
+      );
+
+      return {
+        lhr: {
+          categories: { performance: { score: 0.95 } },
+          audits: {
+            "largest-contentful-paint": {
+              id: "largest-contentful-paint",
+              numericValue: 1500
+            },
+            "cumulative-layout-shift": {
+              id: "cumulative-layout-shift",
+              numericValue: 0.01
+            },
+            "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+          }
+        }
+      };
+    });
+
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        { debug: vi.fn(), warn: vi.fn() } as never,
+        null,
+        {
+          hostResolverRules: "MAP example.com 203.0.113.10",
+          targetPolicy: { allowInternalTargets: false, blockInternalTargets: true }
+        }
+      )
+    ).resolves.toMatchObject({ metrics: expect.any(Object) });
+
+    expect(mockLookup.mock.calls.map((call) => call[0])).toEqual([
+      "example.com",
+      "8.8.8.8"
+    ]);
+    requestContinues.forEach((continueRequest) =>
+      expect(continueRequest).toHaveBeenCalledTimes(1)
+    );
+    requestAborts.forEach((abort) => expect(abort).not.toHaveBeenCalled());
+    expect(mockLaunch).toHaveBeenCalledTimes(1);
+    expect(puppeteer.page.close).toHaveBeenCalledTimes(1);
+    expect(puppeteer.browser.disconnect).toHaveBeenCalledTimes(1);
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
   it("does not trust a stale Lighthouse resolver result in Chrome launched without its pin", async () => {
     const harnesses: ReturnType<typeof createPuppeteerHarness>[] = [];
     const killSpies: ReturnType<typeof vi.fn>[] = [];

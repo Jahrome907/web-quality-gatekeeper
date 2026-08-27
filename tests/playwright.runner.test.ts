@@ -681,6 +681,111 @@ describe("playwright runner", () => {
     });
   });
 
+  it("coalesces concurrent requests to the same newly verified public IP", async () => {
+    type RouteHandler = (route: {
+      request: () => {
+        isNavigationRequest: () => boolean;
+        url: () => string;
+        headers: () => Record<string, string>;
+      };
+      abort: (reason?: string) => Promise<void>;
+      continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
+    }) => Promise<void>;
+
+    const page = createPageDouble();
+    const requestAborts = [
+      vi.fn().mockResolvedValue(undefined),
+      vi.fn().mockResolvedValue(undefined)
+    ];
+    const requestContinues = [
+      vi.fn().mockResolvedValue(undefined),
+      vi.fn().mockResolvedValue(undefined)
+    ];
+    let routeHandler: RouteHandler | null = null;
+    page.goto.mockImplementation(async () => {
+      if (!routeHandler) {
+        throw new Error("route handler not registered");
+      }
+      const handler = routeHandler as RouteHandler;
+      await Promise.all(
+        ["app.js", "styles.css"].map((resource, index) =>
+          handler({
+            request: () => ({
+              isNavigationRequest: () => false,
+              url: () => `https://8.8.8.8/${resource}`,
+              headers: () => ({})
+            }),
+            abort: requestAborts[index]!,
+            continue: requestContinues[index]!
+          })
+        )
+      );
+    });
+
+    mockLookup.mockResolvedValue([{ address: "8.8.8.8", family: 4 }]);
+    const closePage = vi.fn().mockResolvedValue(undefined);
+    const closeContext = vi.fn().mockResolvedValue(undefined);
+    const closeBrowser = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({
+      newContext: vi.fn().mockResolvedValue({
+        addCookies: vi.fn().mockResolvedValue(undefined),
+        newPage: vi.fn().mockResolvedValue({ ...page, close: closePage }),
+        route: vi.fn().mockImplementation(async (_matcher, handler: RouteHandler) => {
+          routeHandler = handler;
+        }),
+        close: closeContext
+      }),
+      close: closeBrowser
+    });
+
+    const { openPage } = await import("../src/runner/playwright.js");
+    const result = await openPage(
+      "https://example.com",
+      {
+        timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+        retries: { count: 1, delayMs: 10 },
+        playwright: {
+          viewport: { width: 1280, height: 720 },
+          userAgent: "wqg/3.0.0",
+          locale: "en-US",
+          colorScheme: "light"
+        },
+        screenshots: [{ name: "home", path: "/", fullPage: true }],
+        lighthouse: {
+          budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+          formFactor: "desktop"
+        },
+        visual: { threshold: 0.01 },
+        toggles: { a11y: true, perf: true, visual: true }
+      } as never,
+      { debug: vi.fn(), warn: vi.fn() } as never,
+      null,
+      {
+        hostResolverRules: "MAP example.com 203.0.113.10",
+        targetPolicy: { allowInternalTargets: false, blockInternalTargets: true }
+      }
+    );
+
+    expect(mockLookup.mock.calls.map((call) => call[0])).toEqual(["8.8.8.8"]);
+    requestContinues.forEach((continueRequest) =>
+      expect(continueRequest).toHaveBeenCalledTimes(1)
+    );
+    requestAborts.forEach((abort) => expect(abort).not.toHaveBeenCalled());
+    expect(mockLaunch).toHaveBeenCalledTimes(1);
+    expect(mockLaunch).toHaveBeenCalledWith({
+      headless: true,
+      args: ["--host-resolver-rules=MAP example.com 203.0.113.10"]
+    });
+    expect(closePage).not.toHaveBeenCalled();
+    expect(closeContext).not.toHaveBeenCalled();
+    expect(closeBrowser).not.toHaveBeenCalled();
+
+    await result.page.close();
+    await result.browser.close();
+    expect(closePage).toHaveBeenCalledTimes(1);
+    expect(closeBrowser).toHaveBeenCalledTimes(1);
+  });
+
   it("does not trust a stale resolver result in a browser launched without its pin", async () => {
     type RouteHandler = (route: {
       request: () => {

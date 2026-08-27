@@ -20,16 +20,17 @@ import {
   isAuditableHttpUrl,
   normalizeUrlHostname,
   UsageError,
-  type TargetResolutionPolicy
+  type TargetResolutionPolicy,
+  type VerifiedAuditTarget
 } from "../utils/url.js";
 import {
   addVerifiedResolverHost,
   assertResolverRelaunchAvailable,
   buildHostResolverRuleArgument,
   combineHostResolverRules,
+  coordinateResolverHostVerification,
   createResolverLaunchSnapshot,
-  ResolverPinningBudgetError,
-  reserveResolverHost
+  ResolverPinningBudgetError
 } from "./resolverPinning.js";
 
 const MAX_CONSOLE_MESSAGES = 200;
@@ -394,7 +395,10 @@ async function launchNavigatedPage(
   let page: Page | null = null;
   const blockedRequestState: BlockedRequestState = { error: null };
   const activePinnedHosts = resolverSnapshot.pinnedHosts;
-  const pendingResolverHosts = new Set<string>();
+  const pendingResolverVerifications = new Map<
+    string,
+    Promise<VerifiedAuditTarget | null>
+  >();
   const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
     initialTrustedHosts: activePinnedHosts,
     trustResolvedHosts: false
@@ -424,30 +428,18 @@ async function launchNavigatedPage(
 
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
           const hostname = normalizeUrlHostname(request.url());
-          let reservedHostname = false;
           try {
-            const reservation = reserveResolverHost(
-              initialTrustedHosts,
-              pendingResolverHosts,
-              hostname,
-              "Playwright"
-            );
-            if (reservation === "pending") {
-              await route.abort("blockedbyclient");
-              return;
-            }
-            reservedHostname = reservation === "reserved";
             const contextLabel = request.isNavigationRequest()
               ? "navigation target"
               : "request target";
-            const verifiedTarget = await navigationTargetVerifier.verify(request.url(), contextLabel);
+            const verifiedTarget = await coordinateResolverHostVerification(
+              initialTrustedHosts,
+              pendingResolverVerifications,
+              hostname,
+              "Playwright",
+              () => navigationTargetVerifier.verify(request.url(), contextLabel)
+            );
             if (!activePinnedHosts.has(hostname)) {
-              addVerifiedResolverHost(
-                initialTrustedHosts,
-                hostname,
-                verifiedTarget?.hostResolverRules ?? null,
-                "Playwright"
-              );
               if (verifiedTarget?.hostResolverRules) {
                 throw new ResolverPinningRequiredError(hostname);
               }
@@ -457,10 +449,6 @@ async function launchNavigatedPage(
             recordBlockedRequest(blockedRequestState, error);
             await route.abort("blockedbyclient");
             return;
-          } finally {
-            if (reservedHostname) {
-              pendingResolverHosts.delete(hostname);
-            }
           }
         }
 
