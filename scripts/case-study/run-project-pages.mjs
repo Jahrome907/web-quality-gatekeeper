@@ -8,6 +8,13 @@ const revisions = {
   before: "4b7c42921daf771097968a674a8c964a9a91c87c",
   after: "7ae7578b3802e9865f8b7c4630e9ffb062b845e3"
 };
+const { stdout: cliVersion } = await runChecked("node", ["dist/cli.js", "--version"]);
+const packageVersion = JSON.parse(await readFile(path.join(ROOT, "package.json"), "utf8")).version;
+if (cliVersion.trim() !== "3.2.4" || packageVersion !== "3.2.4") {
+  throw new Error(
+    "This case study requires the Web Quality Gatekeeper 3.2.4 CLI and source configuration."
+  );
+}
 const output = path.join(ROOT, "artifacts", "case-study", "project-pages");
 await mkdir(output, { recursive: true });
 const scratch = await mkdtemp(path.join(output, "source-"));
