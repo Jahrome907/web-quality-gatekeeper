@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A reproducible audit of the Web Quality Gatekeeper documentation site, including a controlled accessibility regression.">
+  <title>Auditing the project site · Web Quality Gatekeeper</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #24292f; background: #fff; line-height: 1.6; }
+    body { max-width: 850px; margin: auto; padding: 24px; }
+    a { color: #0969da; text-underline-offset: .15em; }
+    a:focus-visible { outline: 2px solid #0969da; outline-offset: 3px; }
+    h1,h2 { line-height: 1.25; } h1 { font-size: 2rem; } h2 { margin-top: 2rem; }
+    pre { padding: 16px; background: #f6f8fa; overflow: auto; border: 1px solid #d0d7de; }
+    table { border-collapse: collapse; width: 100%; } th,td { border: 1px solid #d0d7de; padding: 10px; text-align: left; }
+    th { background: #f6f8fa; } img { display: block; max-width: 100%; height: auto; border: 1px solid #d0d7de; }
+    figure { margin: 24px 0; } figcaption { margin-top: 8px; } code { overflow-wrap: anywhere; }
+    .skip { position: absolute; top: -100px; } .skip:focus { position: static; } main:focus { outline: 2px solid #0969da; }
+    @media(max-width: 480px) { body { padding: 16px; } th,td { padding: 6px; } h1 { font-size: 1.7rem; } }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  <header><a href="../index.html">Web Quality Gatekeeper</a></header>
+  <main id="main" tabindex="-1">
+    <h1>Auditing the project site</h1>
+    <p>Web Quality Gatekeeper 3.2.4 audited two actual revisions of its own documentation site. Both passed. A separate, deliberately broken copy proved that the accessibility gate rejects a missing image description and produces an actionable report.</p>
+    <h2>What was tested</h2>
+    <p>The baseline is the site shipped with <a href="https://github.com/Jahrome907/web-quality-gatekeeper/tree/4b7c42921daf771097968a674a8c964a9a91c87c/docs">3.2.3</a>. The replacement is the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/tree/7ae7578b3802e9865f8b7c4630e9ffb062b845e3/docs">3.2.4 site</a>. Each was served on loopback and audited with the same desktop configuration: a 1280 × 720 viewport, accessibility and Lighthouse checks enabled, and visual comparison disabled because the layout intentionally changed.</p>
+    <p>The captures were made on Windows with Node.js 22.22.3 on September 6, 2026 UTC. The measured replacement tree came from review commit <code>83c186b8ba8e0cf4df027c74e7680db531c3cf63</code>; its site files are byte-identical to the merged 3.2.4 revision linked above.</p>
+    <table>
+      <caption>One local audit of each actual site revision</caption>
+      <thead><tr><th scope="col">Check</th><th scope="col">3.2.3 site</th><th scope="col">3.2.4 site</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Overall status</th><td>Pass</td><td>Pass</td></tr>
+        <tr><th scope="row">Accessibility violations</th><td>0</td><td>0</td></tr>
+        <tr><th scope="row">Lighthouse performance</th><td>97 / 100</td><td>99 / 100</td></tr>
+        <tr><th scope="row">Largest Contentful Paint</th><td>1,053 ms</td><td>753 ms</td></tr>
+        <tr><th scope="row">CLI exit code</th><td>0</td><td>0</td></tr>
+      </tbody>
+    </table>
+    <p>These are local laboratory measurements, not production field data or a statistically established speed improvement. Browser versions, CPU load, hosting, and network conditions affect results. Zero automated accessibility findings also does not establish complete accessibility.</p>
+    <h2>Proving the failure path</h2>
+    <p>In a temporary copy of the replacement site, the reproduction script removes the report image’s <code>alt</code> attribute. This is a controlled regression, not a defect found in the published site. The same audit then reports one <code>image-alt</code> violation, marks the run as failed, and exits with code <code>1</code>. The action plan identifies the affected rule and recommends adding meaningful alternative text.</p>
+    <p>The unchanged replacement, with its image description present, passes with exit code <code>0</code>. This demonstrates how a CI job can reject a concrete regression instead of merely generating a report that nobody reads.</p>
+    <figure><img src="project-pages-after.png" width="1280" height="2088" alt="Full-page capture of the 3.2.4 documentation site audited in this case study"><figcaption>Actual screenshot from the passing replacement-site audit.</figcaption></figure>
+    <h2>Reproduce it</h2>
+    <p>From a full source clone containing both release revisions, install the documented prerequisites, then run:</p>
+    <pre tabindex="0" aria-label="Reproduction commands"><code>npm ci
+npx playwright install chromium
+npm run build
+node scripts/case-study/run-project-pages.mjs</code></pre>
+    <p>The script requires CLI and source version 3.2.4; it rejects newer or mismatched builds before auditing. It exports the two immutable site revisions, creates the temporary regression, runs all three audits, checks the expected exit codes, and closes its servers. Results are written to <code>artifacts/case-study/project-pages/</code>. A failed audit of either actual revision or a passing regression causes the script to fail.</p>
+    <p><a href="project-pages.zip">Download the complete evidence bundle</a>: HTML reports, screenshots, axe and Lighthouse payloads, summary JSON, action plans, exit codes, configuration, and a SHA-256 manifest. Loopback origins in the published text are normalized to <code>https://project-pages.example/</code>; metrics and timestamps are unchanged. That address is a label for local evidence, not a deployed audit target.</p>
+    <p><a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/scripts/case-study/run-project-pages.mjs">Read the reproduction script</a> or inspect the <a href="project-pages-results.json">recorded results</a>.</p>
+  </main>
+</body>
+</html>

@@ -45,7 +45,8 @@ describe("public story surface", () => {
     );
     expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action usage example"/);
     expect(source).not.toMatch(/not published|E404|security bootstrap/i);
-    expect(source).not.toContain("wqg audit https://your-site.example");
+    expect(source).toContain("npm install --save-dev web-quality-gatekeeper@3.2.4");
+    expect(source).toContain("npx wqg audit https://your-site.example");
     expect(source).not.toMatch(GENERATED_FROM_PATTERN);
   });
 

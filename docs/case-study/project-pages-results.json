@@ -1,0 +1,42 @@
+{
+  "revisions": {
+    "before": "4b7c42921daf771097968a674a8c964a9a91c87c",
+    "after": "7ae7578b3802e9865f8b7c4630e9ffb062b845e3"
+  },
+  "config": {
+    "screenshots": [
+      {
+        "name": "project-home",
+        "path": "@target",
+        "fullPage": true
+      }
+    ],
+    "toggles": {
+      "a11y": true,
+      "perf": true,
+      "visual": false
+    },
+    "trends": {
+      "enabled": false
+    }
+  },
+  "results": {
+    "before": {
+      "exitCode": 0,
+      "status": "pass",
+      "violations": 0
+    },
+    "after": {
+      "exitCode": 0,
+      "status": "pass",
+      "violations": 0
+    },
+    "regression": {
+      "exitCode": 1,
+      "status": "fail",
+      "violations": 1
+    }
+  },
+  "measuredCandidate": "83c186b8ba8e0cf4df027c74e7680db531c3cf63",
+  "note": "The measured candidate docs tree equals the merged release docs tree. Loopback origins are normalized to https://project-pages.example/ in the published bundle; timestamps and measurements are unchanged."
+}
