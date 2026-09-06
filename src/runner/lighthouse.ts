@@ -20,6 +20,7 @@ import {
 } from "./lighthousePuppeteer.js";
 import {
   NavigationTargetVerifier,
+  UnresolvedTargetError,
   isAuditableHttpUrl,
   normalizeUrlHostname,
   resolveAuditedTarget,
@@ -464,10 +465,11 @@ export async function runLighthouseAudit(
         puppeteerPage = await puppeteerBrowser.newPage();
         await puppeteerPage.setRequestInterception(true);
         puppeteerPage.on("request", async (request) => {
+          const isNavigationRequest = request.isNavigationRequest();
           try {
             if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
               const hostname = normalizeUrlHostname(request.url());
-              const contextLabel = request.isNavigationRequest()
+              const contextLabel = isNavigationRequest
                 ? "Lighthouse navigation target"
                 : "Lighthouse request target";
               const verifiedTarget = await coordinateResolverHostVerification(
@@ -494,6 +496,14 @@ export async function runLighthouseAudit(
             await request.continue({ headers: scopedHeaders });
           } catch (error) {
             const nextError = toError(error, "Blocked Lighthouse request");
+            if (nextError instanceof UnresolvedTargetError && !isNavigationRequest) {
+              logger.warn(
+                `Blocked unresolved non-navigation Lighthouse request: ${nextError.hostname}. ` +
+                  "DNS resolution failed during SSRF safety checks."
+              );
+              await request.abort("blockedbyclient");
+              return;
+            }
             if (
               !blockedRequestError ||
               (nextError instanceof ResolverPinningBudgetError &&

@@ -595,6 +595,182 @@ describe("playwright runner", () => {
     expect(closeBrowser).toHaveBeenCalledTimes(1);
   });
 
+  it("aborts unresolved non-navigation requests without pinning or failing the audit", async () => {
+    const page = createPageDouble();
+    let routeHandler:
+      | ((route: {
+          request: () => {
+            isNavigationRequest: () => boolean;
+            url: () => string;
+            headers: () => Record<string, string>;
+          };
+          abort: (reason?: string) => Promise<void>;
+          continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
+        }) => Promise<void>)
+      | null = null;
+    const route = vi.fn().mockImplementation(async (_matcher, handler) => {
+      routeHandler = handler;
+    });
+    const requestAbort = vi.fn().mockResolvedValue(undefined);
+    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    page.waitForTimeout.mockImplementation(async () => {
+      if (!routeHandler) {
+        throw new Error("route handler not registered");
+      }
+      await routeHandler({
+        request: () => ({
+          isNavigationRequest: () => false,
+          url: () => "https://unresolved.example.net/challenge.js",
+          headers: () => ({})
+        }),
+        abort: requestAbort,
+        continue: requestContinue
+      });
+    });
+    mockLookup.mockImplementation(async (hostname: string) => {
+      if (hostname === "unresolved.example.net") {
+        throw new Error("ENOTFOUND");
+      }
+      return [{ address: "203.0.113.10", family: 4 }];
+    });
+
+    const closePage = vi.fn().mockResolvedValue(undefined);
+    const closeContext = vi.fn().mockResolvedValue(undefined);
+    const closeBrowser = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({
+      newContext: vi.fn().mockResolvedValue({
+        addCookies: vi.fn().mockResolvedValue(undefined),
+        newPage: vi.fn().mockResolvedValue({ ...page, close: closePage }),
+        route,
+        close: closeContext
+      }),
+      close: closeBrowser
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { openPage } = await import("../src/runner/playwright.js");
+    const result = await openPage(
+      "https://example.com",
+      {
+        timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+        retries: { count: 1, delayMs: 10 },
+        playwright: {
+          viewport: { width: 1280, height: 720 },
+          userAgent: "wqg/3.0.0",
+          locale: "en-US",
+          colorScheme: "light"
+        },
+        screenshots: [{ name: "home", path: "/", fullPage: true }],
+        lighthouse: {
+          budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+          formFactor: "desktop"
+        },
+        visual: { threshold: 0.01 },
+        toggles: { a11y: true, perf: true, visual: true }
+      } as never,
+      logger as never,
+      null,
+      {
+        hostResolverRules: "MAP example.com 203.0.113.10",
+        targetPolicy: { allowInternalTargets: false, blockInternalTargets: true }
+      }
+    );
+
+    expect(result.resolvedUrl).toBe("https://example.com/");
+    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
+    expect(requestContinue).not.toHaveBeenCalled();
+    expect(mockLaunch).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Blocked unresolved non-navigation Playwright request: unresolved.example.net. DNS resolution failed during SSRF safety checks."
+    );
+
+    await result.page.close();
+    await result.browser.close();
+  });
+
+  it("keeps unresolved navigation targets fatal", async () => {
+    const page = createPageDouble();
+    let routeHandler:
+      | ((route: {
+          request: () => {
+            isNavigationRequest: () => boolean;
+            url: () => string;
+            headers: () => Record<string, string>;
+          };
+          abort: (reason?: string) => Promise<void>;
+          continue: (overrides?: { headers?: Record<string, string> }) => Promise<void>;
+        }) => Promise<void>)
+      | null = null;
+    const route = vi.fn().mockImplementation(async (_matcher, handler) => {
+      routeHandler = handler;
+    });
+    const requestAbort = vi.fn().mockResolvedValue(undefined);
+    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    page.goto.mockImplementation(async () => {
+      if (!routeHandler) {
+        throw new Error("route handler not registered");
+      }
+      await routeHandler({
+        request: () => ({
+          isNavigationRequest: () => true,
+          url: () => "https://unresolved.example.net/",
+          headers: () => ({})
+        }),
+        abort: requestAbort,
+        continue: requestContinue
+      });
+    });
+    mockLookup.mockImplementation(async (hostname: string) => {
+      if (hostname === "unresolved.example.net") {
+        throw new Error("ENOTFOUND");
+      }
+      return [{ address: "203.0.113.10", family: 4 }];
+    });
+
+    const closePage = vi.fn().mockResolvedValue(undefined);
+    const closeContext = vi.fn().mockResolvedValue(undefined);
+    const closeBrowser = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({
+      newContext: vi.fn().mockResolvedValue({
+        addCookies: vi.fn().mockResolvedValue(undefined),
+        newPage: vi.fn().mockResolvedValue({ ...page, close: closePage }),
+        route,
+        close: closeContext
+      }),
+      close: closeBrowser
+    });
+
+    const { openPage } = await import("../src/runner/playwright.js");
+    await expect(
+      openPage(
+        "https://example.com",
+        {
+          timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+          retries: { count: 1, delayMs: 10 },
+          playwright: {
+            viewport: { width: 1280, height: 720 },
+            userAgent: "wqg/3.0.0",
+            locale: "en-US",
+            colorScheme: "light"
+          },
+          screenshots: [{ name: "home", path: "/", fullPage: true }],
+          lighthouse: {
+            budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+            formFactor: "desktop"
+          },
+          visual: { threshold: 0.01 },
+          toggles: { a11y: true, perf: true, visual: true }
+        } as never,
+        { debug: vi.fn(), warn: vi.fn() } as never,
+        null,
+        { targetPolicy: { allowInternalTargets: false, blockInternalTargets: true } }
+      )
+    ).rejects.toThrow("Blocked unresolved navigation target in sensitive mode");
+
+    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
+    expect(requestContinue).not.toHaveBeenCalled();
+  });
+
   it("relaunches to pin a public subresource discovered after navigation", async () => {
     const page = createPageDouble();
     let routeHandler:

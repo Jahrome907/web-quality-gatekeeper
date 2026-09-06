@@ -12,7 +12,7 @@ Use the GitHub Action at `Jahrome907/web-quality-gatekeeper@v3` or install the C
 The CLI is also available on [npm](https://www.npmjs.com/package/web-quality-gatekeeper):
 
 ```bash
-npm install --save-dev web-quality-gatekeeper@3.2.5
+npm install --save-dev web-quality-gatekeeper@3.2.6
 npx playwright install chromium
 npx wqg audit https://your-site.example
 ```

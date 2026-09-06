@@ -820,6 +820,120 @@ describe("lighthouse runner", () => {
     expect(kill).toHaveBeenCalledTimes(1);
   });
 
+  it("aborts unresolved non-navigation Lighthouse requests without pinning or failing the audit", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({ connect: puppeteer.connect });
+    const requestAbort = vi.fn().mockResolvedValue(undefined);
+    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    mockLookup.mockImplementation(async (hostname: string) => {
+      if (hostname === "unresolved.example.net") {
+        throw new Error("ENOTFOUND");
+      }
+      return [{ address: "203.0.113.10", family: 4 }];
+    });
+    mockLighthouse.mockImplementation(async () => {
+      const requestHandler = puppeteer.getRequestHandler();
+      if (!requestHandler) {
+        throw new Error("request handler not registered");
+      }
+      await requestHandler({
+        isNavigationRequest: () => false,
+        url: () => "https://unresolved.example.net/challenge.js",
+        headers: () => ({}),
+        continue: requestContinue,
+        abort: requestAbort
+      });
+      return {
+        lhr: {
+          categories: { performance: { score: 0.95 } },
+          audits: {
+            "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+            "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+            "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+          }
+        }
+      };
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        logger as never,
+        null,
+        {
+          hostResolverRules: "MAP example.com 203.0.113.10",
+          targetPolicy: { allowInternalTargets: false, blockInternalTargets: true }
+        }
+      )
+    ).resolves.toMatchObject({ metrics: expect.any(Object) });
+
+    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
+    expect(requestContinue).not.toHaveBeenCalled();
+    expect(mockLaunch).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "Blocked unresolved non-navigation Lighthouse request: unresolved.example.net. DNS resolution failed during SSRF safety checks."
+    );
+  });
+
+  it("keeps unresolved Lighthouse navigation targets fatal", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    const puppeteer = createPuppeteerHarness();
+    mockLoadLighthousePuppeteer.mockResolvedValue({ connect: puppeteer.connect });
+    const requestAbort = vi.fn().mockResolvedValue(undefined);
+    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    mockLookup.mockImplementation(async (hostname: string) => {
+      if (hostname === "unresolved.example.net") {
+        throw new Error("ENOTFOUND");
+      }
+      return [{ address: "203.0.113.10", family: 4 }];
+    });
+    mockLighthouse.mockImplementation(async () => {
+      const requestHandler = puppeteer.getRequestHandler();
+      if (!requestHandler) {
+        throw new Error("request handler not registered");
+      }
+      await requestHandler({
+        isNavigationRequest: () => true,
+        url: () => "https://unresolved.example.net/",
+        headers: () => ({}),
+        continue: requestContinue,
+        abort: requestAbort
+      });
+      return {
+        lhr: {
+          categories: { performance: { score: 0.95 } },
+          audits: {
+            "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+            "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+            "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+          }
+        }
+      };
+    });
+
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        { debug: vi.fn(), warn: vi.fn() } as never,
+        null,
+        { targetPolicy: { allowInternalTargets: false, blockInternalTargets: true } }
+      )
+    ).rejects.toThrow("Blocked unresolved Lighthouse navigation target in sensitive mode");
+
+    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
+    expect(requestContinue).not.toHaveBeenCalled();
+  });
+
   it("does not re-resolve the final Lighthouse URL when it stays on the original host", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });

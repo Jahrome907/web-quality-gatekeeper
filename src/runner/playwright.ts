@@ -17,6 +17,7 @@ import { applyScopedAuthHeaders } from "../utils/auth.js";
 import { resolveBrowserExecutablePath } from "../utils/browserExecutable.js";
 import {
   NavigationTargetVerifier,
+  UnresolvedTargetError,
   isAuditableHttpUrl,
   normalizeUrlHostname,
   UsageError,
@@ -428,8 +429,9 @@ async function launchNavigatedPage(
 
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
           const hostname = normalizeUrlHostname(request.url());
+          const isNavigationRequest = request.isNavigationRequest();
           try {
-            const contextLabel = request.isNavigationRequest()
+            const contextLabel = isNavigationRequest
               ? "navigation target"
               : "request target";
             const verifiedTarget = await coordinateResolverHostVerification(
@@ -446,6 +448,14 @@ async function launchNavigatedPage(
               activePinnedHosts.set(hostname, null);
             }
           } catch (error) {
+            if (error instanceof UnresolvedTargetError && !isNavigationRequest) {
+              logger.warn(
+                `Blocked unresolved non-navigation Playwright request: ${error.hostname}. ` +
+                  "DNS resolution failed during SSRF safety checks."
+              );
+              await route.abort("blockedbyclient");
+              return;
+            }
             recordBlockedRequest(blockedRequestState, error);
             await route.abort("blockedbyclient");
             return;

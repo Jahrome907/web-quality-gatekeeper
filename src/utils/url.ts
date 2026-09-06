@@ -5,6 +5,20 @@ export class UsageError extends Error {
   exitCode = 2;
 }
 
+export class UnresolvedTargetError extends UsageError {
+  constructor(
+    readonly hostname: string,
+    readonly context: string
+  ) {
+    super(
+      `Blocked unresolved ${context} in sensitive mode: ${hostname}. ` +
+        "DNS resolution failed during SSRF safety checks. " +
+        "Set --allow-internal-targets or WQG_ALLOW_INTERNAL_TARGETS=true to override."
+    );
+    this.name = "UnresolvedTargetError";
+  }
+}
+
 function safeUrlForMessage(raw: string): string {
   try {
     const parsed = new URL(raw);
@@ -229,11 +243,7 @@ export async function resolveAuditedTarget(
     policy.blockInternalTargets &&
     classification.resolutionFailed
   ) {
-    throw new UsageError(
-      `Blocked unresolved ${context} in sensitive mode: ${classification.hostname}. ` +
-        "DNS resolution failed during SSRF safety checks. " +
-        "Set --allow-internal-targets or WQG_ALLOW_INTERNAL_TARGETS=true to override."
-    );
+    throw new UnresolvedTargetError(classification.hostname, context);
   }
 
   if (classification.resolutionFailed) {

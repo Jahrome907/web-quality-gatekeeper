@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.6] - 2026-09-06
+
+### Fixed
+
+- Keep unresolved non-navigation resources blocked without aborting the entire audit. Navigation failures and internal-target policy violations remain fatal, and blocked-request diagnostics remain visible.
+
 ## [3.2.5] - 2026-09-06
 
 ### Fixed
