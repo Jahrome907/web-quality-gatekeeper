@@ -17,6 +17,7 @@ import { applyScopedAuthHeaders } from "../utils/auth.js";
 import { resolveBrowserExecutablePath } from "../utils/browserExecutable.js";
 import {
   NavigationTargetVerifier,
+  UnresolvedTargetError,
   isAuditableHttpUrl,
   normalizeUrlHostname,
   UsageError,
@@ -428,8 +429,10 @@ async function launchNavigatedPage(
 
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
           const hostname = normalizeUrlHostname(request.url());
+          const isNavigationRequest = request.isNavigationRequest();
+          const hadPendingVerification = pendingResolverVerifications.has(hostname);
           try {
-            const contextLabel = request.isNavigationRequest()
+            const contextLabel = isNavigationRequest
               ? "navigation target"
               : "request target";
             const verifiedTarget = await coordinateResolverHostVerification(
@@ -437,7 +440,8 @@ async function launchNavigatedPage(
               pendingResolverVerifications,
               hostname,
               "Playwright",
-              () => navigationTargetVerifier.verify(request.url(), contextLabel)
+              () => navigationTargetVerifier.verify(request.url(), contextLabel),
+              { retainUnresolvedRejection: !isNavigationRequest }
             );
             if (!activePinnedHosts.has(hostname)) {
               if (verifiedTarget?.hostResolverRules) {
@@ -446,6 +450,16 @@ async function launchNavigatedPage(
               activePinnedHosts.set(hostname, null);
             }
           } catch (error) {
+            if (error instanceof UnresolvedTargetError && !isNavigationRequest) {
+              if (!hadPendingVerification) {
+                logger.warn(
+                  `Blocked unresolved non-navigation Playwright request: ${error.hostname}. ` +
+                    "DNS resolution failed during SSRF safety checks."
+                );
+              }
+              await route.abort("blockedbyclient");
+              return;
+            }
             recordBlockedRequest(blockedRequestState, error);
             await route.abort("blockedbyclient");
             return;
