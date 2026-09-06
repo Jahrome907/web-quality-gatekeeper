@@ -7,7 +7,7 @@
 
 Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual comparisons in one CI job. It produces a readable HTML report plus JSON and Markdown artifacts for automation. Contract-checked JSON formats are covered by versioned schemas and contract tests.
 
-Use the published GitHub Action at `Jahrome907/web-quality-gatekeeper@v3`, or build the CLI from source. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) are the source of truth for published versions.
+Use the GitHub Action at `Jahrome907/web-quality-gatekeeper@v3` or install the CLI from npm. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) identify published versions; source builds are available for contributors.
 
 The CLI is also available on [npm](https://www.npmjs.com/package/web-quality-gatekeeper):
 
@@ -72,7 +72,7 @@ npm run build
 node dist/cli.js audit https://your-site.example --policy marketing
 ```
 
-On successful runs, `node dist/cli.js audit` writes artifact files under `artifacts/`:
+Audits write results under `artifacts/`, including when a completed check fails its quality gate:
 
 - `report.html`
 - `summary.json` and `summary.v2.json`
@@ -85,9 +85,9 @@ Open `artifacts/report.html` for the human report. Automation should consume the
 ## CLI essentials
 
 ```bash
-node dist/cli.js audit [url] [options]
-node dist/cli.js init --profile marketing --url https://your-site.example
-node dist/cli.js doctor --config .github/web-quality/config.json
+npx wqg audit [url] [options]
+npx wqg init --profile marketing --url https://your-site.example
+npx wqg doctor --config .github/web-quality/config.json
 ```
 
 The positional URL is optional when the config supplies `urls`. Common audit options include:
@@ -102,10 +102,10 @@ The positional URL is optional when the config supplies `urls`. Common audit opt
 
 Built-in policies are `marketing`, `docs`, `ecommerce`, and `saas`. Screenshot paths must be `@target` or start with a single `/`; protocol-relative paths such as `//example.com/path` are rejected.
 
-To establish visual baselines from a built checkout:
+To establish visual baselines:
 
 ```bash
-node dist/cli.js audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
+npx wqg audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
 ```
 
 Commit reviewed baseline images. Do not commit ordinary `artifacts/` output.

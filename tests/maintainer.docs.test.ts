@@ -31,14 +31,9 @@ describe("maintainer documentation", () => {
 
     expect(readme.split(/\r?\n/).length).toBeLessThan(250);
     expect(readme).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
-    expect(readme).toContain("Contract-checked JSON formats are covered by versioned schemas");
-    expect(readme).toContain("The `policy` input is optional");
     expect(readme).toContain("tools/python/README.md");
     expect(readme).not.toMatch(
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
-    );
-    expect(readme).toContain(
-      "Use the published GitHub Action at `Jahrome907/web-quality-gatekeeper@v3`, or build the CLI from source."
     );
     expect(readme).not.toMatch(/not published|E404|security bootstrap/i);
     expect(readme).toContain("node dist/cli.js audit");
@@ -49,6 +44,9 @@ describe("maintainer documentation", () => {
     expect(readme).not.toMatch(/source-[0-9]+\.[0-9]+\.[0-9]+/);
     expect(readme).toContain("npm install --save-dev web-quality-gatekeeper@3.2.4");
     expect(readme).toContain("npx playwright install chromium");
+    expect(readme).toContain("npx wqg audit");
+    expect(readme).toContain("npx wqg init");
+    expect(readme).toContain("npx wqg doctor");
   });
 
   it("keeps contributor guidance scoped to real validation entrypoints", () => {

@@ -55,13 +55,18 @@ jobs:
           PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "120000"
         run: npx playwright install --with-deps --only-shell chromium
 
-      - name: Run full maintainer validation
-        run: npm run validate:full
+      - name: Check source and dependencies
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run build
+          npm run security:audit
+          npm run security:audit:toolchain
 
       - name: Check summary and PR Risk Ledger contracts
         run: npm run contracts:check
 
-      - name: Run coverage
+      - name: Run tests with coverage
         run: npm run test:coverage
 
       - name: Check coverage report
