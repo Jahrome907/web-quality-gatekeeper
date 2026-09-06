@@ -11,7 +11,7 @@ export const defaultConfig: Config = {
       width: 1280,
       height: 720
     },
-    userAgent: "wqg/3.2.3",
+    userAgent: "wqg/3.2.4",
     locale: "en-US",
     colorScheme: "light"
   },

@@ -5,17 +5,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
 [![Node.js 22.19+](https://img.shields.io/badge/Node.js-22.19%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-A GitHub Action and source-checkout CLI for Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual regression. Each audit writes an HTML report plus JSON and Markdown artifacts for people and CI. Contract-checked JSON formats are covered by versioned schemas and contract tests, so downstream tools can rely on documented fields.
+Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual comparisons in one CI job. It produces a readable HTML report plus JSON and Markdown artifacts for automation. Contract-checked JSON formats are covered by versioned schemas and contract tests.
 
-The supported public distribution is `Jahrome907/web-quality-gatekeeper@v3`. Version `3.2.3` is not published to npm, so registry installation is unavailable; use the Action or build a source checkout. GitHub tags and [Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) are the source of truth for published versions, while `main` may contain unreleased work.
+Use the published GitHub Action at `Jahrome907/web-quality-gatekeeper@v3`, or build the CLI from source. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) are the source of truth for published versions.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Jahrome907/web-quality-gatekeeper/main/assets/report-screenshot.png" alt="Web Quality Gatekeeper HTML report" width="720" />
-</p>
+[![Web Quality Gatekeeper report showing audit status and category scores](docs/assets/report-screenshot.png)](https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-report.html)
 
-## Adopt with GitHub Actions
+The screenshot links to a committed fixture report. Its supporting JSON, configuration, and reproduction steps are included in this repository.
 
-Add a job like this to your workflow. The full [consumer example](examples/consumer-workflow.yml) is the canonical reference for optional inputs and safe report uploads.
+## Use it in GitHub Actions
+
+Add a job like this to your workflow. See the full [consumer example](examples/consumer-workflow.yml) for optional inputs, pinned action SHAs, and safe report uploads.
 
 ```yaml
 jobs:
