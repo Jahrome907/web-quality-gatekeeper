@@ -1,4 +1,4 @@
-import lighthouse from "lighthouse";
+import lighthouse, { desktopConfig } from "lighthouse";
 import { launch } from "chrome-launcher";
 import path from "node:path";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
@@ -466,9 +466,11 @@ export async function runLighthouseAudit(
         await puppeteerPage.setRequestInterception(true);
         puppeteerPage.on("request", async (request) => {
           const isNavigationRequest = request.isNavigationRequest();
+          let hadPendingVerification = false;
           try {
             if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
               const hostname = normalizeUrlHostname(request.url());
+              hadPendingVerification = pendingResolverVerifications.has(hostname);
               const contextLabel = isNavigationRequest
                 ? "Lighthouse navigation target"
                 : "Lighthouse request target";
@@ -477,7 +479,8 @@ export async function runLighthouseAudit(
                 pendingResolverVerifications,
                 hostname,
                 "Lighthouse",
-                () => navigationTargetVerifier.verify(request.url(), contextLabel)
+                () => navigationTargetVerifier.verify(request.url(), contextLabel),
+                { retainUnresolvedRejection: !isNavigationRequest }
               );
               if (!activePinnedHosts.has(hostname)) {
                 if (verifiedTarget?.hostResolverRules) {
@@ -497,10 +500,12 @@ export async function runLighthouseAudit(
           } catch (error) {
             const nextError = toError(error, "Blocked Lighthouse request");
             if (nextError instanceof UnresolvedTargetError && !isNavigationRequest) {
-              logger.warn(
-                `Blocked unresolved non-navigation Lighthouse request: ${nextError.hostname}. ` +
-                  "DNS resolution failed during SSRF safety checks."
-              );
+              if (!hadPendingVerification) {
+                logger.warn(
+                  `Blocked unresolved non-navigation Lighthouse request: ${nextError.hostname}. ` +
+                    "DNS resolution failed during SSRF safety checks."
+                );
+              }
               await request.abort("blockedbyclient");
               return;
             }
@@ -539,13 +544,15 @@ export async function runLighthouseAudit(
         logLevel: "error" as const,
         onlyCategories: ["performance", "accessibility", "best-practices", "seo"]
       };
-      const lighthouseConfig = {
-        extends: "lighthouse:default",
-        settings: {
-          formFactor: config.lighthouse.formFactor,
-          screenEmulation
-        }
-      };
+      const lighthouseConfig = isMobile
+        ? {
+            extends: "lighthouse:default" as const,
+            settings: {
+              formFactor: config.lighthouse.formFactor,
+              screenEmulation
+            }
+          }
+        : desktopConfig;
 
       const runnerResult = await retry(
         async () => {

@@ -430,6 +430,7 @@ async function launchNavigatedPage(
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
           const hostname = normalizeUrlHostname(request.url());
           const isNavigationRequest = request.isNavigationRequest();
+          const hadPendingVerification = pendingResolverVerifications.has(hostname);
           try {
             const contextLabel = isNavigationRequest
               ? "navigation target"
@@ -439,7 +440,8 @@ async function launchNavigatedPage(
               pendingResolverVerifications,
               hostname,
               "Playwright",
-              () => navigationTargetVerifier.verify(request.url(), contextLabel)
+              () => navigationTargetVerifier.verify(request.url(), contextLabel),
+              { retainUnresolvedRejection: !isNavigationRequest }
             );
             if (!activePinnedHosts.has(hostname)) {
               if (verifiedTarget?.hostResolverRules) {
@@ -449,10 +451,12 @@ async function launchNavigatedPage(
             }
           } catch (error) {
             if (error instanceof UnresolvedTargetError && !isNavigationRequest) {
-              logger.warn(
-                `Blocked unresolved non-navigation Playwright request: ${error.hostname}. ` +
-                  "DNS resolution failed during SSRF safety checks."
-              );
+              if (!hadPendingVerification) {
+                logger.warn(
+                  `Blocked unresolved non-navigation Playwright request: ${error.hostname}. ` +
+                    "DNS resolution failed during SSRF safety checks."
+                );
+              }
               await route.abort("blockedbyclient");
               return;
             }

@@ -1,4 +1,4 @@
-import { UsageError } from "../utils/url.js";
+import { UnresolvedTargetError, UsageError } from "../utils/url.js";
 
 const HOST_RESOLVER_RULES_PREFIX = "--host-resolver-rules=";
 
@@ -19,7 +19,8 @@ export function coordinateResolverHostVerification<T extends ResolverHostVerific
   pendingVerifications: Map<string, Promise<T>>,
   hostname: string,
   runnerName: string,
-  verify: () => Promise<T>
+  verify: () => Promise<T>,
+  options: { retainUnresolvedRejection?: boolean } = {}
 ): Promise<T> {
   if (hosts.has(hostname)) {
     return verify();
@@ -58,7 +59,10 @@ export function coordinateResolverHostVerification<T extends ResolverHostVerific
       return verifiedTarget;
     },
     (error: unknown) => {
-      if (pendingVerifications.get(hostname) === coordinatedVerification) {
+      if (
+        pendingVerifications.get(hostname) === coordinatedVerification &&
+        !(options.retainUnresolvedRejection && error instanceof UnresolvedTargetError)
+      ) {
         pendingVerifications.delete(hostname);
       }
       throw error;

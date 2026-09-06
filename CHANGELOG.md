@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Keep unresolved non-navigation resources blocked without aborting the entire audit. Navigation failures and internal-target policy violations remain fatal, and blocked-request diagnostics remain visible.
+- Bound failed background DNS lookups with the existing hostname limit and avoid duplicate lookup work and warnings.
+- Apply Lighthouse's complete desktop preset, including its desktop user agent and throttling, when desktop audits are selected. Mobile audits and numeric budgets remain unchanged.
 
 ## [3.2.5] - 2026-09-06
 

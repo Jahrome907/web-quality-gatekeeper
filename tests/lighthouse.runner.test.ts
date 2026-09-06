@@ -21,8 +21,9 @@ const mockWriteJson = vi.fn();
 const mockLoadLighthousePuppeteer = vi.fn();
 const LOCAL_DATA_ENV_KEY = "LOCAL" + "APP" + "DATA";
 
-vi.mock("lighthouse", () => ({
-  default: mockLighthouse
+vi.mock("lighthouse", async () => ({
+  default: mockLighthouse,
+  desktopConfig: (await import("lighthouse/core/config/desktop-config.js")).default
 }));
 vi.mock("chrome-launcher", () => ({
   launch: mockLaunch
@@ -531,6 +532,40 @@ describe("lighthouse runner", () => {
     });
   });
 
+  it("uses the complete Lighthouse desktop profile", async () => {
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        categories: { performance: { score: 0.95 } },
+        audits: {
+          "largest-contentful-paint": { numericValue: 1500 },
+          "cumulative-layout-shift": { numericValue: 0 },
+          "total-blocking-time": { numericValue: 100 }
+        }
+      }
+    });
+    mockLaunch.mockResolvedValue({ port: 9222, kill: vi.fn().mockResolvedValue(undefined) });
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await runLighthouseAudit(
+      "https://example.com",
+      "/tmp/artifacts",
+      createBaseConfig() as never,
+      { debug: vi.fn() } as never
+    );
+
+    expect(mockLighthouse).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.any(Object),
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          formFactor: "desktop",
+          emulatedUserAgent: expect.not.stringContaining("Mobile"),
+          throttling: expect.objectContaining({ cpuSlowdownMultiplier: 1, rttMs: 40 }),
+          screenEmulation: expect.objectContaining({ mobile: false, width: 1350, height: 940 })
+        })
+      })
+    );
+  });
+
   it("applies mobile emulation config for mobile formFactor", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
@@ -820,13 +855,13 @@ describe("lighthouse runner", () => {
     expect(kill).toHaveBeenCalledTimes(1);
   });
 
-  it("aborts unresolved non-navigation Lighthouse requests without pinning or failing the audit", async () => {
+  it("caches concurrent and sequential unresolved Lighthouse requests without pinning or failing the audit", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
     const puppeteer = createPuppeteerHarness();
     mockLoadLighthousePuppeteer.mockResolvedValue({ connect: puppeteer.connect });
-    const requestAbort = vi.fn().mockResolvedValue(undefined);
-    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    const requestAborts = Array.from({ length: 3 }, () => vi.fn().mockResolvedValue(undefined));
+    const requestContinues = Array.from({ length: 3 }, () => vi.fn().mockResolvedValue(undefined));
     mockLookup.mockImplementation(async (hostname: string) => {
       if (hostname === "unresolved.example.net") {
         throw new Error("ENOTFOUND");
@@ -838,13 +873,15 @@ describe("lighthouse runner", () => {
       if (!requestHandler) {
         throw new Error("request handler not registered");
       }
-      await requestHandler({
+      const request = (index: number) => ({
         isNavigationRequest: () => false,
         url: () => "https://unresolved.example.net/challenge.js",
         headers: () => ({}),
-        continue: requestContinue,
-        abort: requestAbort
+        continue: requestContinues[index]!,
+        abort: requestAborts[index]!
       });
+      await Promise.all([requestHandler(request(0)), requestHandler(request(1))]);
+      await requestHandler(request(2));
       return {
         lhr: {
           categories: { performance: { score: 0.95 } },
@@ -873,21 +910,25 @@ describe("lighthouse runner", () => {
       )
     ).resolves.toMatchObject({ metrics: expect.any(Object) });
 
-    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
-    expect(requestContinue).not.toHaveBeenCalled();
+    expect(mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")).toHaveLength(1);
+    requestAborts.forEach((requestAbort) =>
+      expect(requestAbort).toHaveBeenCalledWith("blockedbyclient")
+    );
+    requestContinues.forEach((requestContinue) => expect(requestContinue).not.toHaveBeenCalled());
     expect(mockLaunch).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledTimes(1);
     expect(logger.warn).toHaveBeenCalledWith(
       "Blocked unresolved non-navigation Lighthouse request: unresolved.example.net. DNS resolution failed during SSRF safety checks."
     );
   });
 
-  it("keeps unresolved Lighthouse navigation targets fatal", async () => {
+  it("keeps a navigation to a cached unresolved Lighthouse host fatal", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
     const puppeteer = createPuppeteerHarness();
     mockLoadLighthousePuppeteer.mockResolvedValue({ connect: puppeteer.connect });
-    const requestAbort = vi.fn().mockResolvedValue(undefined);
-    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    const requestAborts = Array.from({ length: 2 }, () => vi.fn().mockResolvedValue(undefined));
+    const requestContinues = Array.from({ length: 2 }, () => vi.fn().mockResolvedValue(undefined));
     mockLookup.mockImplementation(async (hostname: string) => {
       if (hostname === "unresolved.example.net") {
         throw new Error("ENOTFOUND");
@@ -900,11 +941,18 @@ describe("lighthouse runner", () => {
         throw new Error("request handler not registered");
       }
       await requestHandler({
+        isNavigationRequest: () => false,
+        url: () => "https://unresolved.example.net/challenge.js",
+        headers: () => ({}),
+        continue: requestContinues[0]!,
+        abort: requestAborts[0]!
+      });
+      await requestHandler({
         isNavigationRequest: () => true,
         url: () => "https://unresolved.example.net/",
         headers: () => ({}),
-        continue: requestContinue,
-        abort: requestAbort
+        continue: requestContinues[1]!,
+        abort: requestAborts[1]!
       });
       return {
         lhr: {
@@ -928,10 +976,13 @@ describe("lighthouse runner", () => {
         null,
         { targetPolicy: { allowInternalTargets: false, blockInternalTargets: true } }
       )
-    ).rejects.toThrow("Blocked unresolved Lighthouse navigation target in sensitive mode");
+    ).rejects.toThrow("Blocked unresolved Lighthouse request target in sensitive mode");
 
-    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
-    expect(requestContinue).not.toHaveBeenCalled();
+    expect(mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")).toHaveLength(1);
+    requestAborts.forEach((requestAbort) =>
+      expect(requestAbort).toHaveBeenCalledWith("blockedbyclient")
+    );
+    requestContinues.forEach((requestContinue) => expect(requestContinue).not.toHaveBeenCalled());
   });
 
   it("does not re-resolve the final Lighthouse URL when it stays on the original host", async () => {
@@ -1368,8 +1419,7 @@ describe("lighthouse runner", () => {
     killSpies.forEach((kill) => expect(kill).toHaveBeenCalledTimes(1));
   });
 
-  it("caps pending distinct and duplicate Lighthouse DNS discovery", async () => {
-    const releaseLookups: Array<() => void> = [];
+  it("caps distinct unresolved Lighthouse DNS discovery", async () => {
     const requestAborts: ReturnType<typeof vi.fn>[] = [];
     const requestHostnames = [
       ...Array.from(
@@ -1382,9 +1432,7 @@ describe("lighthouse runner", () => {
       if (hostname === "example.com") {
         return Promise.resolve([{ address: "203.0.113.10", family: 4 }]);
       }
-      return new Promise((resolve) => {
-        releaseLookups.push(() => resolve([{ address: "203.0.113.10", family: 4 }]));
-      });
+      throw new Error("ENOTFOUND");
     });
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
@@ -1440,15 +1488,15 @@ describe("lighthouse runner", () => {
       )
     );
 
-    await vi.waitFor(() => {
-      expect(mockLookup).toHaveBeenCalledTimes(MAX_RESOLVER_PINNING_HOSTS);
-    });
-    releaseLookups.forEach((release) => release());
-
-    await expect(auditPromise).rejects.toThrow(
+    const auditFailure = expect(auditPromise).rejects.toThrow(
       `Lighthouse resolver pinning hostname budget exceeded while adding burst-${MAX_RESOLVER_PINNING_HOSTS - 1}.example.net: ` +
         `${MAX_RESOLVER_PINNING_HOSTS + 1} hosts exceeds the ${MAX_RESOLVER_PINNING_HOSTS}-host limit.`
     );
+
+    await vi.waitFor(() => {
+      expect(mockLookup).toHaveBeenCalledTimes(MAX_RESOLVER_PINNING_HOSTS);
+    });
+    await auditFailure;
 
     expect(mockLookup).toHaveBeenCalledTimes(MAX_RESOLVER_PINNING_HOSTS);
     expect(requestAborts).toHaveLength(requestHostnames.length);

@@ -595,7 +595,7 @@ describe("playwright runner", () => {
     expect(closeBrowser).toHaveBeenCalledTimes(1);
   });
 
-  it("aborts unresolved non-navigation requests without pinning or failing the audit", async () => {
+  it("caches concurrent and sequential unresolved requests without pinning or failing the audit", async () => {
     const page = createPageDouble();
     let routeHandler:
       | ((route: {
@@ -611,21 +611,23 @@ describe("playwright runner", () => {
     const route = vi.fn().mockImplementation(async (_matcher, handler) => {
       routeHandler = handler;
     });
-    const requestAbort = vi.fn().mockResolvedValue(undefined);
-    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    const requestAborts = Array.from({ length: 3 }, () => vi.fn().mockResolvedValue(undefined));
+    const requestContinues = Array.from({ length: 3 }, () => vi.fn().mockResolvedValue(undefined));
     page.waitForTimeout.mockImplementation(async () => {
       if (!routeHandler) {
         throw new Error("route handler not registered");
       }
-      await routeHandler({
+      const routeRequest = (index: number) => ({
         request: () => ({
           isNavigationRequest: () => false,
           url: () => "https://unresolved.example.net/challenge.js",
           headers: () => ({})
         }),
-        abort: requestAbort,
-        continue: requestContinue
+        abort: requestAborts[index]!,
+        continue: requestContinues[index]!
       });
+      await Promise.all([routeHandler(routeRequest(0)), routeHandler(routeRequest(1))]);
+      await routeHandler(routeRequest(2));
     });
     mockLookup.mockImplementation(async (hostname: string) => {
       if (hostname === "unresolved.example.net") {
@@ -677,9 +679,13 @@ describe("playwright runner", () => {
     );
 
     expect(result.resolvedUrl).toBe("https://example.com/");
-    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
-    expect(requestContinue).not.toHaveBeenCalled();
+    expect(mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")).toHaveLength(1);
+    requestAborts.forEach((requestAbort) =>
+      expect(requestAbort).toHaveBeenCalledWith("blockedbyclient")
+    );
+    requestContinues.forEach((requestContinue) => expect(requestContinue).not.toHaveBeenCalled());
     expect(mockLaunch).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledTimes(1);
     expect(logger.warn).toHaveBeenCalledWith(
       "Blocked unresolved non-navigation Playwright request: unresolved.example.net. DNS resolution failed during SSRF safety checks."
     );
@@ -688,7 +694,7 @@ describe("playwright runner", () => {
     await result.browser.close();
   });
 
-  it("keeps unresolved navigation targets fatal", async () => {
+  it("keeps a navigation to a cached unresolved host fatal", async () => {
     const page = createPageDouble();
     let routeHandler:
       | ((route: {
@@ -704,20 +710,29 @@ describe("playwright runner", () => {
     const route = vi.fn().mockImplementation(async (_matcher, handler) => {
       routeHandler = handler;
     });
-    const requestAbort = vi.fn().mockResolvedValue(undefined);
-    const requestContinue = vi.fn().mockResolvedValue(undefined);
+    const requestAborts = Array.from({ length: 2 }, () => vi.fn().mockResolvedValue(undefined));
+    const requestContinues = Array.from({ length: 2 }, () => vi.fn().mockResolvedValue(undefined));
     page.goto.mockImplementation(async () => {
       if (!routeHandler) {
         throw new Error("route handler not registered");
       }
       await routeHandler({
         request: () => ({
+          isNavigationRequest: () => false,
+          url: () => "https://unresolved.example.net/challenge.js",
+          headers: () => ({})
+        }),
+        abort: requestAborts[0]!,
+        continue: requestContinues[0]!
+      });
+      await routeHandler({
+        request: () => ({
           isNavigationRequest: () => true,
           url: () => "https://unresolved.example.net/",
           headers: () => ({})
         }),
-        abort: requestAbort,
-        continue: requestContinue
+        abort: requestAborts[1]!,
+        continue: requestContinues[1]!
       });
     });
     mockLookup.mockImplementation(async (hostname: string) => {
@@ -765,10 +780,13 @@ describe("playwright runner", () => {
         null,
         { targetPolicy: { allowInternalTargets: false, blockInternalTargets: true } }
       )
-    ).rejects.toThrow("Blocked unresolved navigation target in sensitive mode");
+    ).rejects.toThrow("Blocked unresolved request target in sensitive mode");
 
-    expect(requestAbort).toHaveBeenCalledWith("blockedbyclient");
-    expect(requestContinue).not.toHaveBeenCalled();
+    expect(mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")).toHaveLength(1);
+    requestAborts.forEach((requestAbort) =>
+      expect(requestAbort).toHaveBeenCalledWith("blockedbyclient")
+    );
+    requestContinues.forEach((requestContinue) => expect(requestContinue).not.toHaveBeenCalled());
   });
 
   it("relaunches to pin a public subresource discovered after navigation", async () => {
@@ -1211,8 +1229,7 @@ describe("playwright runner", () => {
     closeBrowsers.forEach((closeBrowser) => expect(closeBrowser).toHaveBeenCalledTimes(1));
   });
 
-  it("caps pending distinct and duplicate DNS discovery", async () => {
-    const releaseLookups: Array<() => void> = [];
+  it("caps distinct unresolved DNS discovery", async () => {
     const requestAborts: ReturnType<typeof vi.fn>[] = [];
     const requestHostnames = [
       ...Array.from(
@@ -1221,12 +1238,9 @@ describe("playwright runner", () => {
       ),
       ...Array.from({ length: MAX_RESOLVER_PINNING_HOSTS + 8 }, () => "burst-0.example.net")
     ];
-    mockLookup.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          releaseLookups.push(() => resolve([{ address: "203.0.113.10", family: 4 }]));
-        })
-    );
+    mockLookup.mockImplementation(async () => {
+      throw new Error("ENOTFOUND");
+    });
     const page = createPageDouble();
     let routeHandler:
       | ((route: {
@@ -1304,17 +1318,15 @@ describe("playwright runner", () => {
       )
     );
 
-    await vi.waitFor(() => {
-      expect(mockLookup).toHaveBeenCalledTimes(MAX_RESOLVER_PINNING_HOSTS - 1);
-    });
-    releaseLookups.forEach((release) => release());
-
-    await expect(
-      auditPromise
-    ).rejects.toThrow(
+    const auditFailure = expect(auditPromise).rejects.toThrow(
       `Playwright resolver pinning hostname budget exceeded while adding burst-${MAX_RESOLVER_PINNING_HOSTS - 1}.example.net: ` +
         `${MAX_RESOLVER_PINNING_HOSTS + 1} hosts exceeds the ${MAX_RESOLVER_PINNING_HOSTS}-host limit.`
     );
+
+    await vi.waitFor(() => {
+      expect(mockLookup).toHaveBeenCalledTimes(MAX_RESOLVER_PINNING_HOSTS - 1);
+    });
+    await auditFailure;
 
     expect(mockLookup).toHaveBeenCalledTimes(MAX_RESOLVER_PINNING_HOSTS - 1);
     expect(requestAborts).toHaveLength(requestHostnames.length);
