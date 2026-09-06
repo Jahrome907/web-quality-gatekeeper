@@ -46,13 +46,14 @@
     <figure><img src="project-pages-after.png" width="1280" height="2088" alt="Full-page capture of the 3.2.4 documentation site audited in this case study"><figcaption>Actual screenshot from the passing replacement-site audit.</figcaption></figure>
     <h2>Reproduce it</h2>
     <p>From a full source clone containing both release revisions, install the documented prerequisites, then run:</p>
-    <pre tabindex="0" aria-label="Reproduction commands"><code>npm ci
+    <pre tabindex="0" aria-label="Reproduction commands"><code>git switch --detach d0a4163cc45a33602515dc3e112bf2ade5e8510b
+npm ci
 npx playwright install chromium
 npm run build
 node scripts/case-study/run-project-pages.mjs</code></pre>
     <p>The script requires CLI and source version 3.2.4; it rejects newer or mismatched builds before auditing. It exports the two immutable site revisions, creates the temporary regression, runs all three audits, checks the expected exit codes, and closes its servers. Results are written to <code>artifacts/case-study/project-pages/</code>. A failed audit of either actual revision or a passing regression causes the script to fail.</p>
     <p><a href="project-pages.zip">Download the complete evidence bundle</a>: HTML reports, screenshots, axe and Lighthouse payloads, summary JSON, action plans, exit codes, configuration, and a SHA-256 manifest. Loopback origins in the published text are normalized to <code>https://project-pages.example/</code>; metrics and timestamps are unchanged. That address is a label for local evidence, not a deployed audit target.</p>
-    <p><a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/scripts/case-study/run-project-pages.mjs">Read the reproduction script</a> or inspect the <a href="project-pages-results.json">recorded results</a>.</p>
+    <p><a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/d0a4163cc45a33602515dc3e112bf2ade5e8510b/scripts/case-study/run-project-pages.mjs">Read the reproduction script</a> or inspect the <a href="project-pages-results.json">recorded results</a>.</p>
   </main>
 </body>
 </html>

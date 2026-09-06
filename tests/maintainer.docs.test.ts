@@ -42,7 +42,8 @@ describe("maintainer documentation", () => {
     expect(readme).toContain("docs/engineering/ARCHITECTURE_MAP.md");
     expect(readme).toContain("docs/testing-matrix.md");
     expect(readme).not.toMatch(/source-[0-9]+\.[0-9]+\.[0-9]+/);
-    expect(readme).toContain("npm install --save-dev web-quality-gatekeeper@3.2.4");
+    const { version } = JSON.parse(readRepoFile("package.json"));
+    expect(readme).toContain(`npm install --save-dev web-quality-gatekeeper@${version}`);
     expect(readme).toContain("npx playwright install chromium");
     expect(readme).toContain("npx wqg audit");
     expect(readme).toContain("npx wqg init");

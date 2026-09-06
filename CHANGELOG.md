@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.5] - 2026-09-06
+
+### Fixed
+
+- Report Lighthouse execution errors as failed measurements instead of zero performance scores.
+- Pin the project-site case-study reproduction instructions to the source version used for its evidence.
+
+### Changed
+
+- Lead CLI installation and everyday usage with the published npm package.
+- Run one serialized coverage suite in CI while retaining source, dependency, and contract checks.
+- Check documentation commands and artifact contracts without enforcing editorial sentences.
+
 ## [3.2.4] - 2026-09-06
 
 ### Fixed
