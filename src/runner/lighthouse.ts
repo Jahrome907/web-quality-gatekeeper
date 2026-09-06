@@ -120,6 +120,10 @@ interface LighthouseLhrLike {
   audits: Record<string, LighthouseAuditLike | undefined>;
   finalDisplayedUrl?: string;
   finalUrl?: string;
+  runtimeError?: {
+    code?: string;
+    message?: string;
+  } | null;
 }
 
 export interface LighthouseRunOptions {
@@ -162,6 +166,14 @@ function toNullableNumeric(value: number | undefined): number | null {
 
 function toError(error: unknown, fallbackMessage: string): Error {
   return error instanceof Error ? error : new Error(fallbackMessage);
+}
+
+function toLighthouseRuntimeError(
+  runtimeError: NonNullable<LighthouseLhrLike["runtimeError"]>
+): Error {
+  const code = runtimeError.code ?? "unknown";
+  const message = runtimeError.message ?? "Lighthouse reported a runtime error";
+  return new Error(`Lighthouse runtime error ${code}: ${message}`);
 }
 
 function categoryScore(lhr: LighthouseLhrLike, key: string): number {
@@ -437,10 +449,7 @@ export async function runLighthouseAudit(
     let blockedRequestError: Error | null = null;
     try {
       const activePinnedHosts = resolverSnapshot.pinnedHosts;
-      const pendingResolverVerifications = new Map<
-        string,
-        Promise<VerifiedAuditTarget | null>
-      >();
+      const pendingResolverVerifications = new Map<string, Promise<VerifiedAuditTarget | null>>();
       const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
         initialTrustedHosts: activePinnedHosts,
         trustResolvedHosts: false
@@ -536,6 +545,10 @@ export async function runLighthouseAudit(
               : await lighthouse(auditUrl, runnerFlags, lighthouseConfig);
             if (blockedRequestError) {
               throw blockedRequestError;
+            }
+            const lhr = result?.lhr as LighthouseLhrLike | undefined;
+            if (lhr?.runtimeError) {
+              throw toLighthouseRuntimeError(lhr.runtimeError);
             }
             return result;
           } catch (error) {
@@ -647,9 +660,7 @@ export async function runLighthouseAudit(
           throw error;
         }
         assertResolverRelaunchAvailable("Lighthouse", relaunchCount, error.hostname);
-        currentLaunchHostResolverRules = combineHostResolverRules(
-          launchPinnedHostResolverRules
-        );
+        currentLaunchHostResolverRules = combineHostResolverRules(launchPinnedHostResolverRules);
         logger.debug(`Relaunching Lighthouse Chrome with resolver pin for ${error.hostname}`);
         continue;
       }
@@ -673,9 +684,7 @@ export async function runLighthouseAudit(
         attempt.finalTarget.hostResolverRules,
         "Lighthouse"
       );
-      currentLaunchHostResolverRules = combineHostResolverRules(
-        launchPinnedHostResolverRules
-      );
+      currentLaunchHostResolverRules = combineHostResolverRules(launchPinnedHostResolverRules);
     }
   } finally {
     await restoreRuntimeQuietly(runtime, logger);

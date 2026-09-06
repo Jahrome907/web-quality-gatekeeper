@@ -282,6 +282,36 @@ describe("lighthouse runner", () => {
     expect(summary.opportunities).toEqual([]);
   });
 
+  it("throws the Lighthouse runtime error instead of fabricating performance metrics", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        runtimeError: {
+          code: "NO_NAVSTART",
+          message: "Unable to record the page-load trace. (NO_NAVSTART)"
+        },
+        categories: {},
+        audits: {}
+      }
+    });
+
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        { debug: vi.fn() } as never
+      )
+    ).rejects.toThrow(
+      "Lighthouse runtime error NO_NAVSTART: Unable to record the page-load trace. (NO_NAVSTART)"
+    );
+
+    expect(mockWriteJson).not.toHaveBeenCalled();
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
   it("passes auth headers and does not override explicit Cookie header", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
@@ -1005,13 +1035,8 @@ describe("lighthouse runner", () => {
       )
     ).resolves.toMatchObject({ metrics: expect.any(Object) });
 
-    expect(mockLookup.mock.calls.map((call) => call[0])).toEqual([
-      "example.com",
-      "8.8.8.8"
-    ]);
-    requestContinues.forEach((continueRequest) =>
-      expect(continueRequest).toHaveBeenCalledTimes(1)
-    );
+    expect(mockLookup.mock.calls.map((call) => call[0])).toEqual(["example.com", "8.8.8.8"]);
+    requestContinues.forEach((continueRequest) => expect(continueRequest).toHaveBeenCalledTimes(1));
     requestAborts.forEach((abort) => expect(abort).not.toHaveBeenCalled());
     expect(mockLaunch).toHaveBeenCalledTimes(1);
     expect(puppeteer.page.close).toHaveBeenCalledTimes(1);
@@ -1035,8 +1060,7 @@ describe("lighthouse runner", () => {
         lateLookupCount += 1;
         if (lateLookupCount === 1) {
           return new Promise((resolve) => {
-            releaseLateLookup = () =>
-              resolve([{ address: "203.0.113.30", family: 4 }] as never);
+            releaseLateLookup = () => resolve([{ address: "203.0.113.30", family: 4 }] as never);
           });
         }
         return Promise.resolve([{ address: "203.0.113.30", family: 4 }]);
@@ -1134,9 +1158,9 @@ describe("lighthouse runner", () => {
     expect(mockLaunch.mock.calls[2]?.[0]?.chromeFlags).toContain(
       "--host-resolver-rules=MAP example.com 203.0.113.10, MAP fast.example.net 203.0.113.20, MAP late.example.net 203.0.113.30"
     );
-    expect(requestContinues.filter((continueRequest) => continueRequest.mock.calls.length)).toHaveLength(
-      1
-    );
+    expect(
+      requestContinues.filter((continueRequest) => continueRequest.mock.calls.length)
+    ).toHaveLength(1);
     expect(requestAborts.filter((abort) => abort.mock.calls.length)).toHaveLength(3);
     harnesses.forEach((harness) => {
       expect(harness.page.close).toHaveBeenCalledTimes(1);
@@ -1307,9 +1331,7 @@ describe("lighthouse runner", () => {
     });
     releaseLookups.forEach((release) => release());
 
-    await expect(
-      auditPromise
-    ).rejects.toThrow(
+    await expect(auditPromise).rejects.toThrow(
       `Lighthouse resolver pinning hostname budget exceeded while adding burst-${MAX_RESOLVER_PINNING_HOSTS - 1}.example.net: ` +
         `${MAX_RESOLVER_PINNING_HOSTS + 1} hosts exceeds the ${MAX_RESOLVER_PINNING_HOSTS}-host limit.`
     );

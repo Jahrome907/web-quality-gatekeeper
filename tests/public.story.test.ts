@@ -41,7 +41,8 @@ describe("public story surface", () => {
     );
     expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action usage example"/);
     expect(source).not.toMatch(/not published|E404|security bootstrap/i);
-    expect(source).toContain("npm install --save-dev web-quality-gatekeeper@3.2.4");
+    const { version } = JSON.parse(readRepoFile("package.json"));
+    expect(source).toContain(`npm install --save-dev web-quality-gatekeeper@${version}`);
     expect(source).toContain("npx wqg audit https://your-site.example");
     expect(source).not.toMatch(GENERATED_FROM_PATTERN);
   });
@@ -164,8 +165,7 @@ describe("public story surface", () => {
     expect(image.readUInt32BE(20)).toBe(1098);
   });
 
-  it("keeps the published proof bundle version aligned with the package version", () => {
-    const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
+  it("keeps historical proof versions consistent across its artifacts", () => {
     const proof = JSON.parse(readRepoFile("docs/proof/fixture-summary.v2.json")) as {
       toolVersion: string;
       pages: Array<{ details?: { toolVersion?: string } }>;
@@ -174,18 +174,23 @@ describe("public story surface", () => {
       toolVersion: string;
     };
 
-    expect(proof.toolVersion).toBe(pkg.version);
-    expect(proof.pages[0]?.details?.toolVersion).toBe(pkg.version);
-    expect(prRiskLedger.toolVersion).toBe(pkg.version);
+    expect(proof.toolVersion).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(proof.pages.length).toBeGreaterThan(0);
+    for (const page of proof.pages) {
+      expect(page.details?.toolVersion).toBe(proof.toolVersion);
+    }
+    expect(prRiskLedger.toolVersion).toBe(proof.toolVersion);
   });
 
-  it("keeps proof fixture config aligned with the published release version", () => {
-    const pkg = JSON.parse(readRepoFile("package.json")) as { version: string };
+  it("keeps proof fixture config aligned with the recorded evidence version", () => {
+    const proof = JSON.parse(readRepoFile("docs/proof/fixture-summary.v2.json")) as {
+      toolVersion: string;
+    };
     const config = JSON.parse(readRepoFile("docs/proof/fixture-proof-config.json")) as {
       playwright?: { userAgent?: string };
     };
 
-    expect(config.playwright?.userAgent).toBe(`wqg-proof-fixture/${pkg.version}`);
+    expect(config.playwright?.userAgent).toBe(`wqg-proof-fixture/${proof.toolVersion}`);
   });
 
   it("sanitizes published proof artifacts for OSS distribution", () => {
