@@ -167,7 +167,6 @@ describe("workflow invariants", () => {
   it("keeps Codecov upload gated on a generated coverage report", () => {
     const source = readRepoFile(".github/workflows/quality-gate.yml");
 
-    expect(source).toContain("Run coverage");
     expect(source).toContain("npm run test:coverage");
     expect(source).toContain("Check coverage report");
     expect(source).toContain("id: coverage_report");
@@ -495,9 +494,22 @@ describe("workflow invariants", () => {
     const npmPublish = readRepoFile(".github/workflows/npm-publish.yml");
     const publishRuntime = readRepoFile("scripts/ci/assert-publish-runtime.mjs");
 
-    expect(qualityGate).toContain("Run full maintainer validation");
     expect(qualityGate).toContain("Check Node engine");
-    expect(qualityGate).toContain("npm run validate:full");
+    for (const command of [
+      "lint",
+      "typecheck",
+      "build",
+      "security:audit",
+      "security:audit:toolchain",
+      "test:coverage",
+      "contracts:check"
+    ]) {
+      expect(qualityGate).toContain(`npm run ${command}`);
+    }
+    expect(qualityGate).not.toMatch(/npm (?:test\b|run (?:validate:full|check)\b)/);
+    expect(qualityGate.match(/npm run test:coverage/g)).toHaveLength(1);
+    const pkg = JSON.parse(readRepoFile("package.json"));
+    expect(pkg.scripts["test:coverage"]).toContain("--no-file-parallelism");
     expectTextOrder(qualityGate, ["npm run engines:check", "npm ci --ignore-scripts"]);
     expect(qualityGate).not.toContain("Enforce runtime audit gate (high+critical)");
     expect(qualityGate).not.toContain("run: npm run security:audit");

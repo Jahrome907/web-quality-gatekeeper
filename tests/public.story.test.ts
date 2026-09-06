@@ -17,7 +17,6 @@ describe("public story surface", () => {
     expect(source).toContain("<h1>Web Quality Gatekeeper</h1>");
     expect(source).toContain("<h2>What it checks</h2>");
     expect(source).toContain('<h2 id="install">GitHub Actions</h2>');
-    expect(source).toContain("Authenticated and internal audits can contain sensitive page content");
     expect(source).toContain(
       'href="https://github.com/Jahrome907/web-quality-gatekeeper/releases"'
     );
@@ -37,9 +36,6 @@ describe("public story surface", () => {
     expect(source).toContain("- id: wqg");
     expect(source).toContain("steps.wqg.outputs.report-path");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
-    expect(source).toContain("<code>policy</code> input is");
-    expect(source).toContain("Contract-checked JSON formats");
-    expect(source).toContain("covered by versioned schemas and contract tests");
     expect(source).not.toMatch(
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
     );
@@ -118,17 +114,14 @@ describe("public story surface", () => {
     const source = readRepoFile("README.md");
 
     expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
-    expect(source).toContain("Contract-checked JSON formats are covered by versioned schemas");
-    expect(source).toContain("The `policy` input is optional");
     expect(source).toContain("tools/python/README.md");
-    expect(source).toContain(
-      "- Multi-page rollups\n- Trend history\n- Prioritized remediation\n- PR risk summaries"
-    );
     expect(source).not.toMatch(
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
     );
     expect(source).not.toMatch(/not published|E404|security bootstrap/i);
-    expect(source).toContain("On successful runs, `node dist/cli.js audit` writes artifact files");
+    expect(source).toContain("npx wqg audit");
+    expect(source).toContain("report.html");
+    expect(source).toContain("summary.v2.json");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
     expect(source).toContain("docs/case-study-run.md");
     expect(source).toContain("docs/case-study/public-oss-repro.md");

@@ -52,7 +52,7 @@
     "build": "tsup",
     "prepack": "npm run build",
     "test": "vitest run --no-file-parallelism tests/integration.test.ts tests/case-study.fixture-smoke.test.ts tests/package.smoke.test.ts tests/action.local-smoke.test.ts && vitest run --exclude tests/integration.test.ts --exclude tests/case-study.fixture-smoke.test.ts --exclude tests/package.smoke.test.ts --exclude tests/action.local-smoke.test.ts",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --no-file-parallelism",
     "lint": "eslint .",
     "format": "prettier . --write",
     "typecheck": "tsc --noEmit",
