@@ -9,9 +9,19 @@ Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Li
 
 Use the published GitHub Action at `Jahrome907/web-quality-gatekeeper@v3`, or build the CLI from source. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) are the source of truth for published versions.
 
+The CLI is also available on [npm](https://www.npmjs.com/package/web-quality-gatekeeper):
+
+```bash
+npm install --save-dev web-quality-gatekeeper@3.2.4
+npx playwright install chromium
+npx wqg audit https://your-site.example
+```
+
 [![Web Quality Gatekeeper report showing audit status and category scores](docs/assets/report-screenshot.png)](https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-report.html)
 
 The screenshot links to a committed fixture report. Its supporting JSON, configuration, and reproduction steps are included in this repository.
+
+The [project-site case study](https://jahrome907.github.io/web-quality-gatekeeper/case-study/project-pages.html) compares two actual site revisions and demonstrates a missing-alt regression producing a failed audit, an actionable report, and exit code 1. It includes the complete evidence bundle and reproduction script.
 
 ## Use it in GitHub Actions
 

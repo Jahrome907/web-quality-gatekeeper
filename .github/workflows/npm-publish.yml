@@ -224,11 +224,20 @@ jobs:
           npm publish "${tarballs[0]}" --provenance --access public --tag "$NPM_DIST_TAG"
 
       - name: Verify npm package visibility
+        timeout-minutes: 3
         env:
           RELEASE_VERSION: ${{ needs.validate-input.outputs.release_version }}
         run: |
-          PUBLISHED_VERSION="$(npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org/)"
-          if [ "$PUBLISHED_VERSION" != "$RELEASE_VERSION" ]; then
-            echo "::error::Expected npm registry version $RELEASE_VERSION, got $PUBLISHED_VERSION."
-            exit 1
-          fi
+          for attempt in 1 2 3 4 5 6; do
+            PUBLISHED_VERSION="$(npm view "web-quality-gatekeeper@${RELEASE_VERSION}" version --registry=https://registry.npmjs.org/ --prefer-online --fetch-retries=0 --fetch-timeout=10000 2>/dev/null || true)"
+            if [ "$PUBLISHED_VERSION" = "$RELEASE_VERSION" ]; then
+              echo "Verified web-quality-gatekeeper@$RELEASE_VERSION in the npm registry."
+              exit 0
+            fi
+            if [ "$attempt" -lt 6 ]; then
+              echo "Registry visibility pending (attempt $attempt/6); waiting 10 seconds."
+              sleep 10
+            fi
+          done
+          echo "::error::Published version $RELEASE_VERSION is not visible after six checks. Inspect the registry before retrying publication."
+          exit 1
