@@ -1,0 +1,74 @@
+name: Pull Request Metadata
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, edited]
+
+permissions: {}
+
+jobs:
+  apply:
+    name: Apply ownership and labels
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Assign maintainer and classify the pull request
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pullRequest = context.payload.pull_request;
+            if (!pullRequest) {
+              core.setFailed("This workflow requires a pull request event.");
+              return;
+            }
+
+            const title = pullRequest.title.trim().toLowerCase();
+            const conventionalType = title.match(/^([a-z]+)(?:\([^)]*\))?!?:/)?.[1];
+            const scope = title.match(/^[a-z]+\(([^)]*)\)!?:/)?.[1];
+            const labelsByType = {
+              fix: "bug",
+              feat: "enhancement",
+              docs: "documentation",
+              ci: "github_actions",
+              deps: "dependencies",
+              dependencies: "dependencies"
+            };
+            const labels = new Set();
+            const label = Object.hasOwn(labelsByType, conventionalType)
+              ? labelsByType[conventionalType]
+              : undefined;
+            if (label) {
+              labels.add(label);
+            }
+            if (scope === "deps" || scope === "dependencies") {
+              labels.add("dependencies");
+            }
+            if (context.actor === "dependabot[bot]") {
+              labels.add("dependencies");
+            }
+            if (labels.size === 0) {
+              labels.add("needs-triage");
+            }
+
+            const request = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pullRequest.number
+            };
+            await github.rest.issues.addAssignees({
+              ...request,
+              assignees: ["Jahrome907"]
+            });
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                ...request,
+                labels: [...labels]
+              });
+            }
+            core.info(
+              `Ensured Jahrome907 is assigned${
+                labels.size > 0 ? ` and added: ${[...labels].join(", ")}` : ""
+              }.`
+            );
