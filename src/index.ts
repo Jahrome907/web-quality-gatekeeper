@@ -1,7 +1,8 @@
 import path from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { loadConfig } from "./config/loadConfig.js";
-import { openPage, captureScreenshots } from "./runner/playwright.js";
+import { captureScreenshots, runPlaywrightLifecycle } from "./runner/playwright.js";
 import { runAxeScan } from "./runner/axe.js";
 import { runLighthouseAudit } from "./runner/lighthouse.js";
 import { runVisualDiff, type VisualDiffRuntimeOptions } from "./runner/visualDiff.js";
@@ -16,14 +17,25 @@ import {
 } from "./report/prRiskLedger.js";
 import { buildTrendDashboardHtml } from "./report/trendDashboard.js";
 import type { AggregateHtmlReport } from "./report/viewModel.js";
-import { ensureDir, validateOutputDirectory, writeJson, writeText } from "./utils/fs.js";
+import {
+  copyFileSafe,
+  ensureDir,
+  validateOutputDirectory,
+  validateResolvedPathWithinBase,
+  writeJson,
+  writeText
+} from "./utils/fs.js";
 import { createLogger } from "./utils/logger.js";
 import { durationMs, nowIso } from "./utils/timing.js";
 import type { Config } from "./config/schema.js";
 import type { AxeSummary } from "./runner/axe.js";
 import type { LighthouseSummary } from "./runner/lighthouse.js";
 import type { VisualDiffSummary } from "./runner/visualDiff.js";
-import type { RuntimeSignalSummary } from "./runner/playwright.js";
+import type {
+  RuntimeSignalCollector,
+  RuntimeSignalSummary,
+  ScreenshotResult
+} from "./runner/playwright.js";
 import type { AuditAuth } from "./utils/auth.js";
 import type { TargetResolutionPolicy } from "./utils/url.js";
 import type { Summary, SummaryV2 as DetailSummaryV2 } from "./report/summary.js";
@@ -152,6 +164,22 @@ function buildCompatibilitySummary(params: {
   };
 }
 
+async function promoteAttemptArtifact(
+  sourcePath: string,
+  attemptDir: string,
+  destinationDir: string
+): Promise<string> {
+  validateResolvedPathWithinBase(sourcePath, attemptDir);
+  const relativePath = path.relative(attemptDir, sourcePath);
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    throw new Error(`Playwright attempt artifact escapes its staging directory: ${sourcePath}`);
+  }
+  const destinationPath = path.join(destinationDir, relativePath);
+  validateResolvedPathWithinBase(destinationPath, destinationDir);
+  await copyFileSafe(sourcePath, destinationPath);
+  return destinationPath;
+}
+
 async function runTargetAudit(params: {
   target: ResolvedAuditTarget;
   outDir: string;
@@ -179,180 +207,223 @@ async function runTargetAudit(params: {
   const startedAt = nowIso();
   const startTime = Date.now();
 
-  let axeSummary: AxeSummary | null = null;
+  let axeSummary: AxeSummary | null;
   let lighthouseSummary: LighthouseSummary | null = null;
   let visualSummary: VisualDiffSummary | null = null;
 
-  const { browser, page, runtimeSignals, resolvedUrl, resolvedHostResolverRules } = await openPage(
-    target.url,
-    config,
-    logger,
-    options.auth ?? null,
-    {
-      hostResolverRules: target.hostResolverRules,
-      targetPolicy
-    }
-  );
+  let attemptDir: string | null = null;
+  let attemptScreenshotsDir: string | null = null;
+  let browserAudit: {
+    axeSummary: AxeSummary | null;
+    screenshots: ScreenshotResult[];
+    runtimeSignals: RuntimeSignalCollector;
+    resolvedUrl: string;
+    resolvedHostResolverRules: string | null;
+  };
   try {
-    const auditedUrl = resolvedUrl;
-    if (config.toggles.a11y) {
-      axeSummary = await runAxeScan(page, target.outDir, logger, config);
-    }
-
-    const screenshots = await captureScreenshots(page, resolvedUrl, config, screenshotsDir, logger);
-
-    if (config.toggles.perf) {
-      lighthouseSummary = await runLighthouseAudit(
-        resolvedUrl,
-        target.outDir,
-        config,
-        logger,
-        options.auth ?? null,
-        {
-          hostResolverRules: resolvedHostResolverRules ?? target.hostResolverRules,
-          targetPolicy
+    browserAudit = await runPlaywrightLifecycle(
+      target.url,
+      config,
+      logger,
+      options.auth ?? null,
+      {
+        hostResolverRules: target.hostResolverRules,
+        targetPolicy
+      },
+      async ({ page, runtimeSignals, resolvedUrl, resolvedHostResolverRules }) => {
+        if (attemptDir) {
+          await rm(attemptDir, { recursive: true, force: true });
         }
-      );
-    }
-
-    if (config.toggles.visual) {
-      const visualDiffOptions: VisualDiffRuntimeOptions = {
-        ...(config.visual.engine ? { engine: config.visual.engine } : {}),
-        ...(config.visual.nativeBinaryPath
-          ? { nativeBinaryPath: config.visual.nativeBinaryPath }
-          : {}),
-        ...(config.visual.pixelmatch ? { pixelmatch: config.visual.pixelmatch } : {}),
-        ...(config.visual.ignoreRegions ? { ignoreRegions: config.visual.ignoreRegions } : {})
-      };
-      visualSummary = await runVisualDiff(
-        screenshots,
-        target.baselineDir,
-        diffsDir,
-        options.setBaseline,
-        config.visual.threshold,
-        logger,
-        visualDiffOptions
-      );
-    }
-
-    const relativeScreenshots = screenshots.map((shot) => ({
-      ...shot,
-      path: toRelative(outDir, shot.path)
-    }));
-
-    const relativeA11yV2 = axeSummary
-      ? { ...axeSummary, reportPath: toRelative(outDir, axeSummary.reportPath) }
-      : null;
-    const relativeA11y = relativeA11yV2
-      ? {
-          violations: relativeA11yV2.violations,
-          countsByImpact: relativeA11yV2.countsByImpact,
-          reportPath: relativeA11yV2.reportPath
-        }
-      : null;
-
-    const relativePerfV2 = lighthouseSummary
-      ? { ...lighthouseSummary, reportPath: toRelative(outDir, lighthouseSummary.reportPath) }
-      : null;
-    const relativePerf = relativePerfV2
-      ? {
-          metrics: relativePerfV2.metrics,
-          budgets: relativePerfV2.budgets,
-          budgetResults: relativePerfV2.budgetResults,
-          reportPath: relativePerfV2.reportPath
-        }
-      : null;
-
-    const relativeVisual = visualSummary
-      ? {
-          ...visualSummary,
-          results: visualSummary.results.map((result) => ({
-            ...result,
-            currentPath: toRelative(outDir, result.currentPath),
-            baselinePath: toRelative(outDir, result.baselinePath),
-            diffPath: result.diffPath ? toRelative(outDir, result.diffPath) : null
-          }))
-        }
-      : null;
-
-    const artifacts = {
-      summary: toRelative(outDir, summaryPath),
-      report: toRelative(outDir, reportPath),
-      axe: relativeA11y?.reportPath ?? null,
-      lighthouse: relativePerf?.reportPath ?? null,
-      screenshotsDir: toRelative(outDir, screenshotsDir),
-      diffsDir: toRelative(outDir, diffsDir),
-      baselineDir: toRelative(outDir, target.baselineDir)
-    };
-
-    const runDurationMs = durationMs(startTime);
-    const summary = summaryReport.buildSummary({
-      url: auditedUrl,
-      startedAt,
-      durationMs: runDurationMs,
-      toolVersion: pkg.version,
-      screenshots: relativeScreenshots,
-      a11y: relativeA11y,
-      performance: relativePerf,
-      visual: relativeVisual,
-      artifacts,
-      options: {
-        failOnA11y: options.failOnA11y,
-        failOnPerf: options.failOnPerf,
-        failOnVisual: options.failOnVisual
+        attemptDir = await mkdtemp(path.join(target.outDir, ".wqg-playwright-attempt-"));
+        validateResolvedPathWithinBase(attemptDir, target.outDir);
+        attemptScreenshotsDir = path.join(attemptDir, "screenshots");
+        validateResolvedPathWithinBase(attemptScreenshotsDir, attemptDir);
+        const axeSummary = config.toggles.a11y
+          ? await runAxeScan(page, attemptDir, logger, config)
+          : null;
+        const screenshots = await captureScreenshots(
+          page,
+          resolvedUrl,
+          config,
+          attemptScreenshotsDir,
+          logger
+        );
+        return { axeSummary, screenshots, runtimeSignals, resolvedUrl, resolvedHostResolverRules };
       }
-    });
-
-    const summaryV2Base = summaryReport.buildSummaryV2
-      ? summaryReport.buildSummaryV2({
-          url: auditedUrl,
-          startedAt,
-          durationMs: runDurationMs,
-          toolVersion: pkg.version,
-          screenshots: relativeScreenshots,
-          a11y: relativeA11yV2,
-          performance: relativePerfV2,
-          visual: relativeVisual,
-          runtimeSignals: runtimeSignals.snapshot() as RuntimeSignalSummary,
-          artifacts: {
-            ...artifacts,
-            summaryV2: toRelative(outDir, summaryV2Path)
-          },
-          options: {
-            failOnA11y: options.failOnA11y,
-            failOnPerf: options.failOnPerf,
-            failOnVisual: options.failOnVisual
-          }
-        })
-      : ({
-          ...summary,
-          artifacts: {
-            ...summary.artifacts,
-            summaryV2: toRelative(outDir, summaryV2Path)
-          },
-          runtimeSignals: runtimeSignals.snapshot() as RuntimeSignalSummary
-        } as DetailSummaryV2);
-
-    const summaryV2: DetailSummaryV2 =
-      config.insights?.enabled === false
-        ? summaryV2Base
-        : {
-            ...summaryV2Base,
-            insights: buildInsights(summaryV2Base)
-          };
-
-    await writeJson(summaryPath, summary);
-    await writeJson(summaryV2Path, summaryV2);
-    await writeText(reportPath, buildHtmlReport(summaryV2));
-
-    return {
-      target,
-      summary,
-      summaryV2
-    };
+    );
+    axeSummary = browserAudit.axeSummary
+      ? {
+          ...browserAudit.axeSummary,
+          reportPath: await promoteAttemptArtifact(
+            browserAudit.axeSummary.reportPath,
+            attemptDir!,
+            target.outDir
+          )
+        }
+      : null;
+    browserAudit.screenshots = await Promise.all(
+      browserAudit.screenshots.map(async (screenshot) => ({
+        ...screenshot,
+        path: await promoteAttemptArtifact(screenshot.path, attemptScreenshotsDir!, screenshotsDir)
+      }))
+    );
   } finally {
-    await browser.close();
+    if (attemptDir) {
+      await rm(attemptDir, { recursive: true, force: true });
+    }
   }
+  const { screenshots, runtimeSignals, resolvedUrl, resolvedHostResolverRules } = browserAudit;
+  const auditedUrl = resolvedUrl;
+
+  if (config.toggles.perf) {
+    lighthouseSummary = await runLighthouseAudit(
+      resolvedUrl,
+      target.outDir,
+      config,
+      logger,
+      options.auth ?? null,
+      {
+        hostResolverRules: resolvedHostResolverRules ?? target.hostResolverRules,
+        targetPolicy
+      }
+    );
+  }
+
+  if (config.toggles.visual) {
+    const visualDiffOptions: VisualDiffRuntimeOptions = {
+      ...(config.visual.engine ? { engine: config.visual.engine } : {}),
+      ...(config.visual.nativeBinaryPath
+        ? { nativeBinaryPath: config.visual.nativeBinaryPath }
+        : {}),
+      ...(config.visual.pixelmatch ? { pixelmatch: config.visual.pixelmatch } : {}),
+      ...(config.visual.ignoreRegions ? { ignoreRegions: config.visual.ignoreRegions } : {})
+    };
+    visualSummary = await runVisualDiff(
+      screenshots,
+      target.baselineDir,
+      diffsDir,
+      options.setBaseline,
+      config.visual.threshold,
+      logger,
+      visualDiffOptions
+    );
+  }
+
+  const relativeScreenshots = screenshots.map((shot) => ({
+    ...shot,
+    path: toRelative(outDir, shot.path)
+  }));
+
+  const relativeA11yV2 = axeSummary
+    ? { ...axeSummary, reportPath: toRelative(outDir, axeSummary.reportPath) }
+    : null;
+  const relativeA11y = relativeA11yV2
+    ? {
+        violations: relativeA11yV2.violations,
+        countsByImpact: relativeA11yV2.countsByImpact,
+        reportPath: relativeA11yV2.reportPath
+      }
+    : null;
+
+  const relativePerfV2 = lighthouseSummary
+    ? { ...lighthouseSummary, reportPath: toRelative(outDir, lighthouseSummary.reportPath) }
+    : null;
+  const relativePerf = relativePerfV2
+    ? {
+        metrics: relativePerfV2.metrics,
+        budgets: relativePerfV2.budgets,
+        budgetResults: relativePerfV2.budgetResults,
+        reportPath: relativePerfV2.reportPath
+      }
+    : null;
+
+  const relativeVisual = visualSummary
+    ? {
+        ...visualSummary,
+        results: visualSummary.results.map((result) => ({
+          ...result,
+          currentPath: toRelative(outDir, result.currentPath),
+          baselinePath: toRelative(outDir, result.baselinePath),
+          diffPath: result.diffPath ? toRelative(outDir, result.diffPath) : null
+        }))
+      }
+    : null;
+
+  const artifacts = {
+    summary: toRelative(outDir, summaryPath),
+    report: toRelative(outDir, reportPath),
+    axe: relativeA11y?.reportPath ?? null,
+    lighthouse: relativePerf?.reportPath ?? null,
+    screenshotsDir: toRelative(outDir, screenshotsDir),
+    diffsDir: toRelative(outDir, diffsDir),
+    baselineDir: toRelative(outDir, target.baselineDir)
+  };
+
+  const runDurationMs = durationMs(startTime);
+  const summary = summaryReport.buildSummary({
+    url: auditedUrl,
+    startedAt,
+    durationMs: runDurationMs,
+    toolVersion: pkg.version,
+    screenshots: relativeScreenshots,
+    a11y: relativeA11y,
+    performance: relativePerf,
+    visual: relativeVisual,
+    artifacts,
+    options: {
+      failOnA11y: options.failOnA11y,
+      failOnPerf: options.failOnPerf,
+      failOnVisual: options.failOnVisual
+    }
+  });
+
+  const summaryV2Base = summaryReport.buildSummaryV2
+    ? summaryReport.buildSummaryV2({
+        url: auditedUrl,
+        startedAt,
+        durationMs: runDurationMs,
+        toolVersion: pkg.version,
+        screenshots: relativeScreenshots,
+        a11y: relativeA11yV2,
+        performance: relativePerfV2,
+        visual: relativeVisual,
+        runtimeSignals: runtimeSignals.snapshot() as RuntimeSignalSummary,
+        artifacts: {
+          ...artifacts,
+          summaryV2: toRelative(outDir, summaryV2Path)
+        },
+        options: {
+          failOnA11y: options.failOnA11y,
+          failOnPerf: options.failOnPerf,
+          failOnVisual: options.failOnVisual
+        }
+      })
+    : ({
+        ...summary,
+        artifacts: {
+          ...summary.artifacts,
+          summaryV2: toRelative(outDir, summaryV2Path)
+        },
+        runtimeSignals: runtimeSignals.snapshot() as RuntimeSignalSummary
+      } as DetailSummaryV2);
+
+  const summaryV2: DetailSummaryV2 =
+    config.insights?.enabled === false
+      ? summaryV2Base
+      : {
+          ...summaryV2Base,
+          insights: buildInsights(summaryV2Base)
+        };
+
+  await writeJson(summaryPath, summary);
+  await writeJson(summaryV2Path, summaryV2);
+  await writeText(reportPath, buildHtmlReport(summaryV2));
+
+  return {
+    target,
+    summary,
+    summaryV2
+  };
 }
 
 export async function runAudit(

@@ -21,7 +21,20 @@ vi.mock("../../src/config/loadConfig.js", () => ({
 }));
 vi.mock("../../src/runner/playwright.js", () => ({
   openPage: mockOpenPage,
+  runPlaywrightLifecycle: async (...args: unknown[]) => {
+    const opened = await mockOpenPage(...args.slice(0, 5));
+    try {
+      return await (args[5] as (value: unknown) => Promise<unknown>)(opened);
+    } finally {
+      await opened.browser.close();
+    }
+  },
   captureScreenshots: mockCaptureScreenshots
+}));
+vi.mock("../../src/utils/fs.js", async () => ({
+  ...(await vi.importActual("../../src/utils/fs.js")),
+  // Runner fixtures return artifact paths without writing browser output.
+  copyFileSafe: vi.fn().mockResolvedValue(undefined)
 }));
 vi.mock("../../src/runner/axe.js", () => ({
   runAxeScan: mockRunAxeScan
