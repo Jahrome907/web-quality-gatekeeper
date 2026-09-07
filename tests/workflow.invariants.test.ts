@@ -5,6 +5,14 @@ import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 
+it("deploys Pages only by explicit dispatch from main", () => {
+  const workflow = readFileSync(path.join(ROOT, ".github/workflows/pages.yml"), "utf8");
+  expect(workflow).toMatch(/on:\s*\n\s+workflow_dispatch:/);
+  expect(workflow).not.toMatch(/^\s+(push|pull_request|release|workflow_run):/m);
+  expect(workflow).toContain("if: github.ref == 'refs/heads/main'");
+  expect(workflow).toContain("name: github-pages");
+});
+
 it("ships an intact baseline for the required Pages preview visual gate", () => {
   const baselineDir = path.join(ROOT, "baselines", "docs-preview");
   const manifest = JSON.parse(

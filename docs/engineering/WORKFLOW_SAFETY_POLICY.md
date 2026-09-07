@@ -25,6 +25,12 @@ This document defines the workflow hardening rules for repo-owned automation in 
   and `.github/workflows/npm-publish.yml` configured as a trusted publisher on
   npmjs.com before the manual publish workflow can succeed.
 
+## Pages Deployment Policy
+
+- Pages deployment is manually dispatched from `main` after its CI checks pass and deployment is approved.
+- Pushes, pull requests, and package releases do not automatically deploy Pages.
+- The deployment job rejects non-`main` refs and retains the protected `github-pages` environment.
+
 ## PR Comment Policy
 
 - PR summary comments are best-effort and must not be a required success condition for the quality gate itself.
