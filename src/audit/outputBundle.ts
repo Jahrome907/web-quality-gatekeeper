@@ -81,7 +81,9 @@ function resolveSymlinkAwarePath(targetPath: string): string {
 function isWithin(baseDir: string, targetPath: string): boolean {
   const relativePath = path.relative(baseDir, targetPath);
   return (
-    relativePath.length === 0 || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+    relativePath.length === 0 ||
+    (!(relativePath === ".." || relativePath.startsWith(`..${path.sep}`)) &&
+      !path.isAbsolute(relativePath))
   );
 }
 
