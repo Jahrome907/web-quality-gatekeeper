@@ -1,8 +1,20 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
+
+it("ships an intact baseline for the required Pages preview visual gate", () => {
+  const baselineDir = path.join(ROOT, "baselines", "docs-preview");
+  const manifest = JSON.parse(
+    readFileSync(path.join(baselineDir, "baseline-manifest.json"), "utf8")
+  );
+  const image = readFileSync(path.join(baselineDir, "home.png"));
+  expect(manifest.version).toBe(1);
+  expect(manifest.checksums["home.png"]).toBe(createHash("sha256").update(image).digest("hex"));
+});
+
 const WORKFLOW_FILES = [
   ".github/workflows/action-smoke.yml",
   ".github/workflows/native-visual-diff.yml",
@@ -186,6 +198,8 @@ describe("workflow invariants", () => {
     expect(source).toContain("python3 -m http.server 4173 --bind 127.0.0.1 --directory docs");
     expect(source).toContain('CONFIG_PATH="configs/default.json"');
     expect(source).toContain('CONFIG_PATH="configs/docs-preview.ci.json"');
+    expect(source).toContain('BASELINE_DIR="baselines/docs-preview"');
+    expect(source).toContain('--baseline-dir "$BASELINE_DIR"');
     expect(source).toContain(
       'if [ "$TARGET_MODE" = "remote" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then'
     );
@@ -541,8 +555,8 @@ describe("workflow invariants", () => {
     expect(source).not.toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
     expect(source).toContain("# v7.0.1");
-    expect(source).toContain("${{ steps.wqg.outputs.report-path }}");
-    expect(source).toContain("${{ steps.wqg.outputs.pr-risk-ledger-md-path }}");
+    expect(source).toContain("path: artifacts/");
+    expect(source).toContain("steps.wqg.outputs.sensitive-audit == 'false'");
     expect(source).not.toContain(
       "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
     );

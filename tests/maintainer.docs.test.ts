@@ -48,6 +48,13 @@ describe("maintainer documentation", () => {
     expect(readme).toContain("npx wqg audit");
     expect(readme).toContain("npx wqg init");
     expect(readme).toContain("npx wqg doctor");
+    expect(readme).toContain("--set-baseline");
+    expect(readme).toContain("A normal visual-enabled audit fails when a baseline is missing");
+    expect(readme).toContain("writes the current screenshots to the baseline directory");
+    expect(readme).toContain("toggles.visual");
+    expect(readme).toContain("not standalone default gates");
+    expect(readme).toContain("VISUAL_DIFF_BENCHMARK.md");
+    expect(readme).not.toContain("Optional source-checkout Rust visual diff engine");
   });
 
   it("keeps contributor guidance scoped to real validation entrypoints", () => {

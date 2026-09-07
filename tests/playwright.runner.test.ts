@@ -480,6 +480,52 @@ describe("playwright runner", () => {
     expect(closeBrowser).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects an initial navigation when its final response is an HTTP error", async () => {
+    const page = createPageDouble();
+    page.goto.mockResolvedValue({
+      status: () => 404,
+      url: () => "https://example.com/missing"
+    });
+    const closePage = vi.fn().mockResolvedValue(undefined);
+    const closeContext = vi.fn().mockResolvedValue(undefined);
+    const closeBrowser = vi.fn().mockResolvedValue(undefined);
+    const newContext = vi.fn().mockResolvedValue({
+      addCookies: vi.fn().mockResolvedValue(undefined),
+      newPage: vi.fn().mockResolvedValue({ ...page, close: closePage }),
+      close: closeContext
+    });
+    mockLaunch.mockResolvedValue({ newContext, close: closeBrowser });
+
+    const { openPage } = await import("../src/runner/playwright.js");
+
+    await expect(openPage("https://example.com", auditConfig(), { debug: vi.fn() } as never)).rejects.toThrow(
+      "Browser navigation failed with HTTP 404 for https://example.com/missing"
+    );
+
+    expect(closePage).toHaveBeenCalledTimes(1);
+    expect(closeContext).toHaveBeenCalledTimes(1);
+    expect(closeBrowser).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts the successful final response after an initial redirect", async () => {
+    const page = createPageDouble();
+    page.goto.mockResolvedValue({
+      status: () => 200,
+      url: () => "https://www.example.com/"
+    });
+    page.url.mockReturnValue("https://www.example.com/");
+    const newContext = vi.fn().mockResolvedValue({
+      addCookies: vi.fn().mockResolvedValue(undefined),
+      newPage: vi.fn().mockResolvedValue(page)
+    });
+    mockLaunch.mockResolvedValue({ newContext });
+
+    const { openPage } = await import("../src/runner/playwright.js");
+    const result = await openPage("https://example.com", auditConfig(), { debug: vi.fn() } as never);
+
+    expect(result.resolvedUrl).toBe("https://www.example.com/");
+  });
+
   it("blocks redirected internal navigation targets in sensitive mode", async () => {
     const page = createPageDouble();
     let routeHandler:
@@ -510,7 +556,10 @@ describe("playwright runner", () => {
         abort,
         continue: vi.fn().mockResolvedValue(undefined)
       });
-      return undefined;
+      return {
+        status: () => 404,
+        url: () => "http://127.0.0.1:4010/"
+      };
     });
 
     const closePage = vi.fn().mockResolvedValue(undefined);
@@ -2016,6 +2065,31 @@ describe("playwright runner", () => {
         isRetryable: expect.any(Function)
       })
     );
+  });
+
+  it("rejects a screenshot target when its final response is an HTTP error", async () => {
+    const page = createPageDouble();
+    page.goto.mockResolvedValue({
+      status: () => 500,
+      url: () => "https://example.com/status"
+    });
+    const logger = { debug: vi.fn() };
+    const { captureScreenshots } = await import("../src/runner/playwright.js");
+
+    await expect(
+      captureScreenshots(
+        page as never,
+        "https://example.com",
+        {
+          retries: { count: 1, delayMs: 5 },
+          screenshots: [{ name: "Status", path: "/status", fullPage: true }]
+        } as never,
+        path.resolve(process.cwd(), "artifacts/screenshots"),
+        logger as never
+      )
+    ).rejects.toThrow("Browser navigation failed with HTTP 500 for https://example.com/status");
+
+    expect(page.screenshot).not.toHaveBeenCalled();
   });
 
   it("keeps colliding sanitized screenshot names in distinct files", async () => {

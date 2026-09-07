@@ -4,6 +4,11 @@ artifacts/*
 !artifacts/.gitkeep
 baselines/*
 !baselines/.gitkeep
+!baselines/docs-preview/
+baselines/docs-preview/*
+!baselines/docs-preview/home.png
+!baselines/docs-preview/baseline-manifest.json
+!baselines/docs-preview/README.md
 __pycache__/
 *.py[cod]
 .env
