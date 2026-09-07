@@ -139,6 +139,7 @@ describe("CLI integration", () => {
   let server: Server;
   let baseUrl: string;
   let outDir: string;
+  let outputRoot: string;
   let cliPath = path.join(ROOT, "dist", "cli.js");
   let cliSnapshotRoot: string | undefined;
 
@@ -158,7 +159,7 @@ describe("CLI integration", () => {
       "--config",
       TEST_CONFIG,
       "--baseline-dir",
-      path.join(targetOutDir, "baselines"),
+      path.join(path.dirname(targetOutDir), "baselines"),
       ...extraArgs
     ];
   }
@@ -183,15 +184,16 @@ describe("CLI integration", () => {
     server = fixture.server;
     baseUrl = fixture.url;
     // Create temp dir inside the project root so it passes validateOutputDirectory
-    outDir = await mkdtemp(path.join(ROOT, ".tmp-int-"));
+    outputRoot = await mkdtemp(path.join(ROOT, ".tmp-int-"));
+    outDir = path.join(outputRoot, "artifacts");
   }, 30000);
 
   afterAll(async () => {
     if (server) {
       await closeFixtureServer(server);
     }
-    if (outDir) {
-      await rm(outDir, { recursive: true, force: true });
+    if (outputRoot) {
+      await rm(outputRoot, { recursive: true, force: true });
     }
     if (cliSnapshotRoot) {
       await rm(cliSnapshotRoot, { recursive: true, force: true });
@@ -274,35 +276,42 @@ describe("CLI integration", () => {
     AUDIT_TEST_TIMEOUT_MS
   );
 
-  it("fails a real CLI audit when the final navigation response is HTTP 404", async () => {
-    const missingOutDir = await mkdtemp(path.join(ROOT, ".tmp-int-http-status-"));
+  it(
+    "fails a real CLI audit when the final navigation response is HTTP 404",
+    async () => {
+      const missingOutDir = await mkdtemp(path.join(ROOT, ".tmp-int-http-status-"));
 
-    try {
-      const run = await runCli(
-        cliPath,
-        [
-          "audit",
-          `${baseUrl}/missingpath`,
-          "--out",
-          missingOutDir,
-          "--no-fail-on-a11y",
-          "--no-fail-on-visual",
-          "--config",
-          TEST_CONFIG,
-          "--baseline-dir",
-          path.join(missingOutDir, "baselines")
-        ],
-        AUDIT_RUN_TIMEOUT_MS
-      );
+      try {
+        const run = await runCli(
+          cliPath,
+          [
+            "audit",
+            `${baseUrl}/missingpath`,
+            "--out",
+            missingOutDir,
+            "--no-fail-on-a11y",
+            "--no-fail-on-visual",
+            "--config",
+            TEST_CONFIG,
+            "--baseline-dir",
+            `${missingOutDir}-baselines`
+          ],
+          AUDIT_RUN_TIMEOUT_MS
+        );
 
-      expect(run.status).toBe(1);
-      expect(`${run.stderr}\n${run.stdout}`).toContain(
-        `Browser navigation failed with HTTP 404 for ${baseUrl}/missingpath`
-      );
-    } finally {
-      await rm(missingOutDir, { recursive: true, force: true });
-    }
-  }, AUDIT_TEST_TIMEOUT_MS);
+        expect(run.status).toBe(1);
+        expect(`${run.stderr}\n${run.stdout}`).toContain(
+          `Browser navigation failed with HTTP 404 for ${baseUrl}/missingpath`
+        );
+      } finally {
+        await Promise.all([
+          rm(missingOutDir, { recursive: true, force: true }),
+          rm(`${missingOutDir}-baselines`, { recursive: true, force: true })
+        ]);
+      }
+    },
+    AUDIT_TEST_TIMEOUT_MS
+  );
 
   it(
     "requires an explicit visual baseline, compares it, and reports a changed page",
@@ -397,7 +406,12 @@ describe("CLI integration", () => {
           await readFile(path.join(compareOutDir, "summary.v2.json"), "utf8")
         ) as {
           pages: Array<{
-            details: { visual: { failed: boolean; results: Array<{ status: string; mismatchRatio: number }> } };
+            details: {
+              visual: {
+                failed: boolean;
+                results: Array<{ status: string; mismatchRatio: number }>;
+              };
+            };
           }>;
         };
         const compareVisual = compareSummary.pages[0]!.details.visual;
@@ -733,7 +747,7 @@ describe("CLI integration", () => {
           "--config",
           TEST_CONFIG,
           "--baseline-dir",
-          path.join(outDir, "baselines")
+          path.join(path.dirname(outDir), "baselines")
         ],
         AUDIT_RUN_TIMEOUT_MS,
         { CI: "true", GITHUB_ACTIONS: "true" }
@@ -752,7 +766,7 @@ describe("CLI integration", () => {
           "--config",
           TEST_CONFIG,
           "--baseline-dir",
-          path.join(outDir, "baselines"),
+          path.join(path.dirname(outDir), "baselines"),
           "--allow-internal-targets"
         ],
         AUDIT_RUN_TIMEOUT_MS,

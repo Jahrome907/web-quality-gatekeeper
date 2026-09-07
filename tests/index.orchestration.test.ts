@@ -23,6 +23,8 @@ const mockRm = vi.fn();
 const mockWriteJson = vi.fn();
 const mockWriteText = vi.fn();
 const mockValidateOutputDirectory = vi.fn();
+const mockPrepareOutputBundle = vi.fn();
+const mockValidatePreservedOutputDirectory = vi.fn();
 
 vi.mock("../src/config/loadConfig.js", () => ({
   loadConfig: mockLoadConfig
@@ -77,6 +79,10 @@ vi.mock("../src/utils/fs.js", () => ({
   writeJson: mockWriteJson,
   writeText: mockWriteText,
   validateOutputDirectory: mockValidateOutputDirectory
+}));
+vi.mock("../src/audit/outputBundle.js", () => ({
+  prepareOutputBundle: mockPrepareOutputBundle,
+  validatePreservedOutputDirectory: mockValidatePreservedOutputDirectory
 }));
 vi.mock("node:fs/promises", async () => {
   const actual = await vi.importActual("node:fs/promises");
@@ -222,6 +228,12 @@ describe("runAudit orchestration", () => {
     );
     mockRm.mockResolvedValue(undefined);
     mockCopyFileSafe.mockResolvedValue(undefined);
+    mockPrepareOutputBundle.mockImplementation(async (outDir: string) => ({
+      stagingDir: outDir,
+      runId: "test-run",
+      complete: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn().mockResolvedValue(undefined)
+    }));
   });
 
   it.each(["retry", "fatal"])(

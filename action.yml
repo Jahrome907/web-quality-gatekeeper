@@ -71,6 +71,12 @@ outputs:
   sensitive-audit:
     description: "Whether auth headers, cookies, internal-target overrides, or sensitive-audit controls were present"
     value: ${{ steps.audit.outputs.sensitive-audit }}
+  bundle-complete:
+    description: "Whether this invocation produced a complete, verified artifact bundle"
+    value: ${{ steps.audit.outputs.bundle-complete }}
+  artifact-paths:
+    description: "Newline-delimited current-run artifact paths that are safe to upload"
+    value: ${{ steps.audit.outputs.artifact-paths }}
 
 runs:
   using: "composite"
@@ -273,6 +279,8 @@ runs:
         BASELINE_PATH="$(resolve_workspace_path_node "$INPUT_BASELINE")"
         POLICY_REFERENCE="$(resolve_policy_reference "$INPUT_POLICY")"
         OUT_DIR="${WORKSPACE_ROOT_RUNTIME}/artifacts"
+        RUN_ID="$(node -e "console.log(require('node:crypto').randomUUID())")"
+        export WQG_RUN_ID="$RUN_ID"
 
         SENSITIVE_AUDIT=false
         has_nonblank_value() {
@@ -291,9 +299,11 @@ runs:
         if has_nonblank_value "$INPUT_HEADERS" || has_nonblank_value "$INPUT_COOKIES" || has_nonblank_value "${WQG_AUTH_HEADER:-}" || has_nonblank_value "${WQG_AUTH_HEADERS:-}" || has_nonblank_value "${WQG_AUTH_HEADERS_APPEND:-}" || has_nonblank_value "${WQG_AUTH_COOKIE:-}" || has_nonblank_value "${WQG_AUTH_COOKIES:-}" || has_nonblank_value "${WQG_AUTH_COOKIES_APPEND:-}"; then
           SENSITIVE_AUDIT=true
         fi
-        if [[ -n "$GITHUB_OUTPUT_PATH" ]]; then
-          echo "sensitive-audit=$SENSITIVE_AUDIT" >> "$GITHUB_OUTPUT_PATH"
-        fi
+        # Keep the output fail-closed until the audit has produced a receipt for
+        # this invocation. This prevents a later artifact upload step from
+        # treating stale output as safe after a fatal audit failure.
+        echo "sensitive-audit=true" >> "$GITHUB_OUTPUT_PATH"
+        echo "bundle-complete=false" >> "$GITHUB_OUTPUT_PATH"
         if [[ -n "$INPUT_HEADERS" ]]; then
           export WQG_AUTH_HEADERS_APPEND="$INPUT_HEADERS"
         fi
@@ -318,15 +328,124 @@ runs:
         AUDIT_EXIT=$?
         set -e
 
-        if [[ -f "${OUT_DIR}/summary.json" ]]; then
-          STATUS=$(node -e "const fs=require('node:fs');const s=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));console.log(s.overallStatus)" "${OUT_DIR}/summary.json")
-          echo "status=$STATUS" >> "$GITHUB_OUTPUT_PATH"
-          echo "summary-path=artifacts/summary.json" >> "$GITHUB_OUTPUT_PATH"
-          echo "summary-v2-path=artifacts/summary.v2.json" >> "$GITHUB_OUTPUT_PATH"
-          echo "report-path=artifacts/report.html" >> "$GITHUB_OUTPUT_PATH"
-          echo "action-plan-path=artifacts/action-plan.md" >> "$GITHUB_OUTPUT_PATH"
-          echo "pr-risk-ledger-path=artifacts/pr-risk-ledger.json" >> "$GITHUB_OUTPUT_PATH"
-          echo "pr-risk-ledger-md-path=artifacts/pr-risk-ledger.md" >> "$GITHUB_OUTPUT_PATH"
+        if [[ "$AUDIT_EXIT" -ne 0 && "$AUDIT_EXIT" -ne 1 ]]; then
+          exit "$AUDIT_EXIT"
         fi
+
+        validate_completed_bundle() {
+          node - "$OUT_DIR" "$RUN_ID" <<'NODE'
+        const fs = require("node:fs");
+        const path = require("node:path");
+
+        const [outDir, runId] = process.argv.slice(2);
+        const requiredFiles = [
+          "summary.json",
+          "summary.v2.json",
+          "report.html",
+          "action-plan.md",
+          "pr-risk-ledger.json",
+          "pr-risk-ledger.md"
+        ];
+        const fail = (message) => {
+          process.stderr.write(`Invalid audit output receipt: ${message}\\n`);
+          process.exit(1);
+        };
+
+        let receipt;
+        try {
+          receipt = JSON.parse(fs.readFileSync(path.join(outDir, ".wqg-output-manifest.json"), "utf8"));
+        } catch (error) {
+          fail(`could not read .wqg-output-manifest.json (${error.message})`);
+        }
+        if (!receipt || typeof receipt !== "object" || Array.isArray(receipt)) {
+          fail("receipt must be a JSON object");
+        }
+        if (receipt.schemaVersion !== 1 || receipt.status !== "complete" || receipt.runId !== runId) {
+          fail("receipt is incomplete, unsupported, or belongs to another run");
+        }
+        if (!Array.isArray(receipt.generatedFiles) || receipt.generatedFiles.some((file) => typeof file !== "string")) {
+          fail("receipt generatedFiles must be a list of relative file names");
+        }
+        const generatedFiles = new Set();
+        for (const file of receipt.generatedFiles) {
+          if (
+            file.length === 0 ||
+            file.includes("\0") ||
+            file.includes("\\") ||
+            /[\r\n]/.test(file) ||
+            /[*?\[\]]/.test(file) ||
+            path.isAbsolute(file) ||
+            path.posix.isAbsolute(file) ||
+            path.win32.isAbsolute(file)
+          ) {
+            fail("receipt contains an unsafe generated file path");
+          }
+          const segments = file.split("/");
+          if (segments.some((segment) => segment.length === 0 || segment === "." || segment === "..")) {
+            fail("receipt contains an unsafe generated file path");
+          }
+          const artifactPath = path.join(outDir, ...segments);
+          const relativePath = path.relative(outDir, artifactPath);
+          if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+            fail("receipt contains a generated file path outside the output directory");
+          }
+          if (!fs.lstatSync(artifactPath, { throwIfNoEntry: false })?.isFile()) {
+            fail(`missing generated file ${file}`);
+          }
+          if (generatedFiles.has(file)) {
+            fail("receipt lists duplicate generated files");
+          }
+          generatedFiles.add(file);
+        }
+        for (const file of requiredFiles) {
+          if (!generatedFiles.has(file)) {
+            fail(`receipt does not include ${file}`);
+          }
+        }
+
+        let summary;
+        try {
+          summary = JSON.parse(fs.readFileSync(path.join(outDir, "summary.json"), "utf8"));
+        } catch (error) {
+          fail(`could not read summary.json (${error.message})`);
+        }
+        if (summary.overallStatus !== "pass" && summary.overallStatus !== "fail") {
+          fail("summary.json has no pass or fail overallStatus");
+        }
+        const artifactPaths = [...generatedFiles]
+          .filter((file) => file !== "trends/history.json")
+          .map((file) => `artifacts/${file}`)
+          .sort((left, right) => left.localeCompare(right));
+        process.stdout.write(`${summary.overallStatus}\n${artifactPaths.join("\n")}`);
+        NODE
+        }
+
+        if ! BUNDLE_OUTPUT="$(validate_completed_bundle)"; then
+          echo "Audit ended without a completed output receipt for this run." >&2
+          exit 2
+        fi
+
+        STATUS="${BUNDLE_OUTPUT%%$'\n'*}"
+        ARTIFACT_PATHS="${BUNDLE_OUTPUT#*$'\n'}"
+        if [[ "$ARTIFACT_PATHS" == "$BUNDLE_OUTPUT" || -z "$ARTIFACT_PATHS" ]]; then
+          echo "Audit receipt did not provide uploadable artifact paths." >&2
+          exit 2
+        fi
+
+        echo "sensitive-audit=$SENSITIVE_AUDIT" >> "$GITHUB_OUTPUT_PATH"
+        echo "bundle-complete=true" >> "$GITHUB_OUTPUT_PATH"
+        ARTIFACTS_DELIMITER="wqg-artifacts-${RUN_ID}"
+        {
+          echo "artifact-paths<<${ARTIFACTS_DELIMITER}"
+          printf '%s\n' "$ARTIFACT_PATHS"
+          echo "$ARTIFACTS_DELIMITER"
+        } >> "$GITHUB_OUTPUT_PATH"
+        echo "status=$STATUS" >> "$GITHUB_OUTPUT_PATH"
+        echo "summary-path=artifacts/summary.json" >> "$GITHUB_OUTPUT_PATH"
+        echo "summary-v2-path=artifacts/summary.v2.json" >> "$GITHUB_OUTPUT_PATH"
+        echo "report-path=artifacts/report.html" >> "$GITHUB_OUTPUT_PATH"
+        echo "action-plan-path=artifacts/action-plan.md" >> "$GITHUB_OUTPUT_PATH"
+        echo "pr-risk-ledger-path=artifacts/pr-risk-ledger.json" >> "$GITHUB_OUTPUT_PATH"
+        echo "pr-risk-ledger-md-path=artifacts/pr-risk-ledger.md" >> "$GITHUB_OUTPUT_PATH"
 
         exit "$AUDIT_EXIT"

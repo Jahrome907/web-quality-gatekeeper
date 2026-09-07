@@ -95,13 +95,13 @@ describe("consumer init scaffold", () => {
       expect(workflow).toContain("url: 'https://app.example.com/?a=1&b=2'");
       expect(workflow).toContain('WQG_SENSITIVE_AUDIT: "false"');
       expect(workflow).toContain(
-        "if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')"
+        "if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')"
       );
       expect(workflow).toContain("- id: wqg");
-      expect(workflow).toContain("path: artifacts/");
+      expect(workflow).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
       expect(readme).toContain("The scaffold is pinned to `https://app.example.com/?a=1&b=2`");
       expect(readme).toContain(
-        "The generated workflow uploads `artifacts/`, including screenshots and per-page"
+        "The generated workflow uploads the current artifact list, including screenshots and per-page"
       );
       expect(readme).toContain("--set-baseline");
       expect(readme).toContain("CI does not silently create them.");

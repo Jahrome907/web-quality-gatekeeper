@@ -45,8 +45,11 @@ Outputs:
 - `report-path` and `action-plan-path`
 - `pr-risk-ledger-path` and `pr-risk-ledger-md-path`
 - `sensitive-audit`
+- `bundle-complete` and `artifact-paths`
 
 Consumer-relative config and baseline paths resolve from the consumer workspace. The Action writes ordinary output under `artifacts/`. Auth inputs, internal-target overrides, or explicit sensitive-audit controls set `sensitive-audit` so consumers can suppress publication.
+
+A completed run keeps the existing artifact paths. `bundle-complete` stays false until a receipt for the current invocation is verified; `artifact-paths` lists the generated files eligible for upload. Fatal runs emit no report paths and keep sensitivity fail-closed.
 
 ## Change rules
 

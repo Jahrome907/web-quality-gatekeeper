@@ -179,7 +179,7 @@ async function runPackSmoke() {
       "WQG_SENSITIVE_AUDIT",
       "WQG_ALLOW_SENSITIVE_OUTPUTS",
       "id: wqg",
-      "path: artifacts/",
+      "path: ${{ steps.wqg.outputs.artifact-paths }}",
       "steps.wqg.outputs.sensitive-audit == 'false'"
     ]) {
       if (!scaffoldedWorkflow.includes(expectedWorkflowText)) {
