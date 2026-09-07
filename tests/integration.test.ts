@@ -274,6 +274,169 @@ describe("CLI integration", () => {
     AUDIT_TEST_TIMEOUT_MS
   );
 
+  it("fails a real CLI audit when the final navigation response is HTTP 404", async () => {
+    const missingOutDir = await mkdtemp(path.join(ROOT, ".tmp-int-http-status-"));
+
+    try {
+      const run = await runCli(
+        cliPath,
+        [
+          "audit",
+          `${baseUrl}/missingpath`,
+          "--out",
+          missingOutDir,
+          "--no-fail-on-a11y",
+          "--no-fail-on-visual",
+          "--config",
+          TEST_CONFIG,
+          "--baseline-dir",
+          path.join(missingOutDir, "baselines")
+        ],
+        AUDIT_RUN_TIMEOUT_MS
+      );
+
+      expect(run.status).toBe(1);
+      expect(`${run.stderr}\n${run.stdout}`).toContain(
+        `Browser navigation failed with HTTP 404 for ${baseUrl}/missingpath`
+      );
+    } finally {
+      await rm(missingOutDir, { recursive: true, force: true });
+    }
+  }, AUDIT_TEST_TIMEOUT_MS);
+
+  it(
+    "requires an explicit visual baseline, compares it, and reports a changed page",
+    async () => {
+      const visualRoot = await mkdtemp(path.join(ROOT, ".tmp-int-visual-lifecycle-"));
+      const fixtureRoot = visualRoot;
+      const fixturePath = path.join(fixtureRoot, "index.html");
+      const configPath = path.join(visualRoot, "visual-config.json");
+      const baselineDir = path.join(visualRoot, "baselines");
+      let visualServer: Server | undefined;
+
+      const renderFixture = (heading: string, background: string) => `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Visual lifecycle fixture</title>
+    <style>
+      body { margin: 0; background: ${background}; color: #172033; font-family: Arial, sans-serif; }
+      main { box-sizing: border-box; min-height: 720px; padding: 80px; }
+      h1 { font-size: 64px; max-width: 760px; }
+    </style>
+  </head>
+  <body><main><h1>${heading}</h1></main></body>
+</html>`;
+
+      try {
+        await writeFile(fixturePath, renderFixture("Stable visual baseline", "#e8f0ff"), "utf8");
+        const visualConfig = {
+          ...JSON.parse(await readFile(TEST_CONFIG, "utf8")),
+          screenshots: [{ name: "fixture", path: "@target", fullPage: true }],
+          visual: { threshold: 0 },
+          toggles: { a11y: false, perf: false, visual: true }
+        };
+        await writeFile(configPath, JSON.stringify(visualConfig), "utf8");
+        const fixture = await startFixtureServer(fixtureRoot);
+        visualServer = fixture.server;
+
+        const auditArgs = (targetOutDir: string, extraArgs: string[] = []) => [
+          "audit",
+          fixture.url,
+          "--config",
+          configPath,
+          "--out",
+          targetOutDir,
+          "--baseline-dir",
+          baselineDir,
+          ...extraArgs
+        ];
+
+        const missingBaselineOutDir = path.join(visualRoot, "missing-baseline");
+        const missingBaseline = await runCli(
+          cliPath,
+          auditArgs(missingBaselineOutDir),
+          AUDIT_RUN_TIMEOUT_MS
+        );
+        expect(missingBaseline.status).toBe(1);
+        expect(`${missingBaseline.stderr}\n${missingBaseline.stdout}`).toContain(
+          "Visual baseline is missing for fixture. Run with --set-baseline after reviewing the screenshot."
+        );
+        expect(existsSync(baselineDir)).toBe(false);
+
+        const setBaselineOutDir = path.join(visualRoot, "set-baseline");
+        const setBaseline = await runCli(
+          cliPath,
+          auditArgs(setBaselineOutDir, ["--set-baseline"]),
+          AUDIT_RUN_TIMEOUT_MS
+        );
+        expectCliSuccess(setBaseline, "CLI visual baseline setup");
+
+        const setBaselineSummary = JSON.parse(
+          await readFile(path.join(setBaselineOutDir, "summary.v2.json"), "utf8")
+        ) as {
+          pages: Array<{
+            details: {
+              screenshots: Array<{ path: string }>;
+              visual: { failed: boolean; results: Array<{ status: string; baselinePath: string }> };
+            };
+          }>;
+        };
+        const setBaselineDetails = setBaselineSummary.pages[0]!.details;
+        const screenshotPath = setBaselineDetails.screenshots[0]?.path;
+        expect(screenshotPath).toBeTruthy();
+        expect(existsSync(path.join(setBaselineOutDir, screenshotPath!))).toBe(true);
+        expect(setBaselineDetails.visual.failed).toBe(false);
+        expect(setBaselineDetails.visual.results[0]?.status).toBe("baseline_created");
+        expect(existsSync(path.join(baselineDir, path.basename(screenshotPath!)))).toBe(true);
+
+        const compareOutDir = path.join(visualRoot, "compare");
+        const compare = await runCli(cliPath, auditArgs(compareOutDir), AUDIT_RUN_TIMEOUT_MS);
+        expectCliSuccess(compare, "CLI visual comparison");
+        const compareSummary = JSON.parse(
+          await readFile(path.join(compareOutDir, "summary.v2.json"), "utf8")
+        ) as {
+          pages: Array<{
+            details: { visual: { failed: boolean; results: Array<{ status: string; mismatchRatio: number }> } };
+          }>;
+        };
+        const compareVisual = compareSummary.pages[0]!.details.visual;
+        expect(compareVisual.failed).toBe(false);
+        expect(compareVisual.results[0]?.status).toBe("diffed");
+        expect(compareVisual.results[0]?.mismatchRatio).toBe(0);
+
+        await writeFile(fixturePath, renderFixture("Changed visual page", "#ff5a36"), "utf8");
+        const changedOutDir = path.join(visualRoot, "changed");
+        const changed = await runCli(cliPath, auditArgs(changedOutDir), AUDIT_RUN_TIMEOUT_MS);
+        expect(changed.status).toBe(1);
+        const changedSummary = JSON.parse(
+          await readFile(path.join(changedOutDir, "summary.v2.json"), "utf8")
+        ) as {
+          pages: Array<{
+            details: {
+              visual: {
+                failed: boolean;
+                results: Array<{ mismatchRatio: number; diffPath: string | null }>;
+              };
+            };
+          }>;
+        };
+        const changedVisual = changedSummary.pages[0]!.details.visual;
+        const changedResult = changedVisual.results[0];
+        expect(changedVisual.failed).toBe(true);
+        expect(changedResult?.mismatchRatio).toBeGreaterThan(0);
+        expect(changedResult?.diffPath).toBeTruthy();
+        expect(existsSync(path.join(changedOutDir, changedResult!.diffPath!))).toBe(true);
+      } finally {
+        if (visualServer) {
+          await closeFixtureServer(visualServer);
+        }
+        await rm(visualRoot, { recursive: true, force: true });
+      }
+    },
+    MULTI_AUDIT_TEST_TIMEOUT_MS
+  );
+
   it("returns exit code 2 for invalid URL", async () => {
     const run = await runCli(cliPath, ["audit", "not-a-url"], 10000);
     expect(run.status).toBe(2);

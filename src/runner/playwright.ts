@@ -341,6 +341,26 @@ function takeBlockedRequestError(state: BlockedRequestState | null | undefined):
   return blockedError;
 }
 
+function assertSuccessfulNavigationResponse(
+  response: Awaited<ReturnType<Page["goto"]>>,
+  requestedUrl: string
+): void {
+  // Playwright returns null for same-document navigations and non-HTTP URLs. Those
+  // do not provide an HTTP status to evaluate. HTTP document navigations return
+  // the final response after redirects, which is the response that determines
+  // whether the audited page was actually reachable.
+  if (!response) {
+    return;
+  }
+
+  const status = response.status();
+  if (status >= 400) {
+    throw new Error(
+      `Browser navigation failed with HTTP ${status} for ${response.url() || requestedUrl}`
+    );
+  }
+}
+
 async function runWithBlockedRequestHandling<T>(page: Page, action: () => Promise<T>): Promise<T> {
   const state = blockedRequestStates.get(page);
   if (!state) {
@@ -490,9 +510,10 @@ async function launchNavigatedPage(
     logger.debug(`Navigating to ${navigationUrl}`);
     await retry(
       () =>
-        runWithBlockedRequestHandling(createdPage, () =>
-          createdPage.goto(navigationUrl, { waitUntil: "load" })
-        ),
+        runWithBlockedRequestHandling(createdPage, async () => {
+          const response = await createdPage.goto(navigationUrl, { waitUntil: "load" });
+          assertSuccessfulNavigationResponse(response, navigationUrl);
+        }),
       {
         maxRetries: retryCount,
         baseDelayMs: retryDelayMs,
@@ -682,7 +703,11 @@ async function captureScreenshot(
   logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
   assertNoBlockedBrowserRequest(page);
   await retry(
-    () => runWithBlockedRequestHandling(page, () => page.goto(url, { waitUntil: "load" })),
+    () =>
+      runWithBlockedRequestHandling(page, async () => {
+        const response = await page.goto(url, { waitUntil: "load" });
+        assertSuccessfulNavigationResponse(response, url);
+      }),
     {
       maxRetries: retryCount,
       baseDelayMs: retryDelayMs,

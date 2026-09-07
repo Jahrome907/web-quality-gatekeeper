@@ -186,6 +186,8 @@ describe("workflow invariants", () => {
     expect(source).toContain("python3 -m http.server 4173 --bind 127.0.0.1 --directory docs");
     expect(source).toContain('CONFIG_PATH="configs/default.json"');
     expect(source).toContain('CONFIG_PATH="configs/docs-preview.ci.json"');
+    expect(source).toContain('BASELINE_DIR="baselines/docs-preview"');
+    expect(source).toContain('--baseline-dir "$BASELINE_DIR"');
     expect(source).toContain(
       'if [ "$TARGET_MODE" = "remote" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then'
     );
@@ -541,8 +543,8 @@ describe("workflow invariants", () => {
     expect(source).not.toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
     expect(source).toContain("# v7.0.1");
-    expect(source).toContain("${{ steps.wqg.outputs.report-path }}");
-    expect(source).toContain("${{ steps.wqg.outputs.pr-risk-ledger-md-path }}");
+    expect(source).toContain("path: artifacts/");
+    expect(source).toContain("steps.wqg.outputs.sensitive-audit == 'false'");
     expect(source).not.toContain(
       "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
     );

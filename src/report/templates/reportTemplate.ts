@@ -880,14 +880,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
   // Opportunities.
   const opportunityRows =
     perf?.opportunities && perf.opportunities.length > 0
-      ? [...perf.opportunities]
-          .sort((left, right) => {
-            const leftScore =
-              (left.estimatedSavingsMs ?? 0) + (left.estimatedSavingsBytes ?? 0) / 1000;
-            const rightScore =
-              (right.estimatedSavingsMs ?? 0) + (right.estimatedSavingsBytes ?? 0) / 1000;
-            return rightScore - leftScore;
-          })
+      ? perf.opportunities
           .map(
             (opportunity) => `
               <tr>

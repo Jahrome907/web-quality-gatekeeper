@@ -14,6 +14,7 @@ on:
       - "scripts/ci/native-visual-diff-smoke.mjs"
       - "tests/config.schema.boundaries.test.ts"
       - "tests/visualDiff.native.test.ts"
+      - "tests/visualDiff.native.real.test.ts"
       - ".github/workflows/native-visual-diff.yml"
       - "package.json"
   pull_request:
@@ -27,6 +28,7 @@ on:
       - "scripts/ci/native-visual-diff-smoke.mjs"
       - "tests/config.schema.boundaries.test.ts"
       - "tests/visualDiff.native.test.ts"
+      - "tests/visualDiff.native.real.test.ts"
       - ".github/workflows/native-visual-diff.yml"
       - "package.json"
 
@@ -52,6 +54,9 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
+      - name: Install Node dependencies
+        run: npm ci --ignore-scripts
+
       - name: Test native visual diff engine
         timeout-minutes: 10
         run: cargo test --manifest-path native/wqg-visual-diff-native/Cargo.toml --locked
@@ -59,6 +64,13 @@ jobs:
       - name: Build native visual diff engine
         timeout-minutes: 10
         run: npm run native:visual-diff:build
+
+      - name: Test native adapter against the built binary
+        timeout-minutes: 2
+        env:
+          WQG_ALLOW_NATIVE_VISUAL_ENGINE: "true"
+          WQG_REQUIRE_NATIVE_BINARY: "true"
+        run: npx vitest run tests/visualDiff.native.real.test.ts
 
       - name: Smoke native visual diff binary
         timeout-minutes: 2
