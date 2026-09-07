@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -345,6 +346,40 @@ class CaseStudyAnalyticsTest(unittest.TestCase):
             self.assertEqual(row["a11y_violations"], 3)
             self.assertEqual(row["performance_budget_failures"], 3)
             self.assertEqual(row["visual_failures"], 1)
+
+    def test_extract_summary_metrics_reads_a_detail_summary_v2(self) -> None:
+        metrics = extract_summary_metrics(
+            {
+                "url": "https://example.test",
+                "overallStatus": "pass",
+                "a11y": {"violations": 2},
+                "performance": {"metrics": {"performanceScore": 0.91, "lcpMs": 850}},
+                "visual": {"failed": False},
+            }
+        )
+
+        self.assertEqual(metrics["page_count"], 1)
+        self.assertEqual(metrics["a11y_violations"], 2)
+        self.assertEqual(metrics["average_performance_score"], 0.91)
+        self.assertEqual(metrics["average_lcp_ms"], 850.0)
+
+    def test_extract_summary_metrics_rejects_nonfinite_measurements(self) -> None:
+        with self.assertRaisesRegex(ValueError, "finite number"):
+            extract_summary_metrics(
+                {
+                    "url": "https://example.test",
+                    "performance": {"metrics": {"performanceScore": math.nan}},
+                }
+            )
+
+    def test_extract_summary_metrics_rejects_malformed_counts(self) -> None:
+        with self.assertRaisesRegex(ValueError, "count"):
+            extract_summary_metrics(
+                {
+                    "url": "https://example.test",
+                    "metrics": {"a11yViolations": -1},
+                }
+            )
 
 
 if __name__ == "__main__":
