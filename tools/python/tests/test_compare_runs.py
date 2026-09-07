@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -307,6 +308,52 @@ class CompareRunsTest(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 2, result.stderr)
             self.assertIn("Status: incomparable", result.stdout)
+
+    def test_cli_writes_utf8_markdown_to_a_legacy_windows_code_page(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        cli_path = repository_root / "tools" / "python" / "compare_runs.py"
+        fixture = repository_root / "docs" / "proof" / "fixture-summary.v2.json"
+        environment = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(cli_path),
+                "--before",
+                str(fixture),
+                "--after",
+                str(fixture),
+                "--format",
+                "markdown",
+            ],
+            check=False,
+            capture_output=True,
+            env=environment,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8"))
+        output = result.stdout.decode("utf-8")
+        self.assertIn("→", output)
+
+    def test_markdown_formats_metric_values_for_readability(self) -> None:
+        before = normalize_summary(
+            detail(
+                "https://example.test",
+                performance={"performanceScore": 0.987654321, "lcpMs": 751.42730000001, "cls": 0.001234567, "tbtMs": 30.1234567},
+            ),
+            "before",
+        )
+        after = normalize_summary(
+            detail(
+                "https://example.test",
+                performance={"performanceScore": 0.987654321, "lcpMs": 751.42730000001, "cls": 0.001234567, "tbtMs": 30.1234567},
+            ),
+            "after",
+        )
+        output = io.StringIO()
+        write_markdown(compare_summaries(before, after), output)
+
+        self.assertIn("751.427 → 751.427 (+0)", output.getvalue())
 
     def test_load_summary_rejects_nonstandard_nan_json(self) -> None:
         with tempfile.TemporaryDirectory(prefix="wqg-compare-nan-") as temp_dir:

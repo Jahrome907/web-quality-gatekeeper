@@ -63,3 +63,5 @@ matching pages. Added pages are reported separately and are not treated as evide
 page improved. Timing and score deltas are diagnostic; the tool does not invent significance thresholds.
 When a budget key has no prior result, a failing value is reported as a new finding, rather than
 claimed as a regression. A budget regression requires that the same prior key passed.
+Markdown written to standard output is UTF-8, including on Windows sessions configured with a legacy
+console code page. Use `--output` when a shell or downstream tool needs a file instead.

@@ -335,7 +335,9 @@ def _safe_markdown(value: Any) -> str:
 def _format_delta(values: dict[str, float | None]) -> str:
     if values["before"] is None or values["after"] is None:
         return "unavailable"
-    return f"{values['before']} → {values['after']} ({values['delta']:+})"
+    return "{before:.6g} → {after:.6g} ({delta:+.6g})".format(
+        before=values["before"], after=values["after"], delta=values["delta"]
+    )
 
 
 def write_json(report: dict[str, Any], handle: TextIO) -> None:

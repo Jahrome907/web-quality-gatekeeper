@@ -51,6 +51,9 @@ def main() -> int:
             print(f"Comparison unavailable: unable to write output: {error}", file=sys.stderr)
             return 2
     else:
+        # Reports use Unicode arrows in Markdown. Keep piped output UTF-8 even when a caller sets
+        # PYTHONIOENCODING to a legacy Windows code page.
+        sys.stdout.reconfigure(encoding="utf-8")
         _write(report, args.format, sys.stdout)
 
     if report["comparisonStatus"] != "comparable":
