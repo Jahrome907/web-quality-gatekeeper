@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.7] - 2026-09-06
+
+### Fixed
+
+- Retry verified hostname discovery during accessibility checks and screenshots using the same bounded resolver lifecycle as initial navigation.
+- Give fatal request-policy failures precedence over resolver retries, and retain only the completed browser attempt's report artifacts.
+
 ## [3.2.6] - 2026-09-06
 
 ### Fixed

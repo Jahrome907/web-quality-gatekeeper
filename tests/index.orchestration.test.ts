@@ -8,6 +8,7 @@ const { mockLookup } = vi.hoisted(() => ({
 }));
 const mockLoadConfig = vi.fn();
 const mockOpenPage = vi.fn();
+const mockRunPlaywrightLifecycle = vi.fn();
 const mockCaptureScreenshots = vi.fn();
 const mockRunAxeScan = vi.fn();
 const mockRunLighthouseAudit = vi.fn();
@@ -16,6 +17,9 @@ const mockBuildSummary = vi.fn();
 const mockBuildSummaryV2 = vi.fn();
 const mockBuildHtmlReport = vi.fn();
 const mockEnsureDir = vi.fn();
+const mockCopyFileSafe = vi.fn();
+const mockMkdtemp = vi.fn();
+const mockRm = vi.fn();
 const mockWriteJson = vi.fn();
 const mockWriteText = vi.fn();
 const mockValidateOutputDirectory = vi.fn();
@@ -25,6 +29,7 @@ vi.mock("../src/config/loadConfig.js", () => ({
 }));
 vi.mock("../src/runner/playwright.js", () => ({
   openPage: mockOpenPage,
+  runPlaywrightLifecycle: mockRunPlaywrightLifecycle,
   captureScreenshots: mockCaptureScreenshots
 }));
 vi.mock("../src/runner/axe.js", () => ({
@@ -67,10 +72,16 @@ vi.mock("../src/report/html.js", () => ({
 }));
 vi.mock("../src/utils/fs.js", () => ({
   ensureDir: mockEnsureDir,
+  copyFileSafe: mockCopyFileSafe,
+  validateResolvedPathWithinBase: vi.fn(),
   writeJson: mockWriteJson,
   writeText: mockWriteText,
   validateOutputDirectory: mockValidateOutputDirectory
 }));
+vi.mock("node:fs/promises", async () => {
+  const actual = await vi.importActual("node:fs/promises");
+  return { ...actual, mkdtemp: mockMkdtemp, rm: mockRm };
+});
 vi.mock("node:dns/promises", () => ({
   lookup: mockLookup
 }));
@@ -196,7 +207,94 @@ describe("runAudit orchestration", () => {
       artifacts: params.artifacts,
       runtimeSignals: params.runtimeSignals
     }));
+    mockRunPlaywrightLifecycle.mockImplementation(
+      async (url, config, logger, auth, browserOptions, run) => {
+        const opened = await mockOpenPage(url, config, logger, auth, browserOptions);
+        try {
+          return await run(opened);
+        } finally {
+          await opened.browser.close();
+        }
+      }
+    );
+    mockMkdtemp.mockResolvedValue(
+      path.resolve(process.cwd(), "artifacts", ".wqg-playwright-attempt-test")
+    );
+    mockRm.mockResolvedValue(undefined);
+    mockCopyFileSafe.mockResolvedValue(undefined);
   });
+
+  it.each(["retry", "fatal"])(
+    "does not promote artifacts before final lifecycle acceptance: %s",
+    async (outcome) => {
+      const outDir = path.resolve(process.cwd(), "artifacts");
+      const firstDir = path.join(outDir, ".wqg-playwright-attempt-first");
+      const finalDir = path.join(outDir, ".wqg-playwright-attempt-final");
+      mockMkdtemp.mockResolvedValueOnce(firstDir).mockResolvedValueOnce(finalDir);
+      mockLoadConfig.mockResolvedValue({
+        ...createFullConfig(),
+        toggles: { a11y: true, perf: false, visual: false }
+      });
+      const opened = {
+        browser: { close: vi.fn() },
+        page: {},
+        resolvedUrl: "https://example.com/",
+        resolvedHostResolverRules: null,
+        runtimeSignals: { snapshot: () => createRuntimeSignals() }
+      };
+      mockRunAxeScan.mockImplementation(async (_page, dir) => ({
+        violations: 0,
+        countsByImpact: {},
+        details: [],
+        reportPath: path.join(dir, "axe.json")
+      }));
+      mockCaptureScreenshots.mockImplementation(async (_page, _url, _config, dir) => [
+        {
+          name: "home",
+          path: path.join(dir, "home.png"),
+          url: "https://example.com/",
+          fullPage: true
+        }
+      ]);
+      mockRunPlaywrightLifecycle.mockImplementation(
+        async (_url, _config, _logger, _auth, _options, run) => {
+          await run(opened);
+          expect(mockCopyFileSafe).not.toHaveBeenCalled();
+          if (outcome === "fatal") throw new Error("final request policy failure");
+          return run(opened);
+        }
+      );
+      const { runAudit } = await import("../src/index.js");
+      const result = runAudit("https://example.com", {
+        config: "configs/default.json",
+        out: "artifacts",
+        baselineDir: "baselines",
+        setBaseline: false,
+        failOnA11y: true,
+        failOnPerf: true,
+        failOnVisual: true,
+        verbose: false
+      });
+      if (outcome === "fatal") {
+        await expect(result).rejects.toThrow("final request policy failure");
+        expect(mockCopyFileSafe).not.toHaveBeenCalled();
+        expect(mockBuildSummary).not.toHaveBeenCalled();
+      } else {
+        await result;
+        expect(mockCopyFileSafe.mock.calls).toEqual([
+          [path.join(finalDir, "axe.json"), path.join(outDir, "axe.json")],
+          [
+            path.join(finalDir, "screenshots", "home.png"),
+            path.join(outDir, "screenshots", "home.png")
+          ]
+        ]);
+        expect(mockRm).toHaveBeenCalledWith(finalDir, { recursive: true, force: true });
+      }
+      expect(mockRm).toHaveBeenCalledWith(firstDir, { recursive: true, force: true });
+      expect(mockRunLighthouseAudit).not.toHaveBeenCalled();
+      expect(mockRunVisualDiff).not.toHaveBeenCalled();
+    }
+  );
 
   it("treats GitHub Actions as sensitive mode when CI is explicitly false", async () => {
     const previousCi = process.env.CI;
@@ -241,28 +339,39 @@ describe("runAudit orchestration", () => {
   it("runs all enabled checks, rewrites paths, and writes both summary versions", async () => {
     const outDir = path.resolve(process.cwd(), "artifacts");
     const baselineDir = path.resolve(process.cwd(), "baselines");
-    const close = vi.fn();
+    let browserClosed = false;
+    const close = vi.fn(() => {
+      browserClosed = true;
+    });
 
     mockLoadConfig.mockResolvedValue(createFullConfig());
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      runtimeSignals: {
+        snapshot: vi.fn(() => {
+          const signals = createRuntimeSignals();
+          if (browserClosed) signals.network.failedRequests = 999;
+          return signals;
+        })
+      },
       resolvedUrl: "https://www.example.com/",
       resolvedHostResolverRules: "MAP www.example.com 203.0.113.11"
     });
-    mockCaptureScreenshots.mockResolvedValue([
-      {
-        name: "home",
-        path: path.join(outDir, "screenshots", "home.png"),
-        url: "https://example.com/",
-        fullPage: true
-      }
-    ]);
-    mockRunAxeScan.mockResolvedValue({
+    mockCaptureScreenshots.mockImplementation(
+      async (_page, _url, _config, attemptScreenshotsDir) => [
+        {
+          name: "home",
+          path: path.join(attemptScreenshotsDir, "home.png"),
+          url: "https://example.com/",
+          fullPage: true
+        }
+      ]
+    );
+    mockRunAxeScan.mockImplementation(async (_page, attemptDir) => ({
       violations: 1,
       countsByImpact: { critical: 1, serious: 0, moderate: 0, minor: 0 },
-      reportPath: path.join(outDir, "axe.json"),
+      reportPath: path.join(attemptDir, "axe.json"),
       details: [],
       metadata: {
         totalViolations: 1,
@@ -270,7 +379,7 @@ describe("runAudit orchestration", () => {
         droppedViolations: 0,
         droppedNodes: 0
       }
-    });
+    }));
     mockRunLighthouseAudit.mockResolvedValue({
       metrics: { performanceScore: 0.95, lcpMs: 1000, cls: 0.01, tbtMs: 50 },
       budgets: { performance: 0.9, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
@@ -325,7 +434,7 @@ describe("runAudit orchestration", () => {
     expect(mockValidateOutputDirectory).toHaveBeenCalledWith(path.join(outDir, "diffs"));
     expect(mockRunAxeScan).toHaveBeenCalledWith(
       expect.anything(),
-      outDir,
+      expect.stringContaining(".wqg-playwright-attempt-"),
       expect.anything(),
       expect.anything()
     );
@@ -429,14 +538,16 @@ describe("runAudit orchestration", () => {
       resolvedUrl: "https://example.com/",
       resolvedHostResolverRules: "MAP example.com 203.0.113.10"
     });
-    mockCaptureScreenshots.mockResolvedValue([
-      {
-        name: "home",
-        path: path.resolve(process.cwd(), "artifacts", "screenshots", "home.png"),
-        url: "https://example.com/",
-        fullPage: true
-      }
-    ]);
+    mockCaptureScreenshots.mockImplementation(
+      async (_page, _url, _config, attemptScreenshotsDir) => [
+        {
+          name: "home",
+          path: path.join(attemptScreenshotsDir, "home.png"),
+          url: "https://example.com/",
+          fullPage: true
+        }
+      ]
+    );
 
     const { runAudit } = await import("../src/index.js");
     await runAudit("https://example.com", {

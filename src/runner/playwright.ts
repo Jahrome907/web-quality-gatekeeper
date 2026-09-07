@@ -30,15 +30,14 @@ import {
   buildHostResolverRuleArgument,
   combineHostResolverRules,
   coordinateResolverHostVerification,
-  createResolverLaunchSnapshot,
-  ResolverPinningBudgetError
+  createResolverLaunchSnapshot
 } from "./resolverPinning.js";
 
 const MAX_CONSOLE_MESSAGES = 200;
 const MAX_JS_ERRORS = 100;
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_SEGMENT_CAPTURE_POINTS = 200;
-class ResolverPinningRequiredError extends Error {
+export class ResolverPinningRequiredError extends Error {
   constructor(readonly hostname: string) {
     super(`Browser resolver pinning required for ${hostname}`);
     this.name = "ResolverPinningRequiredError";
@@ -101,6 +100,12 @@ export interface RuntimeSignalCollector {
 export interface BrowserLaunchOptions {
   hostResolverRules?: string | null;
   targetPolicy?: TargetResolutionPolicy;
+  resolverPinningState?: ResolverPinningState;
+}
+
+export interface ResolverPinningState {
+  verifiedHosts: Map<string, string | null>;
+  relaunchCount: number;
 }
 
 export function sanitizeName(name: string): string {
@@ -319,8 +324,8 @@ function recordBlockedRequest(state: BlockedRequestState, error: unknown): void 
   const nextError = toError(error, "Blocked outbound request");
   if (
     !state.error ||
-    (nextError instanceof ResolverPinningBudgetError &&
-      state.error instanceof ResolverPinningRequiredError)
+    (state.error instanceof ResolverPinningRequiredError &&
+      !(nextError instanceof ResolverPinningRequiredError))
   ) {
     state.error = nextError;
   }
@@ -354,7 +359,7 @@ async function runWithBlockedRequestHandling<T>(page: Page, action: () => Promis
   }
 }
 
-function throwIfBlockedRequest(page: Page): void {
+export function assertNoBlockedBrowserRequest(page: Page): void {
   const blockedError = takeBlockedRequestError(blockedRequestStates.get(page));
   if (blockedError) {
     throw blockedError;
@@ -396,10 +401,7 @@ async function launchNavigatedPage(
   let page: Page | null = null;
   const blockedRequestState: BlockedRequestState = { error: null };
   const activePinnedHosts = resolverSnapshot.pinnedHosts;
-  const pendingResolverVerifications = new Map<
-    string,
-    Promise<VerifiedAuditTarget | null>
-  >();
+  const pendingResolverVerifications = new Map<string, Promise<VerifiedAuditTarget | null>>();
   const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
     initialTrustedHosts: activePinnedHosts,
     trustResolvedHosts: false
@@ -432,9 +434,7 @@ async function launchNavigatedPage(
           const isNavigationRequest = request.isNavigationRequest();
           const hadPendingVerification = pendingResolverVerifications.has(hostname);
           try {
-            const contextLabel = isNavigationRequest
-              ? "navigation target"
-              : "request target";
+            const contextLabel = isNavigationRequest ? "navigation target" : "request target";
             const verifiedTarget = await coordinateResolverHostVerification(
               initialTrustedHosts,
               pendingResolverVerifications,
@@ -548,8 +548,15 @@ export async function openPage(
   resolvedUrl: string;
   resolvedHostResolverRules: string | null;
 }> {
-  const initialTrustedHosts = new Map<string, string | null>();
-  if (options.hostResolverRules !== undefined) {
+  const resolverPinningState = options.resolverPinningState ?? {
+    verifiedHosts: new Map<string, string | null>(),
+    relaunchCount: 0
+  };
+  const initialTrustedHosts = resolverPinningState.verifiedHosts;
+  if (
+    options.hostResolverRules !== undefined &&
+    !initialTrustedHosts.has(normalizeUrlHostname(url))
+  ) {
     addVerifiedResolverHost(
       initialTrustedHosts,
       normalizeUrlHostname(url),
@@ -563,7 +570,7 @@ export async function openPage(
   let navigation: OpenPageNavigationResult | null = null;
 
   try {
-    for (let relaunchCount = 0; ; relaunchCount += 1) {
+    for (;;) {
       let attemptNavigation: OpenPageNavigationResult | null = null;
       try {
         attemptNavigation = await launchNavigatedPage(
@@ -578,7 +585,7 @@ export async function openPage(
         );
         await applyStabilityOverrides(attemptNavigation.page);
         await attemptNavigation.page.waitForTimeout(config.timeouts.waitAfterLoadMs);
-        throwIfBlockedRequest(attemptNavigation.page);
+        assertNoBlockedBrowserRequest(attemptNavigation.page);
         navigation = attemptNavigation;
         break;
       } catch (error) {
@@ -588,7 +595,12 @@ export async function openPage(
         if (!(error instanceof ResolverPinningRequiredError) || !options.targetPolicy) {
           throw error;
         }
-        assertResolverRelaunchAvailable("Playwright", relaunchCount, error.hostname);
+        assertResolverRelaunchAvailable(
+          "Playwright",
+          resolverPinningState.relaunchCount,
+          error.hostname
+        );
+        resolverPinningState.relaunchCount += 1;
         currentLaunchHostResolverRules = combineHostResolverRules(initialTrustedHosts);
         logger.debug(`Relaunching Playwright browser with resolver pin for ${error.hostname}`);
       }
@@ -617,6 +629,45 @@ export async function openPage(
   }
 }
 
+export async function runPlaywrightLifecycle<T>(
+  url: string,
+  config: Config,
+  logger: Logger,
+  auth: AuditAuth | null,
+  options: BrowserLaunchOptions,
+  run: (opened: Awaited<ReturnType<typeof openPage>>) => Promise<T>
+): Promise<T> {
+  const resolverPinningState = options.resolverPinningState ?? {
+    verifiedHosts: new Map<string, string | null>(),
+    relaunchCount: 0
+  };
+
+  for (;;) {
+    let opened: Awaited<ReturnType<typeof openPage>> | null = null;
+    try {
+      opened = await openPage(url, config, logger, auth, {
+        ...options,
+        resolverPinningState
+      });
+      const currentAttempt = opened;
+      return await runWithBlockedRequestHandling(currentAttempt.page, () => run(currentAttempt));
+    } catch (error) {
+      if (!(error instanceof ResolverPinningRequiredError) || !options.targetPolicy) {
+        throw error;
+      }
+      assertResolverRelaunchAvailable(
+        "Playwright",
+        resolverPinningState.relaunchCount,
+        error.hostname
+      );
+      resolverPinningState.relaunchCount += 1;
+      logger.debug(`Relaunching Playwright browser with resolver pin for ${error.hostname}`);
+    } finally {
+      await closeQuietly(opened?.browser ?? null, logger, "browser");
+    }
+  }
+}
+
 async function captureScreenshot(
   page: Page,
   baseUrl: string,
@@ -629,7 +680,7 @@ async function captureScreenshot(
 ): Promise<ScreenshotResult> {
   const url = resolveUrl(baseUrl, shot.path);
   logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
-  throwIfBlockedRequest(page);
+  assertNoBlockedBrowserRequest(page);
   await retry(
     () => runWithBlockedRequestHandling(page, () => page.goto(url, { waitUntil: "load" })),
     {
@@ -649,7 +700,7 @@ async function captureScreenshot(
     await page.waitForTimeout(shot.waitForTimeoutMs);
   }
   await page.waitForTimeout(250);
-  throwIfBlockedRequest(page);
+  assertNoBlockedBrowserRequest(page);
 
   const filename = `${screenshotBaseName}.png`;
   const filePath = path.join(outDir, filename);
@@ -730,7 +781,7 @@ async function captureViewportSegments(
       window.scrollTo(0, y);
     }, offset);
     await page.waitForTimeout(120);
-    throwIfBlockedRequest(page);
+    assertNoBlockedBrowserRequest(page);
 
     const filename = `${screenshotBaseName}--vp-${String(index + 1).padStart(2, "0")}.png`;
     const filePath = path.join(outDir, filename);
@@ -747,7 +798,7 @@ async function captureViewportSegments(
   await page.evaluate(() => {
     window.scrollTo(0, 0);
   });
-  throwIfBlockedRequest(page);
+  assertNoBlockedBrowserRequest(page);
 
   return results;
 }
