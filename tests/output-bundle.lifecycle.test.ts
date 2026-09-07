@@ -164,6 +164,17 @@ describe("output bundle lifecycle", () => {
     expect(existsSync(path.join(outDir, OUTPUT_BUNDLE_MANIFEST))).toBe(false);
   });
 
+  it("supports a dot-prefixed output directory and its sibling lock path", async () => {
+    const { root } = await createWorkspace();
+    const outDir = path.join(root, ".tmp-int-http-status-123");
+    const bundle = await prepareOutputBundle(outDir, "hidden-output");
+    await writeStagedFile(bundle.stagingDir, "summary.json", "hidden output");
+    await bundle.complete();
+
+    expect(await readFile(path.join(outDir, "summary.json"), "utf8")).toBe("hidden output");
+    expect((await readReceipt(outDir)).status).toBe("complete");
+  });
+
   it("rejects symlinked ownership paths before promotion or deletion", async () => {
     const { root, outDir } = await createWorkspace();
     const first = await prepareOutputBundle(outDir, "symlink-a");

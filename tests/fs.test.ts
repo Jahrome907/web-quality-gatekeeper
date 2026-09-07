@@ -19,6 +19,10 @@ describe("validateOutputDirectory", () => {
     expect(() => validateOutputDirectory("output/reports")).not.toThrow();
   });
 
+  it("accepts a dot-prefixed directory inside cwd", () => {
+    expect(() => validateOutputDirectory(".tmp-int-http-status-123")).not.toThrow();
+  });
+
   it("rejects path traversal with ../", () => {
     expect(() => validateOutputDirectory("../outside")).toThrow(
       "Output directory must be within the working directory or GITHUB_WORKSPACE"
@@ -131,10 +135,7 @@ describe("validateResolvedPathWithinBase", () => {
       );
 
       expect(() =>
-        validateResolvedPathWithinBase(
-          path.join(baseDir, "screenshots", "home.png"),
-          baseDir
-        )
+        validateResolvedPathWithinBase(path.join(baseDir, "screenshots", "home.png"), baseDir)
       ).toThrow("Resolved path escapes base directory");
     } finally {
       await rm(workspace, { recursive: true, force: true });
