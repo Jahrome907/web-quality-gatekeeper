@@ -697,7 +697,8 @@ async function captureScreenshot(
   outDir: string,
   logger: Logger,
   retryCount: number,
-  retryDelayMs: number
+  retryDelayMs: number,
+  actionTimeoutMs: number
 ): Promise<ScreenshotResult> {
   const url = resolveUrl(baseUrl, shot.path);
   logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
@@ -719,7 +720,7 @@ async function captureScreenshot(
   await applyStabilityOverrides(page);
 
   if (shot.waitForSelector) {
-    await page.waitForSelector(shot.waitForSelector, { timeout: 10000 });
+    await page.waitForSelector(shot.waitForSelector, { timeout: actionTimeoutMs });
   }
   if (shot.waitForTimeoutMs) {
     await page.waitForTimeout(shot.waitForTimeoutMs);
@@ -839,6 +840,7 @@ export async function captureScreenshots(
 
   const retryCount = config.retries?.count ?? 1;
   const retryDelayMs = config.retries?.delayMs ?? 2000;
+  const actionTimeoutMs = config.timeouts?.actionMs ?? 10000;
   const screenshotGalleryEnabled = config.screenshotGallery?.enabled ?? false;
   const maxScreenshotsPerPath = config.screenshotGallery?.maxScreenshotsPerPath ?? 12;
 
@@ -854,7 +856,8 @@ export async function captureScreenshots(
       outDir,
       logger,
       retryCount,
-      retryDelayMs
+      retryDelayMs,
+      actionTimeoutMs
     );
     results.push(result);
 
