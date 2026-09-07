@@ -16,8 +16,12 @@ On Linux hosts that need browser system dependencies, use `npx playwright instal
 Run a local audit with:
 
 ```bash
+npm run audit -- https://example.com --set-baseline
 npm run audit -- https://example.com
 ```
+
+The first command explicitly creates visual baselines. Review the images before
+using them for comparison; ordinary audits fail when a required baseline is missing.
 
 ## Choose the narrowest validation
 
@@ -60,4 +64,23 @@ Workflow and release-sensitive changes must preserve the rules in [the workflow 
 
 ## Pull requests
 
+Use one short-lived branch per focused change, based on `main`. Keep `main`
+releasable; do not combine unrelated features in a long-lived development branch.
+When a change depends on an unmerged PR, branch from that PR and name the dependency
+in the description. After its parent merges, rebase the dependent changes onto
+`main`, retarget the PR, and rerun its checks before merging. Delete merged topic
+branches once their work is preserved.
+
 Describe the problem, the chosen change, and the validation performed. Include screenshots or report excerpts when user-visible output changes, and identify known limitations or follow-up work. The [pull request template](.github/pull_request_template.md) is a checklist, not a requirement to run unrelated gates.
+
+## Deployments and releases
+
+Merging code and publishing it are separate decisions. Once the intended `main`
+commit has passed CI and deployment is approved, run **Deploy Pages** manually
+from `main` (or `gh workflow run pages.yml --ref main`). The workflow refuses to
+deploy other branches. A merge alone does not deploy the documentation site.
+
+Prepare a version and changelog only after the included PRs are reviewed and
+integrated. Run `npm run release:dry-run` on that candidate, then publish the exact
+validated commit through the existing tag/Release and npm workflows. Do not use a
+release or deployment as a substitute for candidate validation.
