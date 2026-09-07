@@ -48,6 +48,9 @@ jobs:
             if (context.actor === "dependabot[bot]") {
               labels.add("dependencies");
             }
+            if (labels.size === 0) {
+              labels.add("needs-triage");
+            }
 
             const request = {
               owner: context.repo.owner,
