@@ -351,6 +351,7 @@ describe("workflow invariants", () => {
     expect(source).toContain('deps: "dependencies"');
     expect(source).toContain('dependencies: "dependencies"');
     expect(source).toContain('context.actor === "dependabot[bot]"');
+    expect(source).toContain('labels.add("needs-triage")');
     expect(source).toContain("issues.addAssignees");
     expect(source).toContain("issues.addLabels");
   });
@@ -392,13 +393,15 @@ describe("workflow invariants", () => {
 
     const unknown = await runPullRequestMetadataScript({ title: "constructor: preserve metadata" });
     expect(unknown.addAssignees).toHaveBeenCalledTimes(1);
-    expect(unknown.addLabels).not.toHaveBeenCalled();
+    expect(unknown.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["needs-triage"] })
+    );
 
     const hostileTitle = await runPullRequestMetadataScript({
-      title: "fix: ${process.exit(1)} is plain title text"
+      title: "constructor: ${process.exit(1)} is plain title text"
     });
     expect(hostileTitle.addLabels).toHaveBeenCalledWith(
-      expect.objectContaining({ labels: ["bug"] })
+      expect.objectContaining({ labels: ["needs-triage"] })
     );
   });
 
@@ -699,7 +702,7 @@ describe("workflow invariants", () => {
     );
     expect(contributing).toContain("Do not treat a skipped optional smoke as release evidence.");
     expect(contributing).toContain("New pull requests automatically keep `Jahrome907` assigned");
-    expect(contributing).toContain("leaves an unfamiliar title for maintainer triage");
+    expect(contributing).toContain("An unfamiliar title receives `needs-triage`");
     expect(prTemplate).toContain(
       "I confirmed the docs, examples, and emitted artifacts still match actual repo behavior"
     );
