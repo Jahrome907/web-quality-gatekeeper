@@ -77,8 +77,9 @@ New pull requests automatically keep `Jahrome907` assigned and add an existing l
 when the conventional title identifies its work: `fix` for `bug`, `feat` for
 `enhancement`, `docs` for `documentation`, `ci` for `github_actions`, and `deps` or
 `dependencies` for `dependencies`. The automation only adds metadata. It preserves
-manual labels and assignees, and leaves an unfamiliar title for maintainer triage
-rather than guessing a category.
+manual labels and assignees. An unfamiliar title receives `needs-triage`; after
+classifying it, a maintainer removes that fallback label and applies the relevant
+existing label.
 
 ## Deployments and releases
 
