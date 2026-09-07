@@ -1,8 +1,20 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
+
+it("ships an intact baseline for the required Pages preview visual gate", () => {
+  const baselineDir = path.join(ROOT, "baselines", "docs-preview");
+  const manifest = JSON.parse(
+    readFileSync(path.join(baselineDir, "baseline-manifest.json"), "utf8")
+  );
+  const image = readFileSync(path.join(baselineDir, "home.png"));
+  expect(manifest.version).toBe(1);
+  expect(manifest.checksums["home.png"]).toBe(createHash("sha256").update(image).digest("hex"));
+});
+
 const WORKFLOW_FILES = [
   ".github/workflows/action-smoke.yml",
   ".github/workflows/native-visual-diff.yml",
