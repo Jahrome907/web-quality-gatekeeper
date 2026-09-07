@@ -37,7 +37,11 @@ def main() -> int:
         print("At least one --bundle path is required.", file=sys.stderr)
         return 2
 
-    rows = [load_bundle(Path(bundle).resolve()) for bundle in args.bundle]
+    try:
+        rows = [load_bundle(Path(bundle).resolve()) for bundle in args.bundle]
+    except (OSError, ValueError) as error:
+        print(f"Unable to load case-study bundle: {error}", file=sys.stderr)
+        return 2
     report = build_report(rows)
 
     if args.json_out:

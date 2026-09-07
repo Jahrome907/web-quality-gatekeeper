@@ -379,35 +379,26 @@ async function runTargetAudit(params: {
     }
   });
 
-  const summaryV2Base = summaryReport.buildSummaryV2
-    ? summaryReport.buildSummaryV2({
-        url: auditedUrl,
-        startedAt,
-        durationMs: runDurationMs,
-        toolVersion: pkg.version,
-        screenshots: relativeScreenshots,
-        a11y: relativeA11yV2,
-        performance: relativePerfV2,
-        visual: relativeVisual,
-        runtimeSignals,
-        artifacts: {
-          ...artifacts,
-          summaryV2: toRelative(outDir, summaryV2Path)
-        },
-        options: {
-          failOnA11y: options.failOnA11y,
-          failOnPerf: options.failOnPerf,
-          failOnVisual: options.failOnVisual
-        }
-      })
-    : ({
-        ...summary,
-        artifacts: {
-          ...summary.artifacts,
-          summaryV2: toRelative(outDir, summaryV2Path)
-        },
-        runtimeSignals
-      } as DetailSummaryV2);
+  const summaryV2Base = summaryReport.buildSummaryV2({
+    url: auditedUrl,
+    startedAt,
+    durationMs: runDurationMs,
+    toolVersion: pkg.version,
+    screenshots: relativeScreenshots,
+    a11y: relativeA11yV2,
+    performance: relativePerfV2,
+    visual: relativeVisual,
+    runtimeSignals,
+    artifacts: {
+      ...artifacts,
+      summaryV2: toRelative(outDir, summaryV2Path)
+    },
+    options: {
+      failOnA11y: options.failOnA11y,
+      failOnPerf: options.failOnPerf,
+      failOnVisual: options.failOnVisual
+    }
+  });
 
   const summaryV2: DetailSummaryV2 =
     config.insights?.enabled === false

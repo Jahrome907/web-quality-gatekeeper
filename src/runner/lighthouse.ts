@@ -151,7 +151,7 @@ export function evaluateBudgets(
 }
 
 export function toFixedScore(score: number | null | undefined): number {
-  if (typeof score !== "number") {
+  if (typeof score !== "number" || !Number.isFinite(score)) {
     return 0;
   }
   return Number(score.toFixed(2));
@@ -181,6 +181,22 @@ function categoryScore(lhr: LighthouseLhrLike, key: string): number {
   return toFixedScore(lhr.categories?.[key]?.score ?? 0);
 }
 
+function requiredPerformanceScore(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(
+      "Lighthouse required performance score must be a finite number between 0 and 1."
+    );
+  }
+  return toFixedScore(value);
+}
+
+function requiredNonNegativeMetric(label: string, value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new Error(`Lighthouse required ${label} must be a finite non-negative number.`);
+  }
+  return value;
+}
+
 function extractExtendedMetrics(lhr: LighthouseLhrLike): LighthouseExtendedMetrics {
   const fcp = lhr.audits["first-contentful-paint"];
   const speedIndex = lhr.audits["speed-index"];
@@ -196,41 +212,56 @@ function extractExtendedMetrics(lhr: LighthouseLhrLike): LighthouseExtendedMetri
 }
 
 function extractOpportunities(lhr: LighthouseLhrLike): LighthouseOpportunity[] {
-  function combinedSavings(opportunity: LighthouseOpportunity): number {
-    return (opportunity.estimatedSavingsMs ?? 0) + (opportunity.estimatedSavingsBytes ?? 0);
-  }
-
   const ranked = Object.values(lhr.audits)
     .filter((audit): audit is LighthouseAuditLike => Boolean(audit))
     .map((audit) => ({
-      id: audit.id,
-      title: audit.title ?? audit.id,
-      score: toFixedScore(audit.score ?? 0),
-      displayValue: audit.displayValue ?? "",
-      estimatedSavingsMs: toNullableNumeric(audit.details?.overallSavingsMs),
-      estimatedSavingsBytes: toNullableNumeric(audit.details?.overallSavingsBytes)
+      sourceScore: audit.score,
+      opportunity: {
+        id: audit.id,
+        title: audit.title ?? audit.id,
+        score: toFixedScore(audit.score),
+        displayValue: audit.displayValue ?? "",
+        estimatedSavingsMs: toNullableNumeric(audit.details?.overallSavingsMs),
+        estimatedSavingsBytes: toNullableNumeric(audit.details?.overallSavingsBytes)
+      }
     }))
-    .filter((audit) => {
+    .filter(({ sourceScore }) => {
       return (
-        (audit.estimatedSavingsMs !== null && audit.estimatedSavingsMs > 0) ||
-        (audit.estimatedSavingsBytes !== null && audit.estimatedSavingsBytes > 0)
+        typeof sourceScore === "number" &&
+        Number.isFinite(sourceScore) &&
+        sourceScore >= 0 &&
+        sourceScore < 1
+      );
+    })
+    .filter(({ opportunity }) => {
+      return (
+        (opportunity.estimatedSavingsMs !== null && opportunity.estimatedSavingsMs > 0) ||
+        (opportunity.estimatedSavingsBytes !== null && opportunity.estimatedSavingsBytes > 0)
       );
     })
     .sort((left, right) => {
-      const savingsDelta = combinedSavings(right) - combinedSavings(left);
-      if (savingsDelta !== 0) {
-        return savingsDelta;
+      const timeDelta =
+        (right.opportunity.estimatedSavingsMs ?? 0) - (left.opportunity.estimatedSavingsMs ?? 0);
+      if (timeDelta !== 0) {
+        return timeDelta;
       }
 
-      const idDelta = left.id.localeCompare(right.id);
+      const bytesDelta =
+        (right.opportunity.estimatedSavingsBytes ?? 0) -
+        (left.opportunity.estimatedSavingsBytes ?? 0);
+      if (bytesDelta !== 0) {
+        return bytesDelta;
+      }
+
+      const idDelta = left.opportunity.id.localeCompare(right.opportunity.id);
       if (idDelta !== 0) {
         return idDelta;
       }
 
-      return left.title.localeCompare(right.title);
+      return left.opportunity.title.localeCompare(right.opportunity.title);
     });
 
-  return ranked.slice(0, MAX_OPPORTUNITIES);
+  return ranked.slice(0, MAX_OPPORTUNITIES).map(({ opportunity }) => opportunity);
 }
 
 function getChromeFlags(): string[] {
@@ -610,17 +641,17 @@ export async function runLighthouseAudit(
       const tbtAudit = lhr.audits["total-blocking-time"];
 
       const metrics: LighthouseMetrics = {
-        performanceScore: categoryScore(lhr, "performance"),
-        lcpMs: toNumericValue(lcpAudit?.numericValue),
-        cls: toNumericValue(clsAudit?.numericValue),
-        tbtMs: toNumericValue(tbtAudit?.numericValue)
+        performanceScore: requiredPerformanceScore(lhr.categories?.performance?.score),
+        lcpMs: requiredNonNegativeMetric("LCP", lcpAudit?.numericValue),
+        cls: requiredNonNegativeMetric("CLS", clsAudit?.numericValue),
+        tbtMs: requiredNonNegativeMetric("TBT", tbtAudit?.numericValue)
       };
 
       const budgets = config.lighthouse.budgets;
       const budgetResults = evaluateBudgets(metrics, budgets);
 
       const categoryScores: LighthouseCategoryScores = {
-        performance: categoryScore(lhr, "performance"),
+        performance: metrics.performanceScore,
         accessibility: categoryScore(lhr, "accessibility"),
         bestPractices: categoryScore(lhr, "best-practices"),
         seo: categoryScore(lhr, "seo")

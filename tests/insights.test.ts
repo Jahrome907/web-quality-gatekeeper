@@ -121,4 +121,16 @@ describe("buildInsights", () => {
       ])
     );
   });
+
+  it("describes Lighthouse opportunities as reported opportunities without claiming a bottleneck", () => {
+    const insights = buildInsights(createSummary());
+    const performanceInsight = insights.recommendations.find(
+      (item) => item.id === "perf:unused-javascript"
+    );
+
+    expect(performanceInsight).toMatchObject({
+      why: "Lighthouse reported Reduce unused JavaScript as an opportunity.",
+      expectedImpact: "Lighthouse estimated savings: 250ms, 1024 bytes."
+    });
+  });
 });

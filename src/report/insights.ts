@@ -81,6 +81,20 @@ function toA11ySeverity(impact: string | null): InsightSeverity {
   }
 }
 
+function formatOpportunitySavings(opportunity: {
+  estimatedSavingsMs: number | null;
+  estimatedSavingsBytes: number | null;
+}): string {
+  const values: string[] = [];
+  if (opportunity.estimatedSavingsMs !== null) {
+    values.push(`${Math.round(opportunity.estimatedSavingsMs)}ms`);
+  }
+  if (opportunity.estimatedSavingsBytes !== null) {
+    values.push(`${Math.round(opportunity.estimatedSavingsBytes)} bytes`);
+  }
+  return values.length > 0 ? values.join(", ") : "not provided";
+}
+
 export function buildInsights(
   summary: SummaryV2,
   maxRecommendations: number = DEFAULT_LIMIT
@@ -117,19 +131,16 @@ export function buildInsights(
   if (summary.performance?.opportunities) {
     for (const opportunity of summary.performance.opportunities) {
       const guidance = PERF_GUIDANCE[opportunity.id];
-      const estimatedMs =
-        opportunity.estimatedSavingsMs !== null
-          ? `${Math.round(opportunity.estimatedSavingsMs)}ms`
-          : "unknown";
+      const estimatedSavings = formatOpportunitySavings(opportunity);
       recommendations.push({
         id: `perf:${opportunity.id}`,
         source: "perf",
         severity: opportunity.score < 0.3 ? "high" : opportunity.score < 0.6 ? "medium" : "low",
         title: guidance?.title ?? opportunity.title,
-        why: `Lighthouse flagged ${opportunity.title} as a user-perceived performance bottleneck.`,
+        why: `Lighthouse reported ${opportunity.title} as an opportunity.`,
         evidence: [
           `Opportunity: ${opportunity.id}`,
-          `Estimated savings: ${estimatedMs}`,
+          `Estimated savings: ${estimatedSavings}`,
           ...(opportunity.displayValue ? [`Display value: ${opportunity.displayValue}`] : [])
         ],
         remediation: guidance?.remediation ?? [
@@ -139,7 +150,7 @@ export function buildInsights(
           "Re-run WQG and verify Lighthouse opportunity savings are reduced.",
           "Confirm performance score and LCP trend improves over subsequent runs."
         ],
-        expectedImpact: `Potential performance savings around ${estimatedMs}.`,
+        expectedImpact: `Lighthouse estimated savings: ${estimatedSavings}.`,
         references: []
       });
     }

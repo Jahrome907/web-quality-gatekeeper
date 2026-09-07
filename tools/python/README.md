@@ -6,7 +6,7 @@ analytics. The core `wqg audit` CLI and GitHub Action do not require Python.
 ## Environment
 
 - Python version: `3.11+`
-- Dependency policy: standard library only for this phase
+- Dependencies: Python standard library only
 - Isolation: tooling lives entirely under `tools/python/`
 
 ## Smoke Check
@@ -22,14 +22,14 @@ normalized JSON, CSV, and optional Markdown output.
 
 Expected bundle contents:
 
-- `summary.v2.json` or `artifacts/summary.v2.json`
+- `summary.v2.json`, `fixture-summary.v2.json`, or `artifacts/summary.v2.json`
 - optional `provenance.json` or `fixture-provenance.json`
 - optional `roi.json`
 
 Example:
 
 ```bash
-python3 tools/python/case_study_analytics.py \
+python tools/python/case_study_analytics.py \
   --bundle docs/proof \
   --json-out .tmp-python/case-study.json \
   --csv-out .tmp-python/case-study.csv \

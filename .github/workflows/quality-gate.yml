@@ -238,6 +238,7 @@ jobs:
 
           ARGS=()
           CONFIG_PATH="configs/default.json"
+          BASELINE_DIR="baselines"
           if [ "$RELAXED_REMOTE" = "true" ]; then
             ARGS+=(--no-fail-on-a11y --no-fail-on-perf --no-fail-on-visual)
           fi
@@ -246,11 +247,12 @@ jobs:
           fi
           if [ "$TARGET_MODE" = "docs_preview" ]; then
             CONFIG_PATH="configs/docs-preview.ci.json"
+            BASELINE_DIR="baselines/docs-preview"
           fi
           npm run audit -- "$AUDIT_URL" \
             --config "$CONFIG_PATH" \
             --out artifacts \
-            --baseline-dir baselines \
+            --baseline-dir "$BASELINE_DIR" \
             "${ARGS[@]}"
 
       - name: Upload artifacts

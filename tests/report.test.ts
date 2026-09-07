@@ -120,6 +120,33 @@ const summary: Summary = {
   }
 };
 
+it("preserves the machine report's opportunity order without mixing bytes and time", () => {
+  const report = structuredClone(summary);
+  report.performance!.opportunities = [
+    {
+      id: "time-first",
+      title: "Time first",
+      score: 0.5,
+      displayValue: "",
+      estimatedSavingsMs: 200,
+      estimatedSavingsBytes: 0
+    },
+    {
+      id: "bytes-second",
+      title: "Bytes second",
+      score: 0.5,
+      displayValue: "",
+      estimatedSavingsMs: 100,
+      estimatedSavingsBytes: 1000000
+    }
+  ];
+  const html = buildHtmlReport(report);
+  expect(html.indexOf('class="opportunity-id">time-first')).toBeGreaterThan(-1);
+  expect(html.indexOf('class="opportunity-id">time-first')).toBeLessThan(
+    html.indexOf('class="opportunity-id">bytes-second')
+  );
+});
+
 function createSummaryV2(overrides?: Partial<SummaryV2>): SummaryV2 {
   return {
     ...summary,
