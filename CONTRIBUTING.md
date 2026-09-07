@@ -73,6 +73,13 @@ branches once their work is preserved.
 
 Describe the problem, the chosen change, and the validation performed. Include screenshots or report excerpts when user-visible output changes, and identify known limitations or follow-up work. The [pull request template](.github/pull_request_template.md) is a checklist, not a requirement to run unrelated gates.
 
+New pull requests automatically keep `Jahrome907` assigned and add an existing label
+when the conventional title identifies its work: `fix` for `bug`, `feat` for
+`enhancement`, `docs` for `documentation`, `ci` for `github_actions`, and `deps` or
+`dependencies` for `dependencies`. The automation only adds metadata. It preserves
+manual labels and assignees, and leaves an unfamiliar title for maintainer triage
+rather than guessing a category.
+
 ## Deployments and releases
 
 Merging code and publishing it are separate decisions. Once the intended `main`
