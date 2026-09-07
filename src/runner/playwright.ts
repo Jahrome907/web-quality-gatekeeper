@@ -649,9 +649,8 @@ export async function runPlaywrightLifecycle<T>(
         ...options,
         resolverPinningState
       });
-      const result = await run(opened);
-      assertNoBlockedBrowserRequest(opened.page);
-      return result;
+      const currentAttempt = opened;
+      return await runWithBlockedRequestHandling(currentAttempt.page, () => run(currentAttempt));
     } catch (error) {
       if (!(error instanceof ResolverPinningRequiredError) || !options.targetPolicy) {
         throw error;

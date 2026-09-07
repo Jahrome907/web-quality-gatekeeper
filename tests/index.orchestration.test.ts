@@ -339,13 +339,22 @@ describe("runAudit orchestration", () => {
   it("runs all enabled checks, rewrites paths, and writes both summary versions", async () => {
     const outDir = path.resolve(process.cwd(), "artifacts");
     const baselineDir = path.resolve(process.cwd(), "baselines");
-    const close = vi.fn();
+    let browserClosed = false;
+    const close = vi.fn(() => {
+      browserClosed = true;
+    });
 
     mockLoadConfig.mockResolvedValue(createFullConfig());
     mockOpenPage.mockResolvedValue({
       browser: { close },
       page: {},
-      runtimeSignals: { snapshot: vi.fn().mockReturnValue(createRuntimeSignals()) },
+      runtimeSignals: {
+        snapshot: vi.fn(() => {
+          const signals = createRuntimeSignals();
+          if (browserClosed) signals.network.failedRequests = 999;
+          return signals;
+        })
+      },
       resolvedUrl: "https://www.example.com/",
       resolvedHostResolverRules: "MAP www.example.com 203.0.113.11"
     });

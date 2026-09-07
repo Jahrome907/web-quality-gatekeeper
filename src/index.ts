@@ -31,11 +31,7 @@ import type { Config } from "./config/schema.js";
 import type { AxeSummary } from "./runner/axe.js";
 import type { LighthouseSummary } from "./runner/lighthouse.js";
 import type { VisualDiffSummary } from "./runner/visualDiff.js";
-import type {
-  RuntimeSignalCollector,
-  RuntimeSignalSummary,
-  ScreenshotResult
-} from "./runner/playwright.js";
+import type { RuntimeSignalSummary, ScreenshotResult } from "./runner/playwright.js";
 import type { AuditAuth } from "./utils/auth.js";
 import type { TargetResolutionPolicy } from "./utils/url.js";
 import type { Summary, SummaryV2 as DetailSummaryV2 } from "./report/summary.js";
@@ -216,7 +212,7 @@ async function runTargetAudit(params: {
   let browserAudit: {
     axeSummary: AxeSummary | null;
     screenshots: ScreenshotResult[];
-    runtimeSignals: RuntimeSignalCollector;
+    runtimeSignals: RuntimeSignalSummary;
     resolvedUrl: string;
     resolvedHostResolverRules: string | null;
   };
@@ -248,7 +244,13 @@ async function runTargetAudit(params: {
           attemptScreenshotsDir,
           logger
         );
-        return { axeSummary, screenshots, runtimeSignals, resolvedUrl, resolvedHostResolverRules };
+        return {
+          axeSummary,
+          screenshots,
+          runtimeSignals: runtimeSignals.snapshot(),
+          resolvedUrl,
+          resolvedHostResolverRules
+        };
       }
     );
     axeSummary = browserAudit.axeSummary
@@ -387,7 +389,7 @@ async function runTargetAudit(params: {
         a11y: relativeA11yV2,
         performance: relativePerfV2,
         visual: relativeVisual,
-        runtimeSignals: runtimeSignals.snapshot() as RuntimeSignalSummary,
+        runtimeSignals,
         artifacts: {
           ...artifacts,
           summaryV2: toRelative(outDir, summaryV2Path)
@@ -404,7 +406,7 @@ async function runTargetAudit(params: {
           ...summary.artifacts,
           summaryV2: toRelative(outDir, summaryV2Path)
         },
-        runtimeSignals: runtimeSignals.snapshot() as RuntimeSignalSummary
+        runtimeSignals
       } as DetailSummaryV2);
 
   const summaryV2: DetailSummaryV2 =

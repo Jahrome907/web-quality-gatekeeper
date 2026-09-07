@@ -754,7 +754,9 @@ describe("playwright runner", () => {
     );
 
     expect(result.resolvedUrl).toBe("https://example.com/");
-    expect(mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")).toHaveLength(1);
+    expect(
+      mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")
+    ).toHaveLength(1);
     requestAborts.forEach((requestAbort) =>
       expect(requestAbort).toHaveBeenCalledWith("blockedbyclient")
     );
@@ -857,7 +859,9 @@ describe("playwright runner", () => {
       )
     ).rejects.toThrow("Blocked unresolved request target in sensitive mode");
 
-    expect(mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")).toHaveLength(1);
+    expect(
+      mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")
+    ).toHaveLength(1);
     requestAborts.forEach((requestAbort) =>
       expect(requestAbort).toHaveBeenCalledWith("blockedbyclient")
     );
@@ -944,9 +948,7 @@ describe("playwright runner", () => {
     expect(requestContinue).toHaveBeenCalledTimes(1);
     expect(mockLaunch).toHaveBeenNthCalledWith(2, {
       headless: true,
-      args: [
-        "--host-resolver-rules=MAP example.com 203.0.113.10, MAP cdn.example.net 203.0.113.10"
-      ]
+      args: ["--host-resolver-rules=MAP example.com 203.0.113.10, MAP cdn.example.net 203.0.113.10"]
     });
   });
 
@@ -1036,9 +1038,7 @@ describe("playwright runner", () => {
     );
 
     expect(mockLookup.mock.calls.map((call) => call[0])).toEqual(["8.8.8.8"]);
-    requestContinues.forEach((continueRequest) =>
-      expect(continueRequest).toHaveBeenCalledTimes(1)
-    );
+    requestContinues.forEach((continueRequest) => expect(continueRequest).toHaveBeenCalledTimes(1));
     requestAborts.forEach((abort) => expect(abort).not.toHaveBeenCalled());
     expect(mockLaunch).toHaveBeenCalledTimes(1);
     expect(mockLaunch).toHaveBeenCalledWith({
@@ -1081,8 +1081,7 @@ describe("playwright runner", () => {
         lateLookupCount += 1;
         if (lateLookupCount === 1) {
           return new Promise((resolve) => {
-            releaseLateLookup = () =>
-              resolve([{ address: "203.0.113.30", family: 4 }] as never);
+            releaseLateLookup = () => resolve([{ address: "203.0.113.30", family: 4 }] as never);
           });
         }
         return Promise.resolve([{ address: "203.0.113.30", family: 4 }]);
@@ -1182,12 +1181,10 @@ describe("playwright runner", () => {
 
     expect(mockLaunch).toHaveBeenCalledTimes(3);
     expect(mockLaunch.mock.calls[1]?.[0]?.args?.[0]).not.toContain("late.example.net");
-    expect(mockLaunch.mock.calls[2]?.[0]?.args?.[0]).toContain(
-      "MAP late.example.net 203.0.113.30"
-    );
-    expect(requestContinues.filter((continueRequest) => continueRequest.mock.calls.length)).toHaveLength(
-      1
-    );
+    expect(mockLaunch.mock.calls[2]?.[0]?.args?.[0]).toContain("MAP late.example.net 203.0.113.30");
+    expect(
+      requestContinues.filter((continueRequest) => continueRequest.mock.calls.length)
+    ).toHaveLength(1);
     expect(requestAborts.filter((abort) => abort.mock.calls.length)).toHaveLength(3);
     closePages.slice(0, 2).forEach((closePage) => expect(closePage).toHaveBeenCalledTimes(1));
     closeContexts
@@ -1686,9 +1683,7 @@ describe("playwright runner", () => {
     });
     expect(mockLaunch).toHaveBeenNthCalledWith(2, {
       headless: true,
-      args: [
-        "--host-resolver-rules=MAP example.com 203.0.113.10, MAP www.example.com 203.0.113.11"
-      ]
+      args: ["--host-resolver-rules=MAP example.com 203.0.113.10, MAP www.example.com 203.0.113.11"]
     });
     expect(closePageOne).toHaveBeenCalledTimes(1);
     expect(closeContextOne).toHaveBeenCalledTimes(1);
@@ -1831,9 +1826,7 @@ describe("playwright runner", () => {
     });
     expect(mockLaunch).toHaveBeenNthCalledWith(2, {
       headless: true,
-      args: [
-        "--host-resolver-rules=MAP example.com 203.0.113.10, MAP www.example.com 203.0.113.11"
-      ]
+      args: ["--host-resolver-rules=MAP example.com 203.0.113.10, MAP www.example.com 203.0.113.11"]
     });
     expect(mockLaunch).toHaveBeenNthCalledWith(3, {
       headless: true,
@@ -1884,34 +1877,34 @@ describe("playwright runner", () => {
     const { openPage } = await import("../src/runner/playwright.js");
 
     const result = await openPage(
-        "https://example.com",
-        {
-          timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
-          retries: { count: 1, delayMs: 10 },
-          playwright: {
-            viewport: { width: 1280, height: 720 },
-            userAgent: "wqg/3.0.0",
-            locale: "en-US",
-            colorScheme: "light"
-          },
-          screenshots: [{ name: "home", path: "/", fullPage: true }],
-          lighthouse: {
-            budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
-            formFactor: "desktop"
-          },
-          visual: { threshold: 0.01 },
-          toggles: { a11y: true, perf: true, visual: true }
-        } as never,
-        logger as never,
-        null,
-        {
-          hostResolverRules: "MAP example.com 203.0.113.10",
-          targetPolicy: {
-            allowInternalTargets: false,
-            blockInternalTargets: true
-          }
+      "https://example.com",
+      {
+        timeouts: { navigationMs: 30000, actionMs: 10000, waitAfterLoadMs: 250 },
+        retries: { count: 1, delayMs: 10 },
+        playwright: {
+          viewport: { width: 1280, height: 720 },
+          userAgent: "wqg/3.0.0",
+          locale: "en-US",
+          colorScheme: "light"
+        },
+        screenshots: [{ name: "home", path: "/", fullPage: true }],
+        lighthouse: {
+          budgets: { performance: 0.8, lcpMs: 2500, cls: 0.1, tbtMs: 200 },
+          formFactor: "desktop"
+        },
+        visual: { threshold: 0.01 },
+        toggles: { a11y: true, perf: true, visual: true }
+      } as never,
+      logger as never,
+      null,
+      {
+        hostResolverRules: "MAP example.com 203.0.113.10",
+        targetPolicy: {
+          allowInternalTargets: false,
+          blockInternalTargets: true
         }
-      );
+      }
+    );
 
     expect(result.resolvedUrl).toBe("https://www.example.com/");
     expect(mockLaunch).toHaveBeenCalledTimes(3);
@@ -2241,99 +2234,107 @@ describe("playwright runner", () => {
     expect(results[19]!.path).toBe(path.join(outDir, "landing--vp-19.png"));
   });
 
-  it("relaunches after a late public subresource needs resolver pinning", async () => {
-    const initialNavigation = createRoutedBrowser();
-    const firstCallbackRun = createRoutedBrowser();
-    const retriedCallbackRun = createRoutedBrowser();
-    mockLaunch
-      .mockResolvedValueOnce(initialNavigation.browser)
-      .mockResolvedValueOnce(firstCallbackRun.browser)
-      .mockResolvedValueOnce(retriedCallbackRun.browser);
+  it.each([false, true])(
+    "relaunches after late public discovery when callback rejects: %s",
+    async (rejectCallback) => {
+      const initialNavigation = createRoutedBrowser();
+      const firstCallbackRun = createRoutedBrowser();
+      const retriedCallbackRun = createRoutedBrowser();
+      mockLaunch
+        .mockResolvedValueOnce(initialNavigation.browser)
+        .mockResolvedValueOnce(firstCallbackRun.browser)
+        .mockResolvedValueOnce(retriedCallbackRun.browser);
 
-    const logger = { debug: vi.fn(), warn: vi.fn() };
-    const { runPlaywrightLifecycle } = await import("../src/runner/playwright.js");
-    const abortLateRequest = vi.fn().mockResolvedValue(undefined);
-    const continueLateRequest = vi.fn().mockResolvedValue(undefined);
-    let callbackRuns = 0;
+      const logger = { debug: vi.fn(), warn: vi.fn() };
+      const { runPlaywrightLifecycle } = await import("../src/runner/playwright.js");
+      const abortLateRequest = vi.fn().mockResolvedValue(undefined);
+      const continueLateRequest = vi.fn().mockResolvedValue(undefined);
+      let callbackRuns = 0;
 
-    const result = await runPlaywrightLifecycle(
-      "https://example.com",
-      auditConfig(),
-      logger as never,
-      null,
-      { targetPolicy: strictTargetPolicy },
-      async () => {
-        callbackRuns += 1;
-        if (callbackRuns === 1) {
-          await firstCallbackRun.getRouteHandler()({
-            request: () => ({
-              isNavigationRequest: () => false,
-              url: () => "https://cdn.example.net/challenge.js",
-              headers: () => ({})
-            }),
-            abort: abortLateRequest,
-            continue: continueLateRequest
-          });
-          return "stale result";
-        }
-        return "completed after resolver relaunch";
-      }
-    );
-
-    expect(result).toBe("completed after resolver relaunch");
-    expect(callbackRuns).toBe(2);
-    expect(abortLateRequest).toHaveBeenCalledWith("blockedbyclient");
-    expect(continueLateRequest).not.toHaveBeenCalled();
-    expect(mockLaunch).toHaveBeenCalledTimes(3);
-    expect(mockLaunch).toHaveBeenNthCalledWith(3, {
-      headless: true,
-      args: [
-        "--host-resolver-rules=MAP example.com 203.0.113.10, MAP cdn.example.net 203.0.113.10"
-      ]
-    });
-    expect(firstCallbackRun.closeBrowser).toHaveBeenCalledTimes(1);
-    expect(retriedCallbackRun.closeBrowser).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not accept a callback result after a late private navigation is blocked", async () => {
-    const browser = createRoutedBrowser();
-    mockLaunch.mockResolvedValue(browser.browser);
-    const abortPrivateNavigation = vi.fn().mockResolvedValue(undefined);
-    const continuePrivateNavigation = vi.fn().mockResolvedValue(undefined);
-    const callback = vi.fn(async () => {
-      await browser.getRouteHandler()({
-        request: () => ({
-          isNavigationRequest: () => true,
-          url: () => "http://127.0.0.1/private",
-          headers: () => ({})
-        }),
-        abort: abortPrivateNavigation,
-        continue: continuePrivateNavigation
-      });
-      return "callback result";
-    });
-    const { runPlaywrightLifecycle } = await import("../src/runner/playwright.js");
-
-    await expect(
-      runPlaywrightLifecycle(
+      const result = await runPlaywrightLifecycle(
         "https://example.com",
         auditConfig(),
-        { debug: vi.fn(), warn: vi.fn() } as never,
+        logger as never,
         null,
-        {
-          targetPolicy: strictTargetPolicy,
-          hostResolverRules: "MAP example.com 203.0.113.10"
-        },
-        callback
-      )
-    ).rejects.toThrow("Blocked internal navigation target");
+        { targetPolicy: strictTargetPolicy },
+        async () => {
+          callbackRuns += 1;
+          if (callbackRuns === 1) {
+            await firstCallbackRun.getRouteHandler()({
+              request: () => ({
+                isNavigationRequest: () => false,
+                url: () => "https://cdn.example.net/challenge.js",
+                headers: () => ({})
+              }),
+              abort: abortLateRequest,
+              continue: continueLateRequest
+            });
+            if (rejectCallback) throw new Error("waitForSelector timed out");
+            return "stale result";
+          }
+          return "completed after resolver relaunch";
+        }
+      );
 
-    expect(callback).toHaveBeenCalledTimes(1);
-    expect(abortPrivateNavigation).toHaveBeenCalledWith("blockedbyclient");
-    expect(continuePrivateNavigation).not.toHaveBeenCalled();
-    expect(mockLaunch).toHaveBeenCalledTimes(1);
-    expect(browser.closeBrowser).toHaveBeenCalledTimes(1);
-  });
+      expect(result).toBe("completed after resolver relaunch");
+      expect(callbackRuns).toBe(2);
+      expect(abortLateRequest).toHaveBeenCalledWith("blockedbyclient");
+      expect(continueLateRequest).not.toHaveBeenCalled();
+      expect(mockLaunch).toHaveBeenCalledTimes(3);
+      expect(mockLaunch).toHaveBeenNthCalledWith(3, {
+        headless: true,
+        args: [
+          "--host-resolver-rules=MAP example.com 203.0.113.10, MAP cdn.example.net 203.0.113.10"
+        ]
+      });
+      expect(firstCallbackRun.closeBrowser).toHaveBeenCalledTimes(1);
+      expect(retriedCallbackRun.closeBrowser).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it.each([false, true])(
+    "preserves late private navigation failure when callback rejects: %s",
+    async (rejectCallback) => {
+      const browser = createRoutedBrowser();
+      mockLaunch.mockResolvedValue(browser.browser);
+      const abortPrivateNavigation = vi.fn().mockResolvedValue(undefined);
+      const continuePrivateNavigation = vi.fn().mockResolvedValue(undefined);
+      const callback = vi.fn(async () => {
+        await browser.getRouteHandler()({
+          request: () => ({
+            isNavigationRequest: () => true,
+            url: () => "http://127.0.0.1/private",
+            headers: () => ({})
+          }),
+          abort: abortPrivateNavigation,
+          continue: continuePrivateNavigation
+        });
+        if (rejectCallback) throw new Error("waitForSelector timed out");
+        return "callback result";
+      });
+      const { runPlaywrightLifecycle } = await import("../src/runner/playwright.js");
+
+      await expect(
+        runPlaywrightLifecycle(
+          "https://example.com",
+          auditConfig(),
+          { debug: vi.fn(), warn: vi.fn() } as never,
+          null,
+          {
+            targetPolicy: strictTargetPolicy,
+            hostResolverRules: "MAP example.com 203.0.113.10"
+          },
+          callback
+        )
+      ).rejects.toThrow("Blocked internal navigation target");
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(abortPrivateNavigation).toHaveBeenCalledWith("blockedbyclient");
+      expect(continuePrivateNavigation).not.toHaveBeenCalled();
+      expect(mockLaunch).toHaveBeenCalledTimes(1);
+      expect(browser.closeBrowser).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it("does not retry after a late unresolved navigation is blocked", async () => {
     const browser = createRoutedBrowser();
