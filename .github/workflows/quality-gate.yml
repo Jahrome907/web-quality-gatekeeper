@@ -23,7 +23,7 @@ jobs:
       contents: read
     outputs:
       can_comment: ${{ steps.pr_comment.outputs.can_comment }}
-      publish_outputs: ${{ steps.policy.outputs.publish_outputs }}
+      publish_outputs: ${{ steps.policy.outputs.publish_outputs == 'true' && steps.audit.outputs.bundle_complete == 'true' }}
       pr_comment_body: ${{ steps.pr_summary.outputs.body }}
     steps:
       - name: Checkout
@@ -214,6 +214,7 @@ jobs:
           echo "publish_outputs=$PUBLISH_OUTPUTS" >> "$GITHUB_OUTPUT"
 
       - name: Run audit
+        id: audit
         env:
           AUDIT_URL: ${{ steps.target.outputs.url }}
           TARGET_MODE: ${{ steps.target.outputs.mode }}
@@ -249,23 +250,54 @@ jobs:
             CONFIG_PATH="configs/docs-preview.ci.json"
             BASELINE_DIR="baselines/docs-preview"
           fi
+          export WQG_RUN_ID="$(node -e "console.log(require('node:crypto').randomUUID())")"
+          echo "bundle_complete=false" >> "$GITHUB_OUTPUT"
+          set +e
           npm run audit -- "$AUDIT_URL" \
             --config "$CONFIG_PATH" \
             --out artifacts \
             --baseline-dir "$BASELINE_DIR" \
             "${ARGS[@]}"
+          AUDIT_EXIT=$?
+          set -e
+          if [[ "$AUDIT_EXIT" == "0" || "$AUDIT_EXIT" == "1" ]] && node --input-type=module -e '
+            import fs from "node:fs";
+            import path from "node:path";
+            try {
+              const receipt = JSON.parse(fs.readFileSync("artifacts/.wqg-output-manifest.json", "utf8"));
+              const required = ["summary.json", "summary.v2.json", "report.html", "action-plan.md", "pr-risk-ledger.json", "pr-risk-ledger.md"];
+              const valid = receipt.schemaVersion === 1 && receipt.status === "complete" && receipt.runId === process.env.WQG_RUN_ID && Array.isArray(receipt.generatedFiles) && required.every(file => receipt.generatedFiles.includes(file) && fs.statSync(`artifacts/${file}`).isFile());
+              if (!valid || receipt.generatedFiles.length === 0) process.exit(1);
+              const root = fs.realpathSync("artifacts");
+              const paths = receipt.generatedFiles.filter(file => file !== "trends/history.json").map(file => {
+                if (typeof file !== "string" || /[\\\r\n*?\[\]{}!]/.test(file) || path.posix.normalize(file) !== file || path.posix.isAbsolute(file) || path.win32.isAbsolute(file) || file.split("/").includes("..")) throw new Error("Unsafe artifact path");
+                const candidate = path.join("artifacts", file);
+                const relative = path.relative(root, fs.realpathSync(candidate));
+                if (relative.startsWith("..") || path.isAbsolute(relative) || !fs.lstatSync(candidate).isFile()) throw new Error("Artifact escapes output");
+                return `artifacts/${file}`;
+              });
+              const delimiter = `WQG_ARTIFACTS_${process.env.WQG_RUN_ID}`;
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, `artifact_paths<<${delimiter}\n${paths.join("\n")}\n${delimiter}\n`);
+            } catch { process.exit(1); }
+          '; then
+            echo "bundle_complete=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Audit did not produce a complete bundle for this run."
+            exit 1
+          fi
+          exit "$AUDIT_EXIT"
 
       - name: Upload artifacts
-        if: always() && steps.policy.outputs.publish_outputs == 'true'
+        if: always() && steps.audit.outputs.bundle_complete == 'true' && steps.policy.outputs.publish_outputs == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: artifacts
+          path: ${{ steps.audit.outputs.artifact_paths }}
           if-no-files-found: warn
 
       - name: Prepare PR summary comment
         id: pr_summary
-        if: always() && steps.policy.outputs.publish_outputs == 'true' && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && steps.pr_comment.outputs.can_comment == 'true'
+        if: always() && steps.audit.outputs.bundle_complete == 'true' && steps.policy.outputs.publish_outputs == 'true' && github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && steps.pr_comment.outputs.can_comment == 'true'
         run: |
           node <<'NODE'
           const crypto = require('crypto');
