@@ -82,11 +82,11 @@ jobs:
           config-path: .github/web-quality/config.json
           baseline-dir: .github/web-quality/baselines
       - name: Upload artifacts
-        if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: artifacts/
+          path: \${{ steps.wqg.outputs.artifact-paths }}
           if-no-files-found: warn
 `;
 }
@@ -116,9 +116,9 @@ This directory contains the Web Quality Gatekeeper consumer configuration for th
 
 ${targetLine}
 
-The generated workflow uploads \`artifacts/\`, including screenshots and per-page
-reports, only when the Action reports \`sensitive-audit=false\`. Baseline images
-remain in the repository and are not included in this download. Set
+The generated workflow uploads the current artifact list, including screenshots and per-page
+reports, only when the Action reports \`bundle-complete=true\` and \`sensitive-audit=false\`. Baseline images
+and saved trend snapshots are not included in this download. Set
 \`WQG_ALLOW_SENSITIVE_OUTPUTS=true\` only when publishing sensitive outputs is
 intentional.
 
