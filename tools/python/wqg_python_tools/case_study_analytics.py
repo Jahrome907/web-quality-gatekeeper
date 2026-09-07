@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +11,28 @@ _DANGEROUS_CSV_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=lambda constant: (_raise_nonfinite_json_constant(constant)),
+        )
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"Unable to read JSON at {path}: {error}") from None
+    if not isinstance(value, dict):
+        raise ValueError(f"JSON object required at {path}.")
+    return value
+
+
+def _raise_nonfinite_json_constant(constant: str) -> None:
+    raise ValueError(f"non-finite JSON constant {constant!r}")
+
+
+def _mapping(value: Any, field: str) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{field} must be an object.")
+    return value
 
 
 def _find_existing(bundle_dir: Path, candidates: list[str]) -> Path | None:
@@ -28,42 +50,66 @@ def _average(values: list[float]) -> float | None:
 
 
 def _safe_nonnegative_int(value: Any) -> int | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if value is None:
         return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError("count must be a finite non-negative whole number.")
     integer = int(value)
     if integer < 0 or integer != value:
-        return None
+        raise ValueError("count must be a finite non-negative whole number.")
     return integer
 
 
+def _safe_finite_number(value: Any, field: str) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{field} must be a finite number.")
+    return float(value)
+
+
+def _page_details(page: dict[str, Any], field: str) -> dict[str, Any]:
+    details = page.get("details")
+    if details is None:
+        # Detail SummaryV2 has these fields at the top level; aggregate entries put it in details.
+        return page
+    return _mapping(details, f"{field}.details")
+
+
 def _page_a11y_violations(page: dict[str, Any]) -> int:
-    metrics = page.get("metrics") or {}
+    metrics = _mapping(page.get("metrics"), "page.metrics")
     metric_value = _safe_nonnegative_int(metrics.get("a11yViolations"))
     if metric_value is not None:
         return metric_value
 
-    details = page.get("details") or {}
-    a11y = details.get("a11y") or {}
+    details = _page_details(page, "page")
+    a11y = _mapping(details.get("a11y"), "page.details.a11y")
     return _safe_nonnegative_int(a11y.get("violations")) or 0
 
 
 def _page_performance_budget_failures(page: dict[str, Any]) -> int:
-    details = page.get("details") or {}
-    performance = details.get("performance") or {}
+    details = _page_details(page, "page")
+    performance = _mapping(details.get("performance"), "page.details.performance")
     budget_results = performance.get("budgetResults")
-    if not isinstance(budget_results, dict):
+    if budget_results is None:
         return 0
+    budget_results = _mapping(budget_results, "page.details.performance.budgetResults")
+    if any(not isinstance(passed, bool) for passed in budget_results.values()):
+        raise ValueError("page.details.performance.budgetResults must map keys to booleans.")
     return sum(1 for passed in budget_results.values() if passed is False)
 
 
 def _page_visual_failed(page: dict[str, Any]) -> bool:
-    details = page.get("details") or {}
-    visual = details.get("visual") or {}
-    return visual.get("failed") is True
+    details = _page_details(page, "page")
+    visual = _mapping(details.get("visual"), "page.details.visual")
+    failed = visual.get("failed")
+    if failed is not None and not isinstance(failed, bool):
+        raise ValueError("page.details.visual.failed must be a boolean.")
+    return failed is True
 
 
 def _rollup_counts(rollup: Any) -> dict[str, int]:
-    values = rollup if isinstance(rollup, dict) else {}
+    values = _mapping(rollup, "rollup")
     return {
         "page_count": _safe_nonnegative_int(values.get("pageCount")) or 0,
         "failed_pages": _safe_nonnegative_int(values.get("failedPages")) or 0,
@@ -80,19 +126,32 @@ def _sanitize_csv_value(value: Any) -> Any:
 
 
 def extract_summary_metrics(summary: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(summary, dict):
+        raise ValueError("summary must be an object.")
     raw_pages = summary.get("pages")
+    if raw_pages is not None and not isinstance(raw_pages, list):
+        raise ValueError("summary.pages must be an array.")
     pages = [page for page in raw_pages if isinstance(page, dict)] if isinstance(raw_pages, list) else []
+    if isinstance(raw_pages, list) and len(pages) != len(raw_pages):
+        raise ValueError("summary.pages entries must be objects.")
+    # A detail SummaryV2 has a URL and measurements directly on the summary instead of pages.
+    if not pages and isinstance(summary.get("url"), str):
+        pages = [summary]
     performance_scores: list[float] = []
     lcp_values: list[float] = []
 
     for page in pages:
-        metrics = (((page or {}).get("details") or {}).get("performance") or {}).get("metrics") or {}
-        performance_score = metrics.get("performanceScore")
-        lcp_ms = metrics.get("lcpMs")
-        if isinstance(performance_score, (int, float)):
-            performance_scores.append(float(performance_score))
-        if isinstance(lcp_ms, (int, float)):
-            lcp_values.append(float(lcp_ms))
+        details = _page_details(page, "summary.pages")
+        performance = _mapping(details.get("performance"), "summary.pages.details.performance")
+        metrics = _mapping(performance.get("metrics"), "summary.pages.details.performance.metrics")
+        performance_score = _safe_finite_number(
+            metrics.get("performanceScore"), "summary.pages.details.performance.metrics.performanceScore"
+        )
+        lcp_ms = _safe_finite_number(metrics.get("lcpMs"), "summary.pages.details.performance.metrics.lcpMs")
+        if performance_score is not None:
+            performance_scores.append(performance_score)
+        if lcp_ms is not None:
+            lcp_values.append(lcp_ms)
 
     if pages:
         counts = {
@@ -131,10 +190,11 @@ def load_bundle(bundle_dir: Path) -> dict[str, Any]:
     roi = _read_json(roi_path) if roi_path else None
     metrics = extract_summary_metrics(summary)
 
-    baseline = (provenance or {}).get("baseline") or {}
-    improved = (provenance or {}).get("improved") or {}
-    source = (provenance or {}).get("source") or {}
-    roi_output = (provenance or {}).get("roiOutput") or {}
+    baseline = _mapping((provenance or {}).get("baseline"), "provenance.baseline")
+    improved = _mapping((provenance or {}).get("improved"), "provenance.improved")
+    source = _mapping((provenance or {}).get("source"), "provenance.source")
+    roi_output = _mapping((provenance or {}).get("roiOutput"), "provenance.roiOutput")
+    roi_values = _mapping((roi or {}).get("roi"), "roi.roi")
 
     return {
         "bundle": bundle_dir.name,
@@ -146,8 +206,8 @@ def load_bundle(bundle_dir: Path) -> dict[str, Any]:
         "repo_url": (provenance or {}).get("repoUrl") or source.get("repoPath"),
         "baseline_sha": baseline.get("sha"),
         "improved_sha": improved.get("sha"),
-        "roi_failed_pages_delta": ((roi or {}).get("roi") or {}).get("failedPagesDelta"),
-        "roi_performance_score_delta": ((roi or {}).get("roi") or {}).get("performanceScoreDelta"),
+        "roi_failed_pages_delta": _safe_finite_number(roi_values.get("failedPagesDelta"), "roi.roi.failedPagesDelta"),
+        "roi_performance_score_delta": _safe_finite_number(roi_values.get("performanceScoreDelta"), "roi.roi.performanceScoreDelta"),
         "manifest_roi_path": roi_output.get("path"),
         **metrics,
     }
@@ -211,10 +271,15 @@ def write_markdown_report(rows: list[dict[str, Any]], output_path: Path) -> None
     ]
 
     for row in rows:
+        safe_row = {key: _sanitize_markdown_value(value) for key, value in row.items()}
         lines.append(
             "| {bundle} | {overall_status} | {page_count} | {a11y_violations} | {performance_budget_failures} | {average_performance_score} | {average_lcp_ms} |".format(
-                **row
+                **safe_row
             )
         )
 
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _sanitize_markdown_value(value: Any) -> str:
+    return str(value).replace("\\", "\\\\").replace("|", "\\|").replace("\r", " ").replace("\n", " ")
