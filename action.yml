@@ -413,7 +413,6 @@ runs:
           fail("summary.json has no pass or fail overallStatus");
         }
         const artifactPaths = [...generatedFiles]
-          .filter((file) => file !== "trends/history.json")
           .map((file) => `artifacts/${file}`)
           .sort((left, right) => left.localeCompare(right));
         process.stdout.write(`${summary.overallStatus}\n${artifactPaths.join("\n")}`);

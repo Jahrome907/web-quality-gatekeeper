@@ -269,7 +269,7 @@ jobs:
               const valid = receipt.schemaVersion === 1 && receipt.status === "complete" && receipt.runId === process.env.WQG_RUN_ID && Array.isArray(receipt.generatedFiles) && required.every(file => receipt.generatedFiles.includes(file) && fs.statSync(`artifacts/${file}`).isFile());
               if (!valid || receipt.generatedFiles.length === 0) process.exit(1);
               const root = fs.realpathSync("artifacts");
-              const paths = receipt.generatedFiles.filter(file => file !== "trends/history.json").map(file => {
+              const paths = receipt.generatedFiles.map(file => {
                 if (typeof file !== "string" || /[\\\r\n*?\[\]{}!]/.test(file) || path.posix.normalize(file) !== file || path.posix.isAbsolute(file) || path.win32.isAbsolute(file) || file.split("/").includes("..")) throw new Error("Unsafe artifact path");
                 const candidate = path.join("artifacts", file);
                 const relative = path.relative(root, fs.realpathSync(candidate));
