@@ -82,7 +82,7 @@ const outIndex = process.argv.indexOf("--out");
 const outDir = process.argv[outIndex + 1];
 const scenario = process.env.WQG_TEST_RECEIPT_SCENARIO;
 const requiredFiles = ${JSON.stringify(REQUIRED_FILES)};
-const generatedFiles = [...requiredFiles, "screenshots/current.png"];
+const generatedFiles = [...requiredFiles, "screenshots/current.png", "trends/history.json"];
 mkdirSync(outDir, { recursive: true });
 for (const file of generatedFiles) {
   mkdirSync(path.dirname(path.join(outDir, file)), { recursive: true });
@@ -90,6 +90,8 @@ for (const file of generatedFiles) {
   writeFileSync(path.join(outDir, file), contents, "utf8");
 }
 writeFileSync(path.join(outDir, "unlisted-private.txt"), "private", "utf8");
+mkdirSync(path.join(outDir, ".wqg-history"), { recursive: true });
+writeFileSync(path.join(outDir, ".wqg-history", "previous.json"), "private", "utf8");
 if (scenario !== "absent" && scenario !== "fatal") {
   writeFileSync(
     path.join(outDir, ".wqg-output-manifest.json"),
@@ -164,6 +166,8 @@ describe.skipIf(!HAS_BASH)("composite action output completion receipt", () => {
       expect(pass.outputs.get("status")).toBe("pass");
       expect(pass.outputs.get("summary-path")).toBe("artifacts/summary.json");
       expect(pass.outputs.get("artifact-paths")).toContain("artifacts/screenshots/current.png");
+      expect(pass.outputs.get("artifact-paths")).toContain("artifacts/trends/history.json");
+      expect(pass.outputs.get("artifact-paths")).not.toContain(".wqg-history");
       expect(pass.outputs.get("artifact-paths")).not.toContain("unlisted-private.txt");
 
       const qualityFail = await runReceiptScenario(root, "current-fail");
