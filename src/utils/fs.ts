@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { copyFile, mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 const ATOMIC_RENAME_RETRY_CODES = new Set(["EACCES", "EBUSY", "EPERM"]);
+
+function isOutsideBase(relativePath: string): boolean {
+  return relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath);
+}
 
 function resolveExistingPath(path: string): string {
   try {
@@ -47,9 +51,8 @@ export function validatePathWithinBase(targetPath: string, baseDir: string): voi
   const resolvedTarget = resolve(targetPath);
   const resolvedBase = resolve(baseDir);
   const relativePath = relative(resolvedBase, resolvedTarget);
-  
-  // If the relative path starts with ".." or is absolute, it escapes the base
-  if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
+
+  if (isOutsideBase(relativePath)) {
     throw new Error(`Path traversal detected: ${targetPath} is outside ${baseDir}`);
   }
 }
@@ -63,7 +66,7 @@ export function validateResolvedPathWithinBase(targetPath: string, baseDir: stri
   const resolvedBase = resolveExistingPath(baseDir);
   const relativePath = relative(resolvedBase, resolvedTarget);
 
-  if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
+  if (isOutsideBase(relativePath)) {
     throw new Error(`Resolved path escapes base directory: ${targetPath} is outside ${baseDir}`);
   }
 }
@@ -82,7 +85,7 @@ export function validateOutputDirectory(outDir: string): void {
 
   const isAllowed = allowedBases.some((base) => {
     const relativePath = relative(resolveExistingPath(base), resolvedOut);
-    return !relativePath.startsWith("..") && !isAbsolute(relativePath);
+    return !isOutsideBase(relativePath);
   });
 
   if (!isAllowed) {

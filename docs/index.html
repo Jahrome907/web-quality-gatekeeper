@@ -184,11 +184,11 @@
     url: https://your-site.example
 
 - name: Upload audit artifacts
-  if: always() &amp;&amp; (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+  if: always() &amp;&amp; steps.wqg.outputs.bundle-complete == 'true' &amp;&amp; (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
   uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
   with:
     name: wqg-artifacts
-    path: artifacts/</code></pre>
+    path: ${{ steps.wqg.outputs.artifact-paths }}</code></pre>
       <p>
         See the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/examples/consumer-workflow.yml">complete consumer workflow</a>
         for every input and output.

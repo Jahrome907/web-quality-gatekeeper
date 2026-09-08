@@ -46,15 +46,15 @@ jobs:
           url: https://your-site.example
           baseline-dir: .github/web-quality/baselines
       - name: Upload audit artifacts
-        if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: artifacts/
+          path: ${{ steps.wqg.outputs.artifact-paths }}
           if-no-files-found: warn
 ```
 
-The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, artifact path outputs, and `sensitive-audit`. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
+The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, the current `artifact-paths` list, `bundle-complete`, and `sensitive-audit`. A fatal or incomplete run is not publishable, even when sensitive-output publication is enabled. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
 
 Visual comparison is enabled by default and has no implicit first-run baseline. `--set-baseline` writes the current screenshots to the baseline directory; review and commit those images, then run the workflow normally. For a quick audit that intentionally omits visual comparison, set `toggles.visual` to `false` in the configuration. `--no-fail-on-visual` only permits completed visual diffs; it does not bypass a missing baseline.
 
@@ -109,6 +109,16 @@ npx wqg audit https://example.com --set-baseline --baseline-dir .github/web-qual
 ```
 
 `--set-baseline` writes the current screenshots to the baseline directory. Review and commit those images. A normal visual-enabled audit fails when a baseline is missing; it never seeds one silently. Do not commit ordinary `artifacts/` output.
+
+Use one output directory per sequential audit stream. Completed runs replace only
+previously recorded generated files; unrelated files and trend history are preserved.
+Keep baselines outside the output directory. If an older output directory has no
+ownership receipt, use a fresh `--out` directory instead of deleting or adopting its
+contents automatically. Interrupted runs remain incomplete and must not be uploaded.
+If a terminated process leaves an output lock, use a fresh output directory; remove
+the old lock only after confirming its writer has stopped.
+The Action upload list excludes unrelated files and saved trend snapshots. Trend
+reports can include historical measurements; apply the sensitive-output policy to that history too.
 
 ## What it checks
 

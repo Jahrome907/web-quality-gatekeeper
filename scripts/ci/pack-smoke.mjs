@@ -179,7 +179,7 @@ async function runPackSmoke() {
       "WQG_SENSITIVE_AUDIT",
       "WQG_ALLOW_SENSITIVE_OUTPUTS",
       "id: wqg",
-      "path: artifacts/",
+      "path: ${{ steps.wqg.outputs.artifact-paths }}",
       "steps.wqg.outputs.sensitive-audit == 'false'"
     ]) {
       if (!scaffoldedWorkflow.includes(expectedWorkflowText)) {
@@ -190,7 +190,7 @@ async function runPackSmoke() {
       path.join(consumerDir, ".github", "web-quality", "README.md"),
       "utf8"
     );
-    if (!scaffoldedReadme.includes("The generated workflow uploads `artifacts/`")) {
+    if (!scaffoldedReadme.includes("The generated workflow uploads the current artifact list")) {
       throw new Error("Expected packaged wqg init README to document report artifact uploads.");
     }
     await expectCommandExit(installedWqgBin, ["init", "--profile", "invalid-profile"], 2, {
