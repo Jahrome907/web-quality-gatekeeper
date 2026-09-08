@@ -34,8 +34,12 @@ describe("public story surface", () => {
     expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
     expect(source).toContain("# v7.0.1");
     expect(source).toContain("- id: wqg");
-    expect(source).toContain("steps.wqg.outputs.report-path");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
+    expect(source).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
+    expect(source).toContain("toggles.visual");
+    expect(source).toContain("baseline fails;");
+    expect(source).toContain("not standalone default gates");
+    expect(source).toContain("VISUAL_DIFF_BENCHMARK.md");
     expect(source).not.toMatch(
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
     );
@@ -136,7 +140,6 @@ describe("public story surface", () => {
 
   it("publishes the proof artifact set referenced by the public docs", () => {
     const requiredFiles = [
-      "docs/assets/fixture-home.png",
       "docs/assets/report-screenshot.png",
       "docs/proof/fixture-action-plan.md",
       "docs/proof/fixture-lighthouse.json",

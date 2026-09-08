@@ -182,12 +182,15 @@ function toneBadge(label: string, tone: ScoreTone): string {
   return `<span class="tone-badge ${tone}">${escapeHtml(label)}</span>`;
 }
 
-function normalizeAssetPath(path: string | null | undefined): string | null {
+function normalizeAssetPath(
+  path: string | null | undefined,
+  rebaseAssetPath: ((assetPath: string) => string) | undefined
+): string | null {
   if (typeof path !== "string") {
     return null;
   }
   const trimmed = path.trim();
-  return trimmed.length > 0 ? trimmed : null;
+  return trimmed.length > 0 ? (rebaseAssetPath?.(trimmed) ?? trimmed) : null;
 }
 
 function renderZoomableImage(imagePath: string, alt: string): string {
@@ -742,7 +745,10 @@ function extractResourceBreakdown(summary: Summary | SummaryV2): ResourceBreakdo
   };
 }
 
-export function renderReportTemplate(view: ReportViewModel): string {
+export function renderReportTemplate(
+  view: ReportViewModel,
+  rebaseAssetPath?: (assetPath: string) => string
+): string {
   const summary = view.summary;
   const a11y = summary.a11y;
   const perf = summary.performance;
@@ -849,7 +855,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
   `;
 
   const screenshotCards = screenshots.map((shot) => {
-    const screenshotPath = normalizeAssetPath(shot.path);
+    const screenshotPath = normalizeAssetPath(shot.path, rebaseAssetPath);
     return `
       <article class="capture-card card">
         <div class="capture-visual">
@@ -880,14 +886,7 @@ export function renderReportTemplate(view: ReportViewModel): string {
   // Opportunities.
   const opportunityRows =
     perf?.opportunities && perf.opportunities.length > 0
-      ? [...perf.opportunities]
-          .sort((left, right) => {
-            const leftScore =
-              (left.estimatedSavingsMs ?? 0) + (left.estimatedSavingsBytes ?? 0) / 1000;
-            const rightScore =
-              (right.estimatedSavingsMs ?? 0) + (right.estimatedSavingsBytes ?? 0) / 1000;
-            return rightScore - leftScore;
-          })
+      ? perf.opportunities
           .map(
             (opportunity) => `
               <tr>
@@ -976,9 +975,9 @@ export function renderReportTemplate(view: ReportViewModel): string {
       ? visual.results.map((result) => {
           const mismatch =
             result.mismatchRatio !== null ? formatRatio(result.mismatchRatio) : "n/a";
-          const baselinePath = normalizeAssetPath(result.baselinePath);
-          const currentPath = normalizeAssetPath(result.currentPath);
-          const diffPath = normalizeAssetPath(result.diffPath);
+          const baselinePath = normalizeAssetPath(result.baselinePath, rebaseAssetPath);
+          const currentPath = normalizeAssetPath(result.currentPath, rebaseAssetPath);
+          const diffPath = normalizeAssetPath(result.diffPath, rebaseAssetPath);
           return `
             <article class="visual-card card">
               <header>

@@ -49,7 +49,57 @@ describe("runVisualDiff", () => {
     expect(calculateMismatchRatio(-1, 2, 2)).toBe(0);
   });
 
-  it("creates baseline artifacts when baseline is missing", async () => {
+  it("fails before writing or diffing when any baseline is missing without explicit approval", async () => {
+    const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
+    const logger = createLogger();
+
+    const existingCurrentPath = path.join(currentDir, "existing.png");
+    const currentPath = path.join(currentDir, "home.png");
+    const existing = new PNG({ width: 2, height: 2 });
+    existing.data.fill(255);
+    const current = new PNG({ width: 2, height: 2 });
+    current.data.fill(255);
+    await Promise.all([
+      writePng(path.join(baselineDir, "existing.png"), existing),
+      writePng(existingCurrentPath, existing),
+      writePng(currentPath, current)
+    ]);
+
+    try {
+      await expect(
+        runVisualDiff(
+          [
+            {
+              name: "existing",
+              path: existingCurrentPath,
+              url: "https://example.com/existing",
+              fullPage: true
+            },
+            {
+              name: "home",
+              path: currentPath,
+              url: "https://example.com",
+              fullPage: true
+            }
+          ],
+          baselineDir,
+          diffDir,
+          false,
+          0.1,
+          logger
+        )
+      ).rejects.toThrow("Visual baseline is missing for home. Run with --set-baseline after reviewing the screenshot.");
+
+      await expect(stat(path.join(baselineDir, "home.png"))).rejects.toThrow();
+      await expect(stat(path.join(baselineDir, "baseline-manifest.json"))).rejects.toThrow();
+      await expect(stat(path.join(diffDir, "existing.png"))).rejects.toThrow();
+      await expect(stat(path.join(diffDir, "home.png"))).rejects.toThrow();
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("creates baseline artifacts only when setBaseline is true", async () => {
     const { tempDir, baselineDir, diffDir, currentDir } = await createWorkspace();
     const logger = createLogger();
 
@@ -60,17 +110,10 @@ describe("runVisualDiff", () => {
 
     try {
       const summary = await runVisualDiff(
-        [
-          {
-            name: "home",
-            path: currentPath,
-            url: "https://example.com",
-            fullPage: true
-          }
-        ],
+        [{ name: "home", path: currentPath, url: "https://example.com", fullPage: true }],
         baselineDir,
         diffDir,
-        false,
+        true,
         0.1,
         logger
       );

@@ -95,18 +95,16 @@ describe("consumer init scaffold", () => {
       expect(workflow).toContain("url: 'https://app.example.com/?a=1&b=2'");
       expect(workflow).toContain('WQG_SENSITIVE_AUDIT: "false"');
       expect(workflow).toContain(
-        "if: always() && (steps.wqg.outputs.sensitive-audit != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')"
+        "if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')"
       );
       expect(workflow).toContain("- id: wqg");
-      expect(workflow).toContain("path: |");
-      expect(workflow).toContain("${{ steps.wqg.outputs.summary-path }}");
-      expect(workflow).toContain("${{ steps.wqg.outputs.pr-risk-ledger-md-path }}");
+      expect(workflow).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
       expect(readme).toContain("The scaffold is pinned to `https://app.example.com/?a=1&b=2`");
       expect(readme).toContain(
-        "The generated workflow uploads the default report artifacts through the Action's"
+        "The generated workflow uploads the current artifact list, including screenshots and per-page"
       );
-      expect(readme).toContain("The supported consumer path is the GitHub Action in");
-      expect(readme).toContain("This scaffold does not install a local `wqg` binary.");
+      expect(readme).toContain("--set-baseline");
+      expect(readme).toContain("CI does not silently create them.");
       expect(readme).not.toContain("wqg audit 'https://app.example.com/?a=1&b=2'");
     } finally {
       await rm(cwd, { recursive: true, force: true });

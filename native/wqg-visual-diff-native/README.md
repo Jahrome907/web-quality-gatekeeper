@@ -1,7 +1,8 @@
 # Native Visual Diff Engine
 
 This crate is an optional Rust-backed visual diff engine for Web Quality Gatekeeper.
-It can be exercised through the benchmark harness or wired into source-checkout audits as an opt-in runtime path.
+It is source-checkout tooling for benchmarks and reviewed opt-in audits; it is not distributed in
+the npm package.
 
 ## What It Does
 
@@ -51,7 +52,12 @@ CI runs also fall back to `pixelmatch` unless
 `WQG_ALLOW_NATIVE_VISUAL_ENGINE=true` is set. Keep that opt-in limited to
 trusted workflows where the configured binary has been reviewed.
 
-The npm package does not include this crate or prebuilt binaries. Package consumers should keep the default `pixelmatch` engine unless they provide a reviewed native binary themselves.
+The npm package does not include this crate or prebuilt binaries. Package consumers should keep
+the default `pixelmatch` engine unless they provide a reviewed native binary themselves.
+
+The native adapter is covered in CI against a binary built from this crate. It verifies opaque and
+semi-transparent RGBA fixtures against the TypeScript `pixelmatch` path before the binary is used
+by an opt-in audit.
 
 ## Inputs
 

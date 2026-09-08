@@ -9,12 +9,14 @@ Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Li
 
 Use the GitHub Action at `Jahrome907/web-quality-gatekeeper@v3` or install the CLI from npm. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) identify published versions; source builds are available for contributors.
 
-The CLI is also available on [npm](https://www.npmjs.com/package/web-quality-gatekeeper):
+The CLI is also available on [npm](https://www.npmjs.com/package/web-quality-gatekeeper). A visual-enabled first run deliberately requires explicit baseline setup:
 
 ```bash
 npm install --save-dev web-quality-gatekeeper@3.2.7
 npx playwright install chromium
-npx wqg audit https://your-site.example
+npx wqg audit https://your-site.example --set-baseline --baseline-dir .github/web-quality/baselines
+# review the resulting baseline images, then commit them
+npx wqg audit https://your-site.example --baseline-dir .github/web-quality/baselines
 ```
 
 [![Web Quality Gatekeeper report showing audit status and category scores](docs/assets/report-screenshot.png)](https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-report.html)
@@ -44,21 +46,17 @@ jobs:
           url: https://your-site.example
           baseline-dir: .github/web-quality/baselines
       - name: Upload audit artifacts
-        if: always() && (steps.wqg.outputs.sensitive-audit != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: |
-            ${{ steps.wqg.outputs.summary-path }}
-            ${{ steps.wqg.outputs.summary-v2-path }}
-            ${{ steps.wqg.outputs.report-path }}
-            ${{ steps.wqg.outputs.action-plan-path }}
-            ${{ steps.wqg.outputs.pr-risk-ledger-path }}
-            ${{ steps.wqg.outputs.pr-risk-ledger-md-path }}
+          path: ${{ steps.wqg.outputs.artifact-paths }}
           if-no-files-found: warn
 ```
 
-The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, artifact path outputs, and `sensitive-audit`. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
+The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, the current `artifact-paths` list, `bundle-complete`, and `sensitive-audit`. A fatal or incomplete run is not publishable, even when sensitive-output publication is enabled. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
+
+Visual comparison is enabled by default and has no implicit first-run baseline. `--set-baseline` writes the current screenshots to the baseline directory; review and commit those images, then run the workflow normally. For a quick audit that intentionally omits visual comparison, set `toggles.visual` to `false` in the configuration. `--no-fail-on-visual` only permits completed visual diffs; it does not bypass a missing baseline.
 
 ## Run from source
 
@@ -82,6 +80,8 @@ Audits write results under `artifacts/`, including when a completed check fails 
 
 Open `artifacts/report.html` for the human report. Automation should consume the JSON artifacts and validate stable contracts against the schemas in [`schemas/`](schemas/summary.v2.json).
 
+An HTTP status of 400 or higher for the navigated document fails the audit. Lighthouse also fails when a required measurement is missing or invalid instead of substituting a value. Console and JavaScript runtime counts are diagnostics for investigation; they are not standalone default gates. In the workflow above, uploading `artifacts/` publishes the run bundle only and excludes the external baseline directory.
+
 ## CLI essentials
 
 ```bash
@@ -98,17 +98,27 @@ The positional URL is optional when the config supplies `urls`. Common audit opt
 - `--format <json|json-v2|html|md|pr-risk-ledger|action-plan>`
 - `--header "Name: Value"` and `--cookie "name=value"`
 - `--allow-internal-targets`
-- `--no-fail-on-a11y`, `--no-fail-on-perf`, and `--no-fail-on-visual`
+- `--no-fail-on-a11y`, `--no-fail-on-perf`, and `--no-fail-on-visual` for completed category results
 
 Built-in policies are `marketing`, `docs`, `ecommerce`, and `saas`. Screenshot paths must be `@target` or start with a single `/`; protocol-relative paths such as `//example.com/path` are rejected.
 
-To establish visual baselines:
+To establish or update visual baselines:
 
 ```bash
 npx wqg audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
 ```
 
-Commit reviewed baseline images. Do not commit ordinary `artifacts/` output.
+`--set-baseline` writes the current screenshots to the baseline directory. Review and commit those images. A normal visual-enabled audit fails when a baseline is missing; it never seeds one silently. Do not commit ordinary `artifacts/` output.
+
+Use one output directory per sequential audit stream. Completed runs replace only
+previously recorded generated files; unrelated files and trend history are preserved.
+Keep baselines outside the output directory. If an older output directory has no
+ownership receipt, use a fresh `--out` directory instead of deleting or adopting its
+contents automatically. Interrupted runs remain incomplete and must not be uploaded.
+If a terminated process leaves an output lock, use a fresh output directory; remove
+the old lock only after confirming its writer has stopped.
+The Action upload list excludes unrelated files and saved trend snapshots. Trend
+reports can include historical measurements; apply the sensitive-output policy to that history too.
 
 ## What it checks
 
@@ -117,7 +127,6 @@ Commit reviewed baseline images. Do not commit ordinary `artifacts/` output.
 - axe-core accessibility violations
 - Lighthouse performance budgets
 - Pixel-level visual diffs
-- Optional source-checkout Rust visual diff engine
 - Multi-page rollups
 - Trend history
 - Prioritized remediation
@@ -140,6 +149,7 @@ Reproduce that bundle with [the fixture walkthrough](docs/case-study-run.md). Pu
 - [Architecture map](docs/engineering/ARCHITECTURE_MAP.md) and [testing matrix](docs/testing-matrix.md)
 - [Provenance](docs/provenance.md) and [SBOM](docs/sbom.md)
 - [Optional Python analytics tooling](tools/python/README.md) for case-study artifact post-processing; the core CLI and Action do not require Python
+- [Experimental source-only Rust visual-diff benchmark](docs/engineering/VISUAL_DIFF_BENCHMARK.md); the TypeScript engine remains the shipped default
 - [Roadmap](docs/roadmap.md)
 
 ## Contributing

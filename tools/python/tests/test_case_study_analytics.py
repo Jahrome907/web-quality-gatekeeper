@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import json
+import math
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -19,6 +21,69 @@ from wqg_python_tools.case_study_analytics import (  # noqa: E402
 
 
 class CaseStudyAnalyticsTest(unittest.TestCase):
+    def test_cli_writes_all_formats_for_checked_in_fixture_bundle(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        cli_path = repository_root / "tools" / "python" / "case_study_analytics.py"
+        fixture_bundle = repository_root / "docs" / "proof"
+
+        with tempfile.TemporaryDirectory(prefix="wqg-python-cli-") as temp_dir:
+            output_dir = Path(temp_dir)
+            json_path = output_dir / "report.json"
+            csv_path = output_dir / "report.csv"
+            markdown_path = output_dir / "report.md"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(cli_path),
+                    "--bundle",
+                    str(fixture_bundle),
+                    "--json-out",
+                    str(json_path),
+                    "--csv-out",
+                    str(csv_path),
+                    "--markdown-out",
+                    str(markdown_path),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(json_path.is_file())
+            self.assertTrue(csv_path.is_file())
+            self.assertTrue(markdown_path.is_file())
+
+            report = json.loads(json_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["bundle_count"], 1)
+            self.assertEqual(
+                Path(report["rows"][0]["summary_path"]).name,
+                "fixture-summary.v2.json",
+            )
+
+            with csv_path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["overall_status"], "pass")
+            self.assertIn("# WQG Case Study Bundle Analytics", markdown_path.read_text(encoding="utf-8"))
+
+    def test_cli_returns_actionable_error_for_invalid_bundle(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        cli_path = repository_root / "tools" / "python" / "case_study_analytics.py"
+
+        with tempfile.TemporaryDirectory(prefix="wqg-python-cli-invalid-") as temp_dir:
+            missing_bundle = Path(temp_dir) / "missing-bundle"
+            result = subprocess.run(
+                [sys.executable, str(cli_path), "--bundle", str(missing_bundle)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("Unable to load case-study bundle:", result.stderr)
+            self.assertIn("Missing summary.v2.json", result.stderr)
+
     def test_load_bundle_extracts_summary_and_provenance_fields(self) -> None:
         with tempfile.TemporaryDirectory(prefix="wqg-python-bundle-") as temp_dir:
             bundle_dir = Path(temp_dir) / "fixture"
@@ -281,6 +346,40 @@ class CaseStudyAnalyticsTest(unittest.TestCase):
             self.assertEqual(row["a11y_violations"], 3)
             self.assertEqual(row["performance_budget_failures"], 3)
             self.assertEqual(row["visual_failures"], 1)
+
+    def test_extract_summary_metrics_reads_a_detail_summary_v2(self) -> None:
+        metrics = extract_summary_metrics(
+            {
+                "url": "https://example.test",
+                "overallStatus": "pass",
+                "a11y": {"violations": 2},
+                "performance": {"metrics": {"performanceScore": 0.91, "lcpMs": 850}},
+                "visual": {"failed": False},
+            }
+        )
+
+        self.assertEqual(metrics["page_count"], 1)
+        self.assertEqual(metrics["a11y_violations"], 2)
+        self.assertEqual(metrics["average_performance_score"], 0.91)
+        self.assertEqual(metrics["average_lcp_ms"], 850.0)
+
+    def test_extract_summary_metrics_rejects_nonfinite_measurements(self) -> None:
+        with self.assertRaisesRegex(ValueError, "finite number"):
+            extract_summary_metrics(
+                {
+                    "url": "https://example.test",
+                    "performance": {"metrics": {"performanceScore": math.nan}},
+                }
+            )
+
+    def test_extract_summary_metrics_rejects_malformed_counts(self) -> None:
+        with self.assertRaisesRegex(ValueError, "count"):
+            extract_summary_metrics(
+                {
+                    "url": "https://example.test",
+                    "metrics": {"a11yViolations": -1},
+                }
+            )
 
 
 if __name__ == "__main__":

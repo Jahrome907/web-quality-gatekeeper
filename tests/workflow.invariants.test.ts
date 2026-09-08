@@ -1,14 +1,35 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
+
+it("deploys Pages only by explicit dispatch from main", () => {
+  const workflow = readFileSync(path.join(ROOT, ".github/workflows/pages.yml"), "utf8");
+  expect(workflow).toMatch(/on:\s*\n\s+workflow_dispatch:/);
+  expect(workflow).not.toMatch(/^\s+(push|pull_request|release|workflow_run):/m);
+  expect(workflow).toContain("if: github.ref == 'refs/heads/main'");
+  expect(workflow).toContain("name: github-pages");
+});
+
+it("ships an intact baseline for the required Pages preview visual gate", () => {
+  const baselineDir = path.join(ROOT, "baselines", "docs-preview");
+  const manifest = JSON.parse(
+    readFileSync(path.join(baselineDir, "baseline-manifest.json"), "utf8")
+  );
+  const image = readFileSync(path.join(baselineDir, "home.png"));
+  expect(manifest.version).toBe(1);
+  expect(manifest.checksums["home.png"]).toBe(createHash("sha256").update(image).digest("hex"));
+});
+
 const WORKFLOW_FILES = [
   ".github/workflows/action-smoke.yml",
   ".github/workflows/native-visual-diff.yml",
   ".github/workflows/npm-pack-smoke.yml",
   ".github/workflows/npm-publish.yml",
   ".github/workflows/pages.yml",
+  ".github/workflows/pr-metadata.yml",
   ".github/workflows/quality-gate.yml",
   ".github/workflows/release.yml",
   "examples/consumer-workflow.yml",
@@ -26,6 +47,47 @@ function expectTextOrder(source: string, orderedText: string[]): void {
     expect(index, `Expected ${text} after offset ${cursor}`).toBeGreaterThan(cursor);
     cursor = index;
   }
+}
+
+function readPullRequestMetadataScript(): string {
+  const source = readRepoFile(".github/workflows/pr-metadata.yml");
+  const scriptMarker = "          script: |\n";
+  const scriptIndex = source.indexOf(scriptMarker);
+  expect(scriptIndex).toBeGreaterThanOrEqual(0);
+
+  return source
+    .slice(scriptIndex + scriptMarker.length)
+    .split("\n")
+    .map((line) => (line.startsWith("            ") ? line.slice(12) : line))
+    .join("\n");
+}
+
+async function runPullRequestMetadataScript(options: { title: string; actor?: string }): Promise<{
+  addAssignees: ReturnType<typeof vi.fn>;
+  addLabels: ReturnType<typeof vi.fn>;
+  info: ReturnType<typeof vi.fn>;
+}> {
+  const addAssignees = vi.fn().mockResolvedValue(undefined);
+  const addLabels = vi.fn().mockResolvedValue(undefined);
+  const info = vi.fn();
+  const execute = new Function(
+    "context",
+    "github",
+    "core",
+    `return (async () => {\n${readPullRequestMetadataScript()}\n})();`
+  ) as (context: unknown, github: unknown, core: unknown) => Promise<void>;
+
+  await execute(
+    {
+      actor: options.actor ?? "Jahrome907",
+      repo: { owner: "Jahrome907", repo: "web-quality-gatekeeper" },
+      payload: { pull_request: { number: 17, title: options.title } }
+    },
+    { rest: { issues: { addAssignees, addLabels } } },
+    { info, setFailed: vi.fn() }
+  );
+
+  return { addAssignees, addLabels, info };
 }
 
 describe("workflow invariants", () => {
@@ -186,6 +248,8 @@ describe("workflow invariants", () => {
     expect(source).toContain("python3 -m http.server 4173 --bind 127.0.0.1 --directory docs");
     expect(source).toContain('CONFIG_PATH="configs/default.json"');
     expect(source).toContain('CONFIG_PATH="configs/docs-preview.ci.json"');
+    expect(source).toContain('BASELINE_DIR="baselines/docs-preview"');
+    expect(source).toContain('--baseline-dir "$BASELINE_DIR"');
     expect(source).toContain(
       'if [ "$TARGET_MODE" = "remote" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then'
     );
@@ -269,6 +333,78 @@ describe("workflow invariants", () => {
     expect(packSmoke).toContain("contents: read");
   });
 
+  it("adds pull request ownership metadata without executing pull request code", () => {
+    const source = readRepoFile(".github/workflows/pr-metadata.yml");
+
+    expect(source).toContain("pull_request_target:");
+    expect(source).toContain("types: [opened, reopened, synchronize, edited]");
+    expect(source).toContain("permissions: {}");
+    expect(source).toContain("issues: write");
+    expect(source).toContain("pull-requests: write");
+    expect(source).not.toContain("actions/checkout");
+    expect(source).toContain("actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3");
+    expect(source).toContain('assignees: ["Jahrome907"]');
+    expect(source).toContain('fix: "bug"');
+    expect(source).toContain('feat: "enhancement"');
+    expect(source).toContain('docs: "documentation"');
+    expect(source).toContain('ci: "github_actions"');
+    expect(source).toContain('deps: "dependencies"');
+    expect(source).toContain('dependencies: "dependencies"');
+    expect(source).toContain('context.actor === "dependabot[bot]"');
+    expect(source).toContain('labels.add("needs-triage")');
+    expect(source).toContain("issues.addAssignees");
+    expect(source).toContain("issues.addLabels");
+  });
+
+  it("classifies pull request metadata additively and treats titles as data", async () => {
+    const fix = await runPullRequestMetadataScript({ title: "fix: handle retry failures" });
+    expect(fix.addAssignees).toHaveBeenCalledWith({
+      owner: "Jahrome907",
+      repo: "web-quality-gatekeeper",
+      issue_number: 17,
+      assignees: ["Jahrome907"]
+    });
+    expect(fix.addLabels).toHaveBeenCalledWith({
+      owner: "Jahrome907",
+      repo: "web-quality-gatekeeper",
+      issue_number: 17,
+      labels: ["bug"]
+    });
+
+    const feature = await runPullRequestMetadataScript({ title: "feat: compare saved reports" });
+    expect(feature.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["enhancement"] })
+    );
+
+    const dependency = await runPullRequestMetadataScript({
+      title: "build(deps): update Playwright"
+    });
+    expect(dependency.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["dependencies"] })
+    );
+
+    const dependabot = await runPullRequestMetadataScript({
+      title: "chore: update a transitive package",
+      actor: "dependabot[bot]"
+    });
+    expect(dependabot.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["dependencies"] })
+    );
+
+    const unknown = await runPullRequestMetadataScript({ title: "constructor: preserve metadata" });
+    expect(unknown.addAssignees).toHaveBeenCalledTimes(1);
+    expect(unknown.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["needs-triage"] })
+    );
+
+    const hostileTitle = await runPullRequestMetadataScript({
+      title: "constructor: ${process.exit(1)} is plain title text"
+    });
+    expect(hostileTitle.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: ["needs-triage"] })
+    );
+  });
+
   it("keeps the composite action self-contained without checkout credentials", () => {
     const source = readRepoFile("action.yml");
 
@@ -311,7 +447,8 @@ describe("workflow invariants", () => {
     expect(source).toContain("if: env.CHROME_PATH == '' && runner.os != 'Linux'");
     expect(source).toContain("npx playwright install --only-shell chromium");
     expect(source).toContain("AUDIT_EXIT=$?");
-    expect(source).toContain('if [[ -f "${OUT_DIR}/summary.json" ]]; then');
+    expect(source).toContain('if ! BUNDLE_OUTPUT="$(validate_completed_bundle)"; then');
+    expect(source).toContain('echo "bundle-complete=true"');
     expect(source).toContain('exit "$AUDIT_EXIT"');
   });
 
@@ -541,8 +678,8 @@ describe("workflow invariants", () => {
     expect(source).not.toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
     expect(source).toContain("# v7.0.1");
-    expect(source).toContain("${{ steps.wqg.outputs.report-path }}");
-    expect(source).toContain("${{ steps.wqg.outputs.pr-risk-ledger-md-path }}");
+    expect(source).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
+    expect(source).toContain("steps.wqg.outputs.sensitive-audit == 'false'");
     expect(source).not.toContain(
       "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
     );
@@ -565,6 +702,8 @@ describe("workflow invariants", () => {
       "Keep public examples aligned with the Action, CLI, and emitted artifacts."
     );
     expect(contributing).toContain("Do not treat a skipped optional smoke as release evidence.");
+    expect(contributing).toContain("New pull requests automatically keep `Jahrome907` assigned");
+    expect(contributing).toContain("An unfamiliar title receives `needs-triage`");
     expect(prTemplate).toContain(
       "I confirmed the docs, examples, and emitted artifacts still match actual repo behavior"
     );
