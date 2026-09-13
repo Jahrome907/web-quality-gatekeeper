@@ -220,6 +220,54 @@ describe("workflow invariants", () => {
     ]);
   });
 
+  it("requires verified tag objects before validation and both publication steps", () => {
+    const release = readRepoFile(".github/workflows/release.yml");
+    const npmPublish = readRepoFile(".github/workflows/npm-publish.yml");
+    const verifier = "node scripts/ci/verify-release-tag.mjs";
+    expectTextOrder(release, [
+      "Verify signed version tag",
+      verifier,
+      "Install dependencies",
+      "Verify release tag and publish GitHub release",
+      verifier,
+      'gh release edit "$RELEASE_TAG" --draft=false'
+    ]);
+    expect(release).toContain("release_tag_sha: ${{ steps.signature.outputs.tag_sha }}");
+    expect(release).toContain("RELEASE_TAG_SHA: ${{ needs.validate.outputs.release_tag_sha }}");
+    expect(release).toContain(
+      'export RELEASE_TAG_SHA="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}")"'
+    );
+    expectTextOrder(npmPublish, [
+      "Require protected main workflow",
+      'if [ "$GITHUB_REF" != "refs/heads/main" ]; then',
+      "Validate requested tag",
+      "Checkout verification code",
+      "ref: ${{ github.sha }}",
+      "Verify signed version tag",
+      verifier,
+      "validate-package:",
+      "ref: refs/tags/${{ inputs.release_tag }}",
+      "Install dependencies",
+      "  publish:",
+      "Checkout verification code",
+      "ref: ${{ github.sha }}",
+      "Reverify immutable npm release source",
+      verifier,
+      "Publish to npm with trusted publishing"
+    ]);
+    expect(npmPublish).toContain(
+      "RELEASE_TAG_SHA: ${{ needs.validate-input.outputs.release_tag_sha }}"
+    );
+    expect(npmPublish).toContain("release_tag_sha: ${{ steps.signature.outputs.tag_sha }}");
+    expect(npmPublish).toContain(
+      'if [ "$RELEASE_COMMIT" != "$EXPECTED_RELEASE_COMMIT" ] || [ "$RELEASE_COMMIT" != "$(git rev-parse HEAD)" ]; then'
+    );
+    expect(npmPublish).toContain(
+      "EXPECTED_RELEASE_COMMIT: ${{ needs.validate-input.outputs.release_commit }}"
+    );
+    expect(release).toContain('if [ "$RELEASE_COMMIT" != "$(git rev-parse HEAD)" ]; then');
+  });
+
   it("keeps PR summary comments fork-safe and permission-tolerant", () => {
     const source = readRepoFile(".github/workflows/quality-gate.yml");
 
