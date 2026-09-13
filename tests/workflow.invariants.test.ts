@@ -92,6 +92,16 @@ async function runPullRequestMetadataScript(options: { title: string; actor?: st
 }
 
 describe("workflow invariants", () => {
+  it("does not inject authenticated-audit secrets into the pull request-capable quality gate", () => {
+    const source = readRepoFile(".github/workflows/quality-gate.yml");
+
+    expect(source).toContain("pull_request:");
+    expect(source).not.toMatch(/\$\{\{\s*secrets\s*(?:\.|\[)/);
+    expect(source).not.toContain("WQG_AUTH_HEADER");
+    expect(source).not.toContain("WQG_AUTH_COOKIE");
+    expect(source).not.toContain("SECRET_WQG_AUTH");
+  });
+
   it("pins repo-owned external GitHub Actions to immutable SHAs", () => {
     const usesPattern = /^\s*uses:\s+([^\s#]+)(?:\s+#.*)?$/gm;
 
@@ -254,14 +264,10 @@ describe("workflow invariants", () => {
     expect(source).toContain(
       'if [ "$TARGET_MODE" = "remote" ] && as_bool "${WQG_RELAXED_REMOTE:-}"; then'
     );
-    expect(source).toContain(
-      'if [ "$TARGET_MODE" = "demo" ] || [ "$TARGET_MODE" = "docs_preview" ]; then'
-    );
-    expect(
-      source.indexOf(
-        "if (hasDocsPreview && (eventName === 'pull_request' || eventName === 'push'))"
-      )
-    ).toBeLessThan(source.indexOf("} else if (hasDemo) {"));
+    expect(source).toContain('if [ "$TARGET_MODE" = "docs_preview" ]; then');
+    expect(source).not.toContain("hasDemo");
+    expect(source).not.toContain("mode=demo");
+    expect(source).not.toContain("npm run demo");
   });
 
   it("keeps action smoke coverage for relative policy handling and rich artifact assertions", () => {

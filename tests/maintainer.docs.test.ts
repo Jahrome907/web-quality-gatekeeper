@@ -142,7 +142,6 @@ describe("maintainer documentation", () => {
   it("keeps documented commands backed by real scripts and test files", () => {
     const pkg = JSON.parse(readRepoFile("package.json")) as { scripts?: Record<string, string> };
     const knownScripts = new Set(Object.keys(pkg.scripts ?? {}));
-    const optionalScripts = new Set(["demo"]);
     const referenceFiles = [
       "README.md",
       "CONTRIBUTING.md",
@@ -157,7 +156,7 @@ describe("maintainer documentation", () => {
 
       for (const match of source.matchAll(/\bnpm run ([a-zA-Z0-9:._-]+)/g)) {
         const scriptName = match[1] ?? "";
-        if (!knownScripts.has(scriptName) && !optionalScripts.has(scriptName)) {
+        if (!knownScripts.has(scriptName)) {
           missingReferences.push(`${relativePath} references missing npm script: ${scriptName}`);
         }
       }

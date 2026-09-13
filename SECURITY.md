@@ -53,9 +53,9 @@ When running in CI environments:
 - The GitHub Actions workflow uses `--ignore-scripts` during `npm ci` to prevent malicious postinstall scripts
 - Credentials are not persisted after checkout
 - Remote audits are blocking by default; relaxed/non-blocking remote mode requires explicit opt-in via `WQG_RELAXED_REMOTE=true`
-- If you need authenticated audits, pass credentials via secrets (`WQG_AUTH_HEADER`, `WQG_AUTH_HEADERS`, `WQG_AUTH_COOKIE`, `WQG_AUTH_COOKIES`)
+- The repository Quality Gate never loads `WQG_AUTH_HEADER`, `WQG_AUTH_HEADERS`, `WQG_AUTH_COOKIE`, or `WQG_AUTH_COOKIES` while it can run pull request code. Use credentials only in a separately approved non-pull-request workflow.
 - Do not place secrets in target URLs, query strings, or fragments. Reports and summaries preserve audited URLs; use header or cookie inputs for credentials.
-- Sensitive/authenticated runs suppress artifact uploads and PR comments by default (`WQG_SENSITIVE_AUDIT=true` or detected auth inputs)
+- Sensitive Quality Gate runs suppress artifact uploads and PR comments by default (`WQG_SENSITIVE_AUDIT=true`)
 - Only set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` when you intentionally accept publication risk for artifacts/comments
 - Chrome sandbox is disabled only in CI containers where it's required
 - Output artifacts may contain screenshots of audited pages and violation metadata; avoid auditing pages with sensitive data visible in public repos
