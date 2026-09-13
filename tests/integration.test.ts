@@ -223,6 +223,8 @@ describe("CLI integration", () => {
       // --- Assert summary JSON is valid and schema-correct ---
       const raw = await readFile(summaryPath, "utf8");
       const summary = JSON.parse(raw);
+      expect(run.stderr).toContain(`Audit ${summary.overallStatus.toUpperCase()}:`);
+      expect(run.stderr).toContain(`Report: ${reportPath}`);
       const schema = JSON.parse(readFileSync(SUMMARY_SCHEMA, "utf8")) as object;
       const ajv = new Ajv2020({ allErrors: true, strict: false });
       addFormats(ajv);
@@ -423,6 +425,10 @@ describe("CLI integration", () => {
         const changedOutDir = path.join(visualRoot, "changed");
         const changed = await runCli(cliPath, auditArgs(changedOutDir), AUDIT_RUN_TIMEOUT_MS);
         expect(changed.status).toBe(1);
+        expect(changed.stdout.trim()).toBe("");
+        expect(changed.stderr).toContain("Audit FAIL:");
+        expect(changed.stderr).toContain("visual=fail");
+        expect(changed.stderr).toContain(`Report: ${path.join(changedOutDir, "report.html")}`);
         const changedSummary = JSON.parse(
           await readFile(path.join(changedOutDir, "summary.v2.json"), "utf8")
         ) as {
@@ -626,6 +632,7 @@ describe("CLI integration", () => {
 
         const reportPath = path.join(modeOutDir, "report.html");
         expect(existsSync(reportPath)).toBe(true);
+        expect(run.stderr).toContain(`Report: ${reportPath}`);
         expect(existsSync(path.join(modeOutDir, "summary.json"))).toBe(true);
         expect(existsSync(path.join(modeOutDir, "summary.v2.json"))).toBe(true);
 

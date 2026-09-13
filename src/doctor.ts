@@ -8,7 +8,10 @@ import { promisify } from "node:util";
 import { loadConfig } from "./config/loadConfig.js";
 import type { Config } from "./config/schema.js";
 import { validateOutputDirectory } from "./utils/fs.js";
-import { resolveBrowserExecutablePath } from "./utils/browserExecutable.js";
+import {
+  isBrowserExecutableFile,
+  resolveBrowserExecutablePath
+} from "./utils/browserExecutable.js";
 import {
   buildNativeVisualDiffChildEnv,
   classifyNativeVisualDiffPath,
@@ -145,6 +148,10 @@ async function probeBrowserExecutable(
   chromePath: string,
   env: NodeJS.ProcessEnv
 ): Promise<BrowserProbeResult> {
+  if (isBrowserExecutableFile(chromePath)) {
+    return { ok: true };
+  }
+
   try {
     const { stdout, stderr } = await execFileAsync(chromePath, ["--version"], {
       timeout: BROWSER_PROBE_TIMEOUT_MS,

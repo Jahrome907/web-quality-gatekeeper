@@ -3,17 +3,20 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockResolveBrowserExecutablePath } = vi.hoisted(() => ({
+const { mockIsBrowserExecutableFile, mockResolveBrowserExecutablePath } = vi.hoisted(() => ({
+  mockIsBrowserExecutableFile: vi.fn(),
   mockResolveBrowserExecutablePath: vi.fn()
 }));
 
 vi.mock("../src/utils/browserExecutable.js", () => ({
+  isBrowserExecutableFile: mockIsBrowserExecutableFile,
   resolveBrowserExecutablePath: mockResolveBrowserExecutablePath
 }));
 import { formatDoctorText, runDoctor, satisfiesMinimumNode } from "../src/doctor.js";
 
 describe("doctor diagnostics", () => {
   beforeEach(() => {
+    mockIsBrowserExecutableFile.mockReturnValue(false);
     mockResolveBrowserExecutablePath.mockReturnValue(undefined);
   });
   it("checks Node.js against the package engine floor", () => {
@@ -283,6 +286,46 @@ process.stdout.write(JSON.stringify({ diffPixels: 0 }));
       message: "CHROME_PATH exists but does not identify as a Chrome/Chromium browser."
     });
   });
+
+  it("accepts a CHROME_PATH recognized by the shared browser executable helper", async () => {
+    mockIsBrowserExecutableFile.mockReturnValue(true);
+
+    const result = await runDoctor({
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      env: { ...process.env, CHROME_PATH: process.execPath },
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: null
+    });
+
+    expect(result.status).toBe("pass");
+    expect(mockIsBrowserExecutableFile).toHaveBeenCalledWith(process.execPath);
+    expect(result.checks.find((check) => check.id === "browser")).toMatchObject({
+      status: "pass",
+      message: "CHROME_PATH passed the browser executable probe.",
+      details: { chromePath: process.execPath }
+    });
+  });
+
+  it("keeps rejecting an unrecognized executable after the shared recognition check", async () => {
+    const result = await runDoctor({
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      env: { ...process.env, CHROME_PATH: process.execPath },
+      nodeVersion: "24.0.0",
+      playwrightChromiumPath: null
+    });
+
+    expect(result.status).toBe("warn");
+    expect(mockIsBrowserExecutableFile).toHaveBeenCalledWith(process.execPath);
+    expect(result.checks.find((check) => check.id === "browser")).toMatchObject({
+      status: "warn",
+      message: "CHROME_PATH exists but does not identify as a Chrome/Chromium browser."
+    });
+  });
+
   it("warns or fails when CHROME_PATH points to an existing directory", async () => {
     const chromePath = await mkdtemp(path.join(tmpdir(), "wqg-chrome-path-"));
     try {
