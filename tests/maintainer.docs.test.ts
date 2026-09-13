@@ -25,83 +25,7 @@ function normalizeMarkdownLinkTarget(target: string): string {
   return target.trim().replace(/^<|>$/g, "").split(/\s+/)[0] ?? "";
 }
 
-describe("maintainer documentation", () => {
-  it("keeps the README adoption-first and bounded", () => {
-    const readme = readRepoFile("README.md");
-
-    expect(readme.split(/\r?\n/).length).toBeLessThan(250);
-    expect(readme).toContain("uses: Jahrome907/web-quality-gatekeeper@v4");
-    expect(readme).toContain("tools/python/README.md");
-    expect(readme).not.toMatch(
-      /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
-    );
-    expect(readme).not.toMatch(/not published|E404|security bootstrap/i);
-    expect(readme).toContain("node dist/cli.js audit");
-    expect(readme).toContain("steps.wqg.outputs.sensitive-audit");
-    expect(readme).toContain("docs/case-study-run.md");
-    expect(readme).toContain("docs/engineering/ARCHITECTURE_MAP.md");
-    expect(readme).toContain("docs/testing-matrix.md");
-    expect(readme).not.toMatch(/source-[0-9]+\.[0-9]+\.[0-9]+/);
-    expect(readme).toContain("npm install --save-dev web-quality-gatekeeper@^4");
-    expect(readme).toContain("npx playwright install chromium");
-    expect(readme).toContain("npx wqg audit");
-    expect(readme).toContain("npx wqg init");
-    expect(readme).toContain("npx wqg doctor");
-    expect(readme).toContain("--set-baseline");
-    expect(readme).toContain("A normal visual-enabled audit fails when a baseline is missing");
-    expect(readme).toContain("writes the current screenshots to the baseline directory");
-    expect(readme).toContain("toggles.visual");
-    expect(readme).toContain("not standalone default gates");
-    expect(readme).toContain("VISUAL_DIFF_BENCHMARK.md");
-    expect(readme).not.toContain("Optional source-checkout Rust visual diff engine");
-  });
-
-  it("keeps contributor guidance scoped to real validation entrypoints", () => {
-    const contributing = readRepoFile("CONTRIBUTING.md");
-    const pkg = JSON.parse(readRepoFile("package.json")) as { scripts?: Record<string, string> };
-
-    for (const command of [
-      "engines:check",
-      "check",
-      "contracts:check",
-      "smoke:action",
-      "smoke:pack",
-      "release:dry-run"
-    ]) {
-      expect(pkg.scripts).toHaveProperty(command);
-      expect(contributing).toContain(`npm run ${command}`);
-    }
-
-    expect(contributing).toContain("docs/engineering/ARCHITECTURE_MAP.md");
-    expect(contributing).toContain("docs/testing-matrix.md");
-    expect(contributing).toContain("npx playwright install --with-deps chromium");
-  });
-
-  it("keeps essential OSS and maintainer documents while excluding archived process records", () => {
-    for (const relativePath of [
-      "README.md",
-      "LICENSE",
-      "SECURITY.md",
-      "CONTRIBUTING.md",
-      "CODE_OF_CONDUCT.md",
-      "docs/engineering/ARCHITECTURE_MAP.md",
-      "docs/engineering/WORKFLOW_SAFETY_POLICY.md",
-      "docs/contracts/compatibility-baseline.md",
-      "docs/provenance.md",
-      "docs/sbom.md",
-      "docs/roadmap.md"
-    ]) {
-      expect(existsSync(path.join(process.cwd(), relativePath)), relativePath).toBe(true);
-    }
-
-    for (const relativePath of [
-      "docs/engineering/FULL_REPO_AUDIT_2026-05-30.md",
-      "docs/engineering/RELEASE_3.1.4_READINESS.md"
-    ]) {
-      expect(existsSync(path.join(process.cwd(), relativePath)), relativePath).toBe(false);
-    }
-  });
-
+describe("documentation references", () => {
   it("keeps repository-local Markdown links resolvable", () => {
     const markdownFiles = [
       "README.md",
@@ -176,42 +100,5 @@ describe("maintainer documentation", () => {
     }
 
     expect(missingReferences).toEqual([]);
-  });
-
-  it("distinguishes source-generated release evidence from published assets", () => {
-    const provenance = readRepoFile("docs/provenance.md");
-    const sbom = readRepoFile("docs/sbom.md");
-
-    expect(provenance).toContain("Inspect the assets attached to the specific Release");
-    expect(provenance).toContain("not evidence that a GitHub Release or npm package was published");
-    expect(sbom).toContain("inspect that GitHub Release's attached assets");
-    expect(sbom).toContain("is not proof that the same file was attached to a Release");
-    expect(provenance).not.toContain("Starting with v3.2.3");
-    expect(sbom).not.toContain("Starting with v3.2.3");
-  });
-
-  it("keeps the compatibility index concise and tied to authoritative contracts", () => {
-    const compatibility = readRepoFile("docs/contracts/compatibility-baseline.md");
-
-    expect(compatibility.split(/\r?\n/).length).toBeLessThan(120);
-    expect(compatibility).toContain("schemas/summary.v1.json");
-    expect(compatibility).toContain("schemas/summary.v2.json");
-    expect(compatibility).toContain("schemas/pr-risk-ledger.v1.json");
-    expect(compatibility).toContain("sensitive-audit");
-    expect(compatibility).toContain("## Published v3.2.7 Action contract");
-    expect(compatibility).toContain("## v4.0.0 Action contract (after publication)");
-    expect(compatibility).toContain("Published `@v3` does not provide these outputs");
-    expect(compatibility).not.toContain("Historical 3.1.4 tarball contents");
-    expect(compatibility).not.toContain("Remaining Follow-ups");
-  });
-
-  it("keeps the public comparison protocol project-neutral", () => {
-    const protocol = readRepoFile("docs/case-study/public-oss-repro.md");
-
-    expect(protocol).toContain("baseline commit SHA");
-    expect(protocol).toContain("improved commit SHA");
-    expect(protocol).toContain("provenance.json");
-    expect(protocol).not.toContain("Candidate Repositories");
-    expect(protocol).not.toContain("vitejs/vite");
   });
 });

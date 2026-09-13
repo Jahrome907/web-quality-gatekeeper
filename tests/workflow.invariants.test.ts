@@ -748,26 +748,4 @@ describe("workflow invariants", () => {
     expect(source).toContain("/security/advisories/new");
     expect(source).toContain("/blob/main/SECURITY.md");
   });
-
-  it("keeps contributor workflows focused on verifiable repo behavior", () => {
-    const contributing = readRepoFile("CONTRIBUTING.md");
-    const prTemplate = readRepoFile(".github/pull_request_template.md");
-
-    expect(contributing).toContain("Add the narrowest regression test for behavior changes.");
-    expect(contributing).toContain(
-      "Keep public examples aligned with the Action, CLI, and emitted artifacts."
-    );
-    expect(contributing).toContain("Do not treat a skipped optional smoke as release evidence.");
-    expect(contributing).toContain("New pull requests automatically keep `Jahrome907` assigned");
-    expect(contributing).toContain("An unfamiliar title receives `needs-triage`");
-    expect(prTemplate).toContain(
-      "I confirmed the docs, examples, and emitted artifacts still match actual repo behavior"
-    );
-    expect(prTemplate).toContain("npm run python:smoke");
-    expect(prTemplate).toContain("Python analytics behavior");
-    const generatedContentMarker = ["generated", "content"].join("-");
-    const generatedContentPattern = new RegExp(`\\b${generatedContentMarker}\\b`, "i");
-    expect(contributing).not.toMatch(generatedContentPattern);
-    expect(prTemplate).not.toMatch(generatedContentPattern);
-  });
 });

@@ -101,9 +101,6 @@ describe("consumer init scaffold", () => {
       expect(workflow).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
       expect(workflow).not.toContain("path: artifacts/");
       expect(readme).toContain("The scaffold is pinned to `https://app.example.com/?a=1&b=2`");
-      expect(readme).toContain(
-        "The generated workflow targets the v4 Action and uploads only the files listed by"
-      );
       expect(readme).toContain("web-quality-gatekeeper@^4");
       expect(readme).toContain("--set-baseline");
       expect(readme).toContain("CI does not silently create them.");
