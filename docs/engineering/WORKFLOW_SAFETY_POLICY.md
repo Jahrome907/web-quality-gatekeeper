@@ -7,7 +7,7 @@ This document defines the workflow hardening rules for repo-owned automation in 
 - Repo-owned workflows under `.github/workflows/` pin third-party GitHub Actions to immutable commit SHAs.
 - The composite Action in `action.yml` also pins third-party actions to immutable SHAs.
 - Local actions (`uses: ./`) are exempt because they resolve inside this repository.
-- Consumer-facing examples may choose readability over SHA pinning when they are demonstrating how to consume `Jahrome907/web-quality-gatekeeper@v3`, but repo-owned automation should stay pinned.
+- Consumer-facing examples may use a published major reference such as `Jahrome907/web-quality-gatekeeper@v3` for readability. Examples for a future major must explicitly require its publication before use. Repo-owned automation stays pinned.
 
 ## Release Tag Policy
 
