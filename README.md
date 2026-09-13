@@ -5,14 +5,14 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-17693b.svg)](LICENSE)
 [![Node.js 22.19+](https://img.shields.io/badge/Node.js-22.19%2B-215732?logo=node.js&logoColor=white)](https://nodejs.org/)
 
-Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual comparisons in one CI job. It produces a readable HTML report plus JSON and Markdown artifacts for automation. Contract-checked JSON formats are covered by versioned schemas and contract tests.
+Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual comparisons in one CI job. It produces an HTML report plus JSON and Markdown artifacts for automation.
 
-Use the GitHub Action at `Jahrome907/web-quality-gatekeeper@v3` or install the CLI from npm. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) identify published versions; source builds are available for contributors.
+These instructions target v4.0.0. Check [GitHub Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) and [npm](https://www.npmjs.com/package/web-quality-gatekeeper) for availability before using the version below. For v3, use the [3.2.7 instructions](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v3.2.7/README.md). Upgrading users should read the [v4 migration guide](docs/migrations/v4.md).
 
-The CLI is also available on [npm](https://www.npmjs.com/package/web-quality-gatekeeper). Set up and review visual baselines before enabling the normal gate:
+Set up and review visual baselines before enabling the normal gate:
 
 ```bash
-npm install --save-dev web-quality-gatekeeper@3.2.7
+npm install --save-dev web-quality-gatekeeper@^4
 npx playwright install chromium
 npx wqg audit https://your-site.example --set-baseline --baseline-dir .github/web-quality/baselines
 # review the resulting baseline images, then commit them
@@ -27,7 +27,7 @@ The [project-site case study](https://jahrome907.github.io/web-quality-gatekeepe
 
 ## Use it in GitHub Actions
 
-Add a job like this to use published v3.2.7. The [v4 consumer example](examples/consumer-workflow.yml) is the migration target after v4 publication; read the [v4 migration guide](docs/migrations/v4.md) before adopting it.
+After reviewing and committing your baselines, add this job. The [consumer example](examples/consumer-workflow.yml) also shows optional policies and authentication settings.
 
 ```yaml
 jobs:
@@ -41,22 +41,20 @@ jobs:
         with:
           persist-credentials: false
       - id: wqg
-        uses: Jahrome907/web-quality-gatekeeper@v3
+        uses: Jahrome907/web-quality-gatekeeper@v4
         with:
           url: https://your-site.example
           baseline-dir: .github/web-quality/baselines
       - name: Upload audit artifacts
-        if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: artifacts/
-          if-no-files-found: warn
+          path: ${{ steps.wqg.outputs.artifact-paths }}
+          if-no-files-found: error
 ```
 
-The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, artifact path outputs, and `sensitive-audit`. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
-
-Version 4 requires explicit visual baselines and verifies complete output bundles. Published v3.2.7 keeps its existing contract; the `@v3` example above uses only its available outputs. The [v4 migration guide](docs/migrations/v4.md) covers the changed setup and completion-aware uploads. Version 4's `wqg init` workflows target `@v4` and require its tag and Release to exist before use in GitHub Actions.
+The `policy` input is optional; this example uses the Action defaults. The upload condition retains completed failing audits while excluding interrupted output. Authenticated or internal audits should keep publication disabled unless the output is deliberately safe to share.
 
 In current source builds, visual comparison is enabled by default and has no implicit first-run baseline. `--set-baseline` writes the current screenshots to the baseline directory; review and commit those images, then run the workflow normally. For a quick audit that intentionally omits visual comparison, set `toggles.visual` to `false` in the configuration. `--no-fail-on-visual` only permits completed visual diffs; it does not bypass a missing baseline.
 
@@ -69,7 +67,9 @@ npm run engines:check
 npm ci
 npx playwright install chromium
 npm run build
-node dist/cli.js audit https://your-site.example --policy marketing
+node dist/cli.js audit https://your-site.example --set-baseline --baseline-dir .github/web-quality/baselines
+# review the resulting baseline images, then commit them
+node dist/cli.js audit https://your-site.example --baseline-dir .github/web-quality/baselines
 ```
 
 Audits write results under `artifacts/`, including when a completed check fails its quality gate:
@@ -82,7 +82,7 @@ Audits write results under `artifacts/`, including when a completed check fails 
 
 Open `artifacts/report.html` for the human report. Automation should consume the JSON artifacts and validate stable contracts against the schemas in [`schemas/`](schemas/summary.v2.json).
 
-An HTTP status of 400 or higher for the navigated document fails the audit. Lighthouse also fails when a required measurement is missing or invalid instead of substituting a value. Console and JavaScript runtime counts are diagnostics for investigation; they are not standalone default gates. In the workflow above, uploading `artifacts/` publishes the run bundle only and excludes the external baseline directory.
+An HTTP status of 400 or higher for the navigated document fails the audit. Lighthouse also fails when a required measurement is missing or invalid instead of substituting a value. Console and JavaScript runtime counts are diagnostics for investigation; they are not standalone default gates.
 
 ## CLI essentials
 
@@ -119,8 +119,7 @@ ownership receipt, use a fresh `--out` directory instead of deleting or adopting
 contents automatically. Interrupted runs remain incomplete and must not be uploaded.
 If a terminated process leaves an output lock, use a fresh output directory; remove
 the old lock only after confirming its writer has stopped.
-The v4 Action's explicit upload list excludes unrelated files and saved trend snapshots;
-the published v3 example above uploads the whole output directory. Trend
+The Action's upload list excludes unrelated files and saved trend snapshots. Trend
 reports can include historical measurements; apply the sensitive-output policy to that history too.
 
 ## What it checks

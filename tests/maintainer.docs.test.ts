@@ -30,7 +30,7 @@ describe("maintainer documentation", () => {
     const readme = readRepoFile("README.md");
 
     expect(readme.split(/\r?\n/).length).toBeLessThan(250);
-    expect(readme).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
+    expect(readme).toContain("uses: Jahrome907/web-quality-gatekeeper@v4");
     expect(readme).toContain("tools/python/README.md");
     expect(readme).not.toMatch(
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/
@@ -42,7 +42,7 @@ describe("maintainer documentation", () => {
     expect(readme).toContain("docs/engineering/ARCHITECTURE_MAP.md");
     expect(readme).toContain("docs/testing-matrix.md");
     expect(readme).not.toMatch(/source-[0-9]+\.[0-9]+\.[0-9]+/);
-    expect(readme).toContain("npm install --save-dev web-quality-gatekeeper@3.2.7");
+    expect(readme).toContain("npm install --save-dev web-quality-gatekeeper@^4");
     expect(readme).toContain("npx playwright install chromium");
     expect(readme).toContain("npx wqg audit");
     expect(readme).toContain("npx wqg init");
