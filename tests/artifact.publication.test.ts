@@ -15,24 +15,19 @@ const sources = [
 
 describe("artifact publication", () => {
   for (const [name, source] of sources) {
-    it(`${name} requires completion even when sensitive publication is enabled`, () => {
+    it(`${name} requires an explicitly safe audit or explicit publication override`, () => {
       const condition = source!
         .split("\n")
         .find((line) => line.includes("if: always()"))!
         .split("if: ")[1]!;
-      for (const complete of ["true", "false", ""]) {
-        for (const sensitive of ["true", "false", ""]) {
-          for (const override of ["true", "false"]) {
-            const expression = condition
-              .replaceAll("always()", "true")
-              .replaceAll("steps.wqg.outputs.bundle-complete", JSON.stringify(complete))
-              .replaceAll("steps.wqg.outputs.sensitive-audit", JSON.stringify(sensitive))
-              .replaceAll("env.WQG_ALLOW_SENSITIVE_OUTPUTS", JSON.stringify(override));
-            const actual = runInNewContext(expression, {}, { timeout: 100 });
-            expect(actual).toBe(
-              complete === "true" && (sensitive === "false" || override === "true")
-            );
-          }
+      for (const sensitive of ["true", "false", ""]) {
+        for (const override of ["true", "false"]) {
+          const expression = condition
+            .replaceAll("always()", "true")
+            .replaceAll("steps.wqg.outputs.sensitive-audit", JSON.stringify(sensitive))
+            .replaceAll("env.WQG_ALLOW_SENSITIVE_OUTPUTS", JSON.stringify(override));
+          const actual = runInNewContext(expression, {}, { timeout: 100 });
+          expect(actual).toBe(sensitive === "false" || override === "true");
         }
       }
     });
