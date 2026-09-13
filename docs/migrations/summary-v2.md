@@ -43,16 +43,25 @@ This guide covers the summary contract changes introduced with summary v2 output
 - `trends.historyDir`: directory for historical snapshots (resolved relative to `--out` when not absolute).
 - `trends.maxSnapshots`: retention cap for historical snapshot files.
 
+## Concurrent runs
+
+Use a separate `trends.historyDir` for each concurrent audit stream, such as a CI
+branch or matrix job. Share a history directory only between sequential runs.
+Snapshot filenames avoid collisions, but loading history, computing deltas, and
+writing a snapshot are not one synchronized operation. Ordering between snapshots
+written in the same millisecond is unspecified. Trend deltas are diagnostic and
+do not determine whether the quality gate passes.
+
 ## Field Mapping Examples (v1 -> v2)
 
-| v1 field | v2 location | Notes |
-|---|---|---|
-| `overallStatus` | `overallStatus` | Same semantics |
-| `steps` | `pages[].details.steps` | Per-page detail in multi mode |
-| `a11y.violations` | `pages[].details.a11y.violations` and `rollup.a11yViolations` | Per-page + aggregate |
-| `performance.metrics.performanceScore` | `pages[].details.performance.metrics.performanceScore` | Per-page |
-| `visual.maxMismatchRatio` | `pages[].details.visual.maxMismatchRatio` | Per-page |
-| n/a | `trend.*` | New run-over-run deltas |
+| v1 field                               | v2 location                                                   | Notes                         |
+| -------------------------------------- | ------------------------------------------------------------- | ----------------------------- |
+| `overallStatus`                        | `overallStatus`                                               | Same semantics                |
+| `steps`                                | `pages[].details.steps`                                       | Per-page detail in multi mode |
+| `a11y.violations`                      | `pages[].details.a11y.violations` and `rollup.a11yViolations` | Per-page + aggregate          |
+| `performance.metrics.performanceScore` | `pages[].details.performance.metrics.performanceScore`        | Per-page                      |
+| `visual.maxMismatchRatio`              | `pages[].details.visual.maxMismatchRatio`                     | Per-page                      |
+| n/a                                    | `trend.*`                                                     | New run-over-run deltas       |
 
 ## v2 Shape Highlights
 
