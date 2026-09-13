@@ -238,6 +238,9 @@ describe("workflow invariants", () => {
       'export RELEASE_TAG_SHA="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}")"'
     );
     expectTextOrder(npmPublish, [
+      "Require protected main workflow",
+      'if [ "$GITHUB_REF" != "refs/heads/main" ]; then',
+      "Validate requested tag",
       "Checkout verification code",
       "ref: ${{ github.sha }}",
       "Verify signed version tag",

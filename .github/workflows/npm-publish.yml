@@ -20,6 +20,13 @@ jobs:
       release_commit: ${{ steps.signature.outputs.commit }}
       release_tag_sha: ${{ steps.signature.outputs.tag_sha }}
     steps:
+      - name: Require protected main workflow
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::NPM Publish must be dispatched from main."
+            exit 1
+          fi
+
       - name: Validate requested tag
         id: tag
         env:

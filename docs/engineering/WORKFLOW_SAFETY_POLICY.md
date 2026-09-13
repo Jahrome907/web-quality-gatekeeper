@@ -19,6 +19,7 @@ This document defines the workflow hardening rules for repo-owned automation in 
 - GitHub Releases are immutable. The release workflow creates a draft, attaches all evidence assets, reverifies the exact tagged commit, and only then publishes the Release.
 - The separately triggered npm publish path must verify that the release tag
   matches `package.json` before publishing.
+- Npm publishing must be dispatched from protected `main`; verification code comes from that workflow commit, while package validation uses the verified release commit.
 - The npm publish job must reverify the tagged commit and published GitHub Release immediately before invoking `npm publish`.
 - The separately triggered npm publish path must publish stable release tags to
   the npm `latest` dist-tag and prerelease tags to the npm `next` dist-tag.
