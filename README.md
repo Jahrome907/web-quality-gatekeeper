@@ -7,7 +7,7 @@
 
 Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual comparisons in one CI job. It produces an HTML report plus JSON and Markdown artifacts for automation.
 
-These instructions target v4.0.0. Check [GitHub Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) and [npm](https://www.npmjs.com/package/web-quality-gatekeeper) for availability before using the version below. For v3, use the [3.2.7 instructions](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v3.2.7/README.md). Upgrading users should read the [v4 migration guide](docs/migrations/v4.md).
+These instructions target the published v4.0.0 release. For v3, use the [3.2.7 instructions](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v3.2.7/README.md). Upgrading users should read the [v4 migration guide](docs/migrations/v4.md).
 
 Set up and review visual baselines before enabling the normal gate:
 
@@ -18,6 +18,8 @@ npx wqg audit https://your-site.example --set-baseline --baseline-dir .github/we
 # review the resulting baseline images, then commit them
 npx wqg audit https://your-site.example --baseline-dir .github/web-quality/baselines
 ```
+
+The first audit writes the current screenshots to the baseline directory. A normal visual-enabled audit fails without a baseline; do not commit ordinary `artifacts/` output.
 
 [![Web Quality Gatekeeper report showing audit status and category scores](docs/assets/report-screenshot.png)](https://jahrome907.github.io/web-quality-gatekeeper/proof/fixture-report.html)
 
@@ -56,7 +58,7 @@ jobs:
 
 The `policy` input is optional; this example uses the Action defaults. The upload condition retains completed failing audits while excluding interrupted output. Authenticated or internal audits should keep publication disabled unless the output is deliberately safe to share.
 
-In current source builds, visual comparison is enabled by default and has no implicit first-run baseline. `--set-baseline` writes the current screenshots to the baseline directory; review and commit those images, then run the workflow normally. For a quick audit that intentionally omits visual comparison, set `toggles.visual` to `false` in the configuration. `--no-fail-on-visual` only permits completed visual diffs; it does not bypass a missing baseline.
+To intentionally omit visual comparison, set `toggles.visual` to `false` in the configuration. `--no-fail-on-visual` only permits completed visual diffs; it does not bypass a missing baseline.
 
 ## Run from source
 
@@ -103,14 +105,6 @@ The positional URL is optional when the config supplies `urls`. Common audit opt
 - `--no-fail-on-a11y`, `--no-fail-on-perf`, and `--no-fail-on-visual` for completed category results
 
 Built-in policies are `marketing`, `docs`, `ecommerce`, and `saas`. Screenshot paths must be `@target` or start with a single `/`; protocol-relative paths such as `//example.com/path` are rejected.
-
-To establish or update visual baselines:
-
-```bash
-npx wqg audit https://example.com --set-baseline --baseline-dir .github/web-quality/baselines
-```
-
-`--set-baseline` writes the current screenshots to the baseline directory. Review and commit those images. A normal visual-enabled audit fails when a baseline is missing; it never seeds one silently. Do not commit ordinary `artifacts/` output.
 
 Use one output directory per sequential audit stream. Completed runs replace only
 previously recorded generated files; unrelated files and trend history are preserved.

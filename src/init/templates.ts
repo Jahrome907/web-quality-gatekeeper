@@ -116,10 +116,8 @@ This directory contains the Web Quality Gatekeeper consumer configuration for th
 
 ${targetLine}
 
-The generated workflow targets the v4 Action and uploads only the files listed by
+The generated workflow targets the published v4 Action and uploads only the files listed by
 \`artifact-paths\` when \`bundle-complete=true\` and \`sensitive-audit=false\`.
-When using a source candidate, confirm the v4 tag and npm package are published
-before enabling this workflow or installing the version below.
 Incomplete audits never publish artifacts, even with a sensitivity override.
 Baseline images remain in the repository and are not included in this download. Set
 \`WQG_ALLOW_SENSITIVE_OUTPUTS=true\` only when publishing sensitive outputs is

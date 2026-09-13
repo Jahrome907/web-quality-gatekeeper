@@ -71,7 +71,7 @@ in the description. After its parent merges, rebase the dependent changes onto
 `main`, retarget the PR, and rerun its checks before merging. Delete merged topic
 branches once their work is preserved.
 
-Describe the problem, the chosen change, and the validation performed. Include screenshots or report excerpts when user-visible output changes, and identify known limitations or follow-up work. The [pull request template](.github/pull_request_template.md) is a checklist, not a requirement to run unrelated gates.
+Describe the problem, the chosen change, and the validation performed. Include screenshots or report excerpts when user-visible output changes, and identify known limitations or follow-up work. Use the [pull request template](.github/pull_request_template.md) to record the checks relevant to the change.
 
 New pull requests automatically keep `Jahrome907` assigned and add an existing label
 when the conventional title identifies its work: `fix` for `bug`, `feat` for
