@@ -16,8 +16,7 @@ function getActionRunPrelude(): string {
   const runBlock = readActionRunBlock();
   const lines = runBlock.split("\n");
   const commandIndex = lines.findIndex(
-    (line: string) =>
-      line.includes('/dist/cli.js"') && line.includes("audit")
+    (line: string) => line.includes('/dist/cli.js"') && line.includes("audit")
   );
 
   if (commandIndex === -1) {
@@ -29,20 +28,23 @@ function getActionRunPrelude(): string {
 
 function resolvePolicyReference(inputPolicy: string): string {
   const prelude = getActionRunPrelude();
-  const envPrelude = ([
-    ["GITHUB_WORKSPACE", "/tmp/wqg-workspace"],
-    ["GITHUB_ACTION_PATH", "/tmp/wqg-action"],
-    ["INPUT_URL", "https://example.com"],
-    ["INPUT_CONFIG", "configs/default.json"],
-    ["INPUT_BASELINE", "baselines"],
-    ["INPUT_POLICY", inputPolicy],
-    ["INPUT_A11Y", "true"],
-    ["INPUT_PERF", "true"],
-    ["INPUT_VISUAL", "true"],
-    ["INPUT_ALLOW_INTERNAL", "false"],
-    ["INPUT_HEADERS", ""],
-    ["INPUT_COOKIES", ""]
-  ] satisfies Array<[string, string]>)
+  const envPrelude = (
+    [
+      ["GITHUB_WORKSPACE", "/tmp/wqg-workspace"],
+      ["GITHUB_ACTION_PATH", "/tmp/wqg-action"],
+      ["GITHUB_OUTPUT", "/dev/null"],
+      ["INPUT_URL", "https://example.com"],
+      ["INPUT_CONFIG", "configs/default.json"],
+      ["INPUT_BASELINE", "baselines"],
+      ["INPUT_POLICY", inputPolicy],
+      ["INPUT_A11Y", "true"],
+      ["INPUT_PERF", "true"],
+      ["INPUT_VISUAL", "true"],
+      ["INPUT_ALLOW_INTERNAL", "false"],
+      ["INPUT_HEADERS", ""],
+      ["INPUT_COOKIES", ""]
+    ] satisfies Array<[string, string]>
+  )
     .map(([key, value]) => `export ${key}=${toBashLiteral(value)}`)
     .join("\n");
   const result = spawnSync("bash", ["-lc", "bash -s"], {
@@ -64,7 +66,24 @@ function evaluateActionPrelude(
   overrides: Array<[string, string]> = []
 ): string {
   const prelude = getActionRunPrelude();
-  const envPrelude = ([["GITHUB_WORKSPACE", "/tmp/wqg-workspace"], ["GITHUB_ACTION_PATH", "/tmp/wqg-action"], ["INPUT_URL", "https://example.com"], ["INPUT_CONFIG", "configs/default.json"], ["INPUT_BASELINE", "baselines"], ["INPUT_POLICY", ""], ["INPUT_A11Y", "true"], ["INPUT_PERF", "true"], ["INPUT_VISUAL", "true"], ["INPUT_ALLOW_INTERNAL", "false"], ["INPUT_HEADERS", ""], ["INPUT_COOKIES", ""], ...overrides] satisfies Array<[string, string]>)
+  const envPrelude = (
+    [
+      ["GITHUB_WORKSPACE", "/tmp/wqg-workspace"],
+      ["GITHUB_ACTION_PATH", "/tmp/wqg-action"],
+      ["GITHUB_OUTPUT", "/dev/null"],
+      ["INPUT_URL", "https://example.com"],
+      ["INPUT_CONFIG", "configs/default.json"],
+      ["INPUT_BASELINE", "baselines"],
+      ["INPUT_POLICY", ""],
+      ["INPUT_A11Y", "true"],
+      ["INPUT_PERF", "true"],
+      ["INPUT_VISUAL", "true"],
+      ["INPUT_ALLOW_INTERNAL", "false"],
+      ["INPUT_HEADERS", ""],
+      ["INPUT_COOKIES", ""],
+      ...overrides
+    ] satisfies Array<[string, string]>
+  )
     .map(([key, value]) => `export ${key}=${toBashLiteral(value)}`)
     .join("\n");
   const result = spawnSync("bash", ["-lc", "bash -s"], {
@@ -75,7 +94,9 @@ function evaluateActionPrelude(
   });
 
   if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || "Failed to evaluate composite action prelude.");
+    throw new Error(
+      result.stderr || result.stdout || "Failed to evaluate composite action prelude."
+    );
   }
 
   return result.stdout.trim();
@@ -97,10 +118,9 @@ describe.skipIf(!HAS_ACTION_BASH)("composite action policy path resolution", () 
   });
 
   it("preserves native GITHUB_WORKSPACE only when the bash node runtime is win32", () => {
-    const value = evaluateActionPrelude(
-      "$NODE_PLATFORM|$GITHUB_WORKSPACE",
-      [["GITHUB_WORKSPACE", "D:\\a\\repo\\repo"]]
-    );
+    const value = evaluateActionPrelude("$NODE_PLATFORM|$GITHUB_WORKSPACE", [
+      ["GITHUB_WORKSPACE", "D:\\a\\repo\\repo"]
+    ]);
 
     if (value.startsWith("win32|")) {
       expect(value).toBe("win32|D:\\a\\repo\\repo");
@@ -111,10 +131,9 @@ describe.skipIf(!HAS_ACTION_BASH)("composite action policy path resolution", () 
   });
 
   it("keeps shell and runtime paths separated for Windows workspace inputs", () => {
-    const value = evaluateActionPrelude(
-      "$NODE_PLATFORM|$WORKSPACE_ROOT_SHELL|$OUT_DIR",
-      [["GITHUB_WORKSPACE", "D:\\a\\repo\\repo"]]
-    );
+    const value = evaluateActionPrelude("$NODE_PLATFORM|$WORKSPACE_ROOT_SHELL|$OUT_DIR", [
+      ["GITHUB_WORKSPACE", "D:\\a\\repo\\repo"]
+    ]);
 
     if (value.startsWith("win32|")) {
       expect(value).toBe("win32|/d/a/repo/repo|D:/a/repo/repo/artifacts");
