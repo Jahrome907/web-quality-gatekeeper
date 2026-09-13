@@ -1,5 +1,6 @@
 import { Command } from "commander";
 import { createRequire } from "node:module";
+import path from "node:path";
 import { runAudit } from "./index.js";
 import { UsageError, validateUrl } from "./utils/url.js";
 import { formatSummaryAsMarkdown } from "./report/markdown.js";
@@ -151,6 +152,12 @@ program
         console.log(JSON.stringify(buildPrRiskLedger(summaryV2), null, 2));
       } else if (format === "action-plan") {
         console.log(buildActionPlanMarkdown(summaryV2.insights ?? null, summaryV2.trend.insights));
+      } else if (format === "html") {
+        const checks = Object.entries(summary.steps)
+          .map(([name, status]) => `${name}=${status}`)
+          .join(", ");
+        console.error(`Audit ${summary.overallStatus.toUpperCase()}: ${checks}`);
+        console.error(`Report: ${path.resolve(options.out, summary.artifacts.report)}`);
       }
 
       process.exitCode = exitCode;
