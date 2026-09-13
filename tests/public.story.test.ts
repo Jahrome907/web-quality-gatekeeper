@@ -119,7 +119,6 @@ describe("public story surface", () => {
   it("keeps README linked to adoption, proof, and reproducibility surfaces", () => {
     const source = readRepoFile("README.md");
 
-    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
     expect(source).toContain("tools/python/README.md");
     expect(source).not.toMatch(
       /url:\s+https:\/\/your-site\.example(?:\.com)?\s*\r?\n\s+policy:\s+marketing/

@@ -13,25 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The optional Python comparison tool can compare saved audit reports offline, without rerunning the audited site.
-- The Action now emits `bundle-complete` and `artifact-paths` so a consumer can upload only a verified, current-run artifact bundle.
+- Compare saved audit reports offline with the optional Python tool.
+- The Action exposes `bundle-complete` and `artifact-paths` for uploading completed audit output.
 
 ### Changed
 
-- Visual audits require an explicit reviewed baseline when baseline images are missing. Create or refresh one with `--set-baseline`; ordinary audits, including `--no-fail-on-visual`, no longer create baselines implicitly.
-- Generated v4 scaffolds and the v4 consumer example upload the Action-provided complete artifact list only after `bundle-complete=true`; a sensitivity override does not permit an incomplete bundle.
-- The CLI refuses legacy generated files that lack an ownership receipt. Preserve old output as history and use a fresh `--out` directory for a new run.
-- The default audit user agent now aligns with version `4.0.0`.
-- Update Playwright to 1.63 and Zod to 4.6, together with compatible lint and development tooling updates.
-- Clarify visual setup, diagnostic limitations, and the experimental source-only Rust engine in the public documentation.
-- Exercise the Python analytics command and the real Rust adapter in tests; remove unused Python packaging metadata and an unreferenced documentation image.
+- Visual audits no longer create missing baselines implicitly. Create and review them with `--set-baseline`; `--no-fail-on-visual` does not bypass this requirement.
+- The CLI rejects legacy output without an ownership receipt. Keep old reports and use a fresh `--out` directory. See the [v4 migration guide](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v4.0.0/docs/migrations/v4.md).
+- Generated v4 workflows upload only completed audit output. A sensitivity override cannot upload an incomplete bundle.
+- Update Playwright to 1.63 and Zod to 4.6.
 
 ### Fixed
 
-- Screenshot selector waits now honor the configured action timeout.
-- HTML report navigation now follows the selected report view consistently.
-- Reject missing or invalid Lighthouse performance measurements and HTTP error responses instead of reporting a passing audit.
-- Exclude successful Lighthouse audits from remediation suggestions and keep opportunity ordering consistent between JSON and HTML.
+- Screenshot selector waits honor the configured action timeout.
+- HTML navigation follows the selected report view.
+- Missing or invalid Lighthouse measurements and HTTP error responses fail the audit.
+- Successful Lighthouse checks no longer appear as remediation suggestions; JSON and HTML use the same opportunity order.
 
 ## [3.2.7] - 2026-09-06
 

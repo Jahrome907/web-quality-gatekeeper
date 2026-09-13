@@ -7,9 +7,10 @@ import { buildConsumerWorkflow } from "../src/init/templates.js";
 const root = path.resolve(import.meta.dirname, "..");
 const v4Sources = [
   ["scaffold", buildConsumerWorkflow()],
+  ["README", readFileSync(path.join(root, "README.md"), "utf8")],
   ["example", readFileSync(path.join(root, "examples/consumer-workflow.yml"), "utf8")]
 ];
-const v3Sources = ["README.md", "docs/index.html"].map((file) => [
+const v3Sources = ["docs/index.html"].map((file) => [
   file,
   readFileSync(path.join(root, file), "utf8").replaceAll("&amp;", "&")
 ]);
