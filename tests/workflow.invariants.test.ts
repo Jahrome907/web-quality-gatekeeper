@@ -220,6 +220,45 @@ describe("workflow invariants", () => {
     ]);
   });
 
+  it("requires verified tag objects before validation and both publication steps", () => {
+    const release = readRepoFile(".github/workflows/release.yml");
+    const npmPublish = readRepoFile(".github/workflows/npm-publish.yml");
+    const verifier = "node scripts/ci/verify-release-tag.mjs";
+    expectTextOrder(release, [
+      "Verify signed version tag",
+      verifier,
+      "Install dependencies",
+      "Verify release tag and publish GitHub release",
+      verifier,
+      'gh release edit "$RELEASE_TAG" --draft=false'
+    ]);
+    expect(release).toContain("release_tag_sha: ${{ steps.signature.outputs.tag_sha }}");
+    expect(release).toContain("RELEASE_TAG_SHA: ${{ needs.validate.outputs.release_tag_sha }}");
+    expect(release).toContain(
+      'export RELEASE_TAG_SHA="$(git rev-parse --verify "refs/tags/${RELEASE_TAG}")"'
+    );
+    expectTextOrder(npmPublish, [
+      "Checkout verification code",
+      "ref: ${{ github.sha }}",
+      "Verify signed version tag",
+      verifier,
+      "validate-package:",
+      "ref: ${{ needs.validate-input.outputs.release_commit }}",
+      "Install dependencies",
+      "  publish:",
+      "Checkout verification code",
+      "ref: ${{ github.sha }}",
+      "Reverify immutable npm release source",
+      verifier,
+      "Publish to npm with trusted publishing"
+    ]);
+    expect(npmPublish).toContain(
+      "RELEASE_TAG_SHA: ${{ needs.validate-input.outputs.release_tag_sha }}"
+    );
+    expect(npmPublish).toContain("release_tag_sha: ${{ steps.signature.outputs.tag_sha }}");
+    expect(npmPublish).toContain('if [ "$RELEASE_COMMIT" != "$(git rev-parse HEAD)" ]; then');
+  });
+
   it("keeps PR summary comments fork-safe and permission-tolerant", () => {
     const source = readRepoFile(".github/workflows/quality-gate.yml");
 
@@ -544,7 +583,7 @@ describe("workflow invariants", () => {
     expect(source).toContain('echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"');
     expect(source).not.toContain('if [[ "$RELEASE_TAG" == *-* ]]; then');
     expect(source).toContain("validate-package:");
-    expect(source).toContain("ref: refs/tags/${{ inputs.release_tag }}");
+    expect(source).toContain("ref: ${{ needs.validate-input.outputs.release_commit }}");
     expect(source).toContain("persist-credentials: false");
     expect(source).toContain("Smoke test packed tarball");
     expect(source).toContain("npm run smoke:pack");

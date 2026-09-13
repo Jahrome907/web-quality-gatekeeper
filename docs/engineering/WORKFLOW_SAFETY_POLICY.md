@@ -11,6 +11,7 @@ This document defines the workflow hardening rules for repo-owned automation in 
 
 ## Release Tag Policy
 
+- Version tags must be annotated and have a signature GitHub reports as verified. Both publication workflows reject unsigned or lightweight tags and unavailable verification. They bind validation to the tag object and target commit, then recheck both before publishing. Published historical tags remain unchanged.
 - Git tags matching stable release SemVer (`vX.Y.Z` or `vX.Y.Z+build`) may update the matching stable major tag (`vX`).
 - Prerelease tags such as `vX.Y.Z-rc.1` may publish prereleases, but they must not move stable major tags.
 - Major-tag movement is an explicit release-side effect and should remain gated by a stable-tag eligibility check.

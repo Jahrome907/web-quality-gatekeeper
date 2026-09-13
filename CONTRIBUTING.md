@@ -95,3 +95,17 @@ Prepare a version and changelog only after the included PRs are reviewed and
 integrated. Run `npm run release:dry-run` on that candidate, then publish the exact
 validated commit through the existing tag/Release and npm workflows. Do not use a
 release or deployment as a substitute for candidate validation.
+
+Create version tags with `git tag -s`, using a GPG or SSH signing key registered
+with your GitHub account. For the approved version and commit:
+
+```sh
+git tag -s "v$VERSION" "$COMMIT" -m "Release $VERSION"
+git verify-tag "v$VERSION"
+git push origin "refs/tags/v$VERSION"
+```
+
+Both publication workflows require GitHub to verify the annotated tag's signature.
+A signed commit alone is insufficient. API errors or unverified tags stop publication;
+do not bypass the gate or rewrite a published tag. After the GitHub Release succeeds,
+dispatch **NPM Publish** from `main` for that same tag. No signing key belongs in CI.
