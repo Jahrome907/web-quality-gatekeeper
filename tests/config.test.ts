@@ -14,6 +14,8 @@ describe("loadConfig", () => {
     ) as unknown;
 
     expect(defaultConfig).toEqual(ConfigSchema.parse(shippedDefault));
+    const { version } = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8"));
+    expect(defaultConfig.playwright.userAgent).toBe(`wqg/${version}`);
   });
 
   it("loads a valid config file", async () => {

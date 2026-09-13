@@ -114,7 +114,7 @@ describe("workflow invariants", () => {
           (value): value is string =>
             typeof value === "string" &&
             !value.startsWith("./") &&
-            value !== "Jahrome907/web-quality-gatekeeper@v3"
+            value !== "Jahrome907/web-quality-gatekeeper@v4"
         );
 
       expect(externalUses, `${relativePath} contains unpinned external actions`).toSatisfy(
@@ -675,20 +675,19 @@ describe("workflow invariants", () => {
     expect(publishRuntime).toContain('"npm.cmd --version"');
   });
 
-  it("keeps the published consumer workflow aligned with repo pinning policy", () => {
+  it("keeps the v4 consumer workflow aligned with repo pinning policy", () => {
     const source = readRepoFile("examples/consumer-workflow.yml");
 
-    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
+    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v4");
     expect(source).toContain("id: wqg");
     expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
     expect(source).toContain("# v6.0.3");
     expect(source).not.toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
     expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
     expect(source).toContain("# v7.0.1");
-    expect(source).toContain("path: artifacts/");
+    expect(source).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit == 'false'");
-    expect(source).not.toContain("steps.wqg.outputs.bundle-complete");
-    expect(source).not.toContain("steps.wqg.outputs.artifact-paths");
+    expect(source).toContain("steps.wqg.outputs.bundle-complete == 'true'");
     expect(source).not.toContain(
       "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
     );

@@ -42,8 +42,7 @@ describe("maintainer documentation", () => {
     expect(readme).toContain("docs/engineering/ARCHITECTURE_MAP.md");
     expect(readme).toContain("docs/testing-matrix.md");
     expect(readme).not.toMatch(/source-[0-9]+\.[0-9]+\.[0-9]+/);
-    const { version } = JSON.parse(readRepoFile("package.json"));
-    expect(readme).toContain(`npm install --save-dev web-quality-gatekeeper@${version}`);
+    expect(readme).toContain("npm install --save-dev web-quality-gatekeeper@3.2.7");
     expect(readme).toContain("npx playwright install chromium");
     expect(readme).toContain("npx wqg audit");
     expect(readme).toContain("npx wqg init");
@@ -199,9 +198,9 @@ describe("maintainer documentation", () => {
     expect(compatibility).toContain("schemas/summary.v2.json");
     expect(compatibility).toContain("schemas/pr-risk-ledger.v1.json");
     expect(compatibility).toContain("sensitive-audit");
-    expect(compatibility).toContain("## Published Action contract");
-    expect(compatibility).toContain("## Unreleased source outputs");
-    expect(compatibility).toContain("published `@v3` must not reference them");
+    expect(compatibility).toContain("## Published v3.2.7 Action contract");
+    expect(compatibility).toContain("## v4.0.0 Action contract (after publication)");
+    expect(compatibility).toContain("Published `@v3` does not provide these outputs");
     expect(compatibility).not.toContain("Historical 3.1.4 tarball contents");
     expect(compatibility).not.toContain("Remaining Follow-ups");
   });

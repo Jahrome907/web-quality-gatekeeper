@@ -76,18 +76,18 @@ jobs:
         with:
           persist-credentials: false
       - id: wqg
-        uses: Jahrome907/web-quality-gatekeeper@v3
+        uses: Jahrome907/web-quality-gatekeeper@v4
         with:
           url: ${urlValue}
           config-path: .github/web-quality/config.json
           baseline-dir: .github/web-quality/baselines
       - name: Upload artifacts
-        if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: artifacts/
-          if-no-files-found: warn
+          path: \${{ steps.wqg.outputs.artifact-paths }}
+          if-no-files-found: error
 `;
 }
 
@@ -116,9 +116,12 @@ This directory contains the Web Quality Gatekeeper consumer configuration for th
 
 ${targetLine}
 
-The generated workflow uploads \`artifacts/\`, including screenshots and per-page
-reports, only when the Action reports \`sensitive-audit=false\`. Baseline images
-remain in the repository and are not included in this download. Set
+The generated workflow targets the v4 Action and uploads only the files listed by
+\`artifact-paths\` when \`bundle-complete=true\` and \`sensitive-audit=false\`.
+When using a source candidate, confirm the v4 tag and npm package are published
+before enabling this workflow or installing the version below.
+Incomplete audits never publish artifacts, even with a sensitivity override.
+Baseline images remain in the repository and are not included in this download. Set
 \`WQG_ALLOW_SENSITIVE_OUTPUTS=true\` only when publishing sensitive outputs is
 intentional.
 
@@ -126,7 +129,7 @@ Before the first CI run, install the CLI and explicitly create visual baselines
 from the intended page state:
 
 \`\`\`bash
-npm install --save-dev web-quality-gatekeeper
+npm install --save-dev web-quality-gatekeeper@^4
 npx playwright install chromium
 npx wqg audit --config .github/web-quality/config.json --baseline-dir .github/web-quality/baselines --set-baseline
 \`\`\`

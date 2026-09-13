@@ -9,17 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
+## [4.0.0]
 
-- Reject missing or invalid Lighthouse performance measurements and HTTP error responses instead of reporting a passing audit.
-- Require explicit `--set-baseline` before visual comparison when baseline images are missing. Ordinary audits no longer create unreviewed baselines, including when `--no-fail-on-visual` is supplied.
-- Upload complete report artifacts in consumer examples and generated workflows, with publication disabled when the sensitivity output is unknown.
-- Exclude successful Lighthouse audits from remediation suggestions and keep opportunity ordering consistent between JSON and HTML.
+### Added
+
+- The optional Python comparison tool can compare saved audit reports offline, without rerunning the audited site.
+- The Action now emits `bundle-complete` and `artifact-paths` so a consumer can upload only a verified, current-run artifact bundle.
 
 ### Changed
 
+- Visual audits require an explicit reviewed baseline when baseline images are missing. Create or refresh one with `--set-baseline`; ordinary audits, including `--no-fail-on-visual`, no longer create baselines implicitly.
+- Generated v4 scaffolds and the v4 consumer example upload the Action-provided complete artifact list only after `bundle-complete=true`; a sensitivity override does not permit an incomplete bundle.
+- The CLI refuses legacy generated files that lack an ownership receipt. Preserve old output as history and use a fresh `--out` directory for a new run.
+- The default audit user agent now aligns with version `4.0.0`.
 - Clarify visual setup, diagnostic limitations, and the experimental source-only Rust engine in the public documentation.
 - Exercise the Python analytics command and the real Rust adapter in tests; remove unused Python packaging metadata and an unreferenced documentation image.
+
+### Fixed
+
+- Screenshot selector waits now honor the configured action timeout.
+- HTML report navigation now follows the selected report view consistently.
+- Reject missing or invalid Lighthouse performance measurements and HTTP error responses instead of reporting a passing audit.
+- Exclude successful Lighthouse audits from remediation suggestions and keep opportunity ordering consistent between JSON and HTML.
 
 ## [3.2.7] - 2026-09-06
 
