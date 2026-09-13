@@ -24,9 +24,9 @@ Summary v2:
 | Composite Action  | Preserve documented input names and the outputs listed below.                                                                | `action.yml` and Action smoke tests                                                               |
 | Package           | Preserve the advertised binary, root API types, schemas, configs, README, and license when npm distribution becomes public.  | `package.json` and package smoke tests                                                            |
 
-The stable Action reference is `Jahrome907/web-quality-gatekeeper@v3`. GitHub tags and Releases, not the version on `main`, define published versions.
+The published stable Action reference is `Jahrome907/web-quality-gatekeeper@v3` at v3.2.7. GitHub tags and Releases, not the version on `main`, define published versions.
 
-## Action contract
+## Published Action contract
 
 Inputs:
 
@@ -45,11 +45,12 @@ Outputs:
 - `report-path` and `action-plan-path`
 - `pr-risk-ledger-path` and `pr-risk-ledger-md-path`
 - `sensitive-audit`
-- `bundle-complete` and `artifact-paths`
 
 Consumer-relative config and baseline paths resolve from the consumer workspace. The Action writes ordinary output under `artifacts/`. Auth inputs, internal-target overrides, or explicit sensitive-audit controls set `sensitive-audit` so consumers can suppress publication.
 
-A completed run keeps the existing artifact paths. `bundle-complete` stays false until a receipt for the current invocation is verified; `artifact-paths` lists the generated files eligible for upload. Fatal runs emit no report paths and keep sensitivity fail-closed.
+## Unreleased source outputs
+
+`bundle-complete` and `artifact-paths` are current-source Action outputs intended for the next release. Workflows that use published `@v3` must not reference them until a release updates that tag.
 
 ## Change rules
 

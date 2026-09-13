@@ -9,7 +9,7 @@ Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Li
 
 Use the GitHub Action at `Jahrome907/web-quality-gatekeeper@v3` or install the CLI from npm. GitHub [tags and Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) identify published versions; source builds are available for contributors.
 
-The CLI is also available on [npm](https://www.npmjs.com/package/web-quality-gatekeeper). A visual-enabled first run deliberately requires explicit baseline setup:
+The CLI is also available on [npm](https://www.npmjs.com/package/web-quality-gatekeeper). Set up and review visual baselines before enabling the normal gate:
 
 ```bash
 npm install --save-dev web-quality-gatekeeper@3.2.7
@@ -46,17 +46,19 @@ jobs:
           url: https://your-site.example
           baseline-dir: .github/web-quality/baselines
       - name: Upload audit artifacts
-        if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: ${{ steps.wqg.outputs.artifact-paths }}
+          path: artifacts/
           if-no-files-found: warn
 ```
 
-The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, the current `artifact-paths` list, `bundle-complete`, and `sensitive-audit`. A fatal or incomplete run is not publishable, even when sensitive-output publication is enabled. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
+The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, artifact path outputs, and `sensitive-audit`. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
 
-Visual comparison is enabled by default and has no implicit first-run baseline. `--set-baseline` writes the current screenshots to the baseline directory; review and commit those images, then run the workflow normally. For a quick audit that intentionally omits visual comparison, set `toggles.visual` to `false` in the configuration. `--no-fail-on-visual` only permits completed visual diffs; it does not bypass a missing baseline.
+Current source builds require explicit visual baselines and verify complete output bundles. These changes are not yet in published v3.2.7; the `@v3` workflow above uses its published output contract. See the [compatibility baseline](docs/contracts/compatibility-baseline.md#unreleased-source-outputs) for the new source outputs.
+
+In current source builds, visual comparison is enabled by default and has no implicit first-run baseline. `--set-baseline` writes the current screenshots to the baseline directory; review and commit those images, then run the workflow normally. For a quick audit that intentionally omits visual comparison, set `toggles.visual` to `false` in the configuration. `--no-fail-on-visual` only permits completed visual diffs; it does not bypass a missing baseline.
 
 ## Run from source
 
