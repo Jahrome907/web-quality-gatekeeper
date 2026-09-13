@@ -1623,6 +1623,10 @@ export function renderReportTemplate(
       display: none !important;
     }
 
+    [data-report-view="simple"] [data-view-nav="detailed"] {
+      display: none !important;
+    }
+
     .info-panel {
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -2521,18 +2525,18 @@ export function renderReportTemplate(
   <div class="container">
     <nav class="jump-nav" aria-label="Report sections">
       <ul class="jump-nav-list">
-        <li><a class="jump-nav-link" href="#overview">Overview</a></li>
-        <li><a class="jump-nav-link" href="#action-plan">Action Plan</a></li>
-        ${isAggregateView ? '<li><a class="jump-nav-link" href="#target-coverage">Targets</a></li>' : ""}
-        <li><a class="jump-nav-link" href="#category-scores">Scores</a></li>
-        <li><a class="jump-nav-link" href="#core-web-vitals">Vitals</a></li>
-        <li><a class="jump-nav-link" href="#playwright-captures">Screenshots</a></li>
-        <li><a class="jump-nav-link" href="#accessibility-summary">A11y</a></li>
-        <li><a class="jump-nav-link" href="#accessibility-violations">Violations</a></li>
-        <li><a class="jump-nav-link" href="#lighthouse-opportunities">Opportunities</a></li>
-        <li><a class="jump-nav-link" href="#visual-comparisons">Visual</a></li>
-        <li><a class="jump-nav-link" href="#runtime-errors">Runtime</a></li>
-        <li><a class="jump-nav-link" href="#resource-breakdown">Resources</a></li>
+        <li data-view-nav="simple"><a class="jump-nav-link" href="#overview">Overview</a></li>
+        <li data-view-nav="simple"><a class="jump-nav-link" href="#action-plan">Action Plan</a></li>
+        ${isAggregateView ? '<li data-view-nav="simple"><a class="jump-nav-link" href="#target-coverage">Targets</a></li>' : ""}
+        <li data-view-nav="simple"><a class="jump-nav-link" href="#category-scores">Scores</a></li>
+        <li data-view-nav="simple"><a class="jump-nav-link" href="#core-web-vitals">Vitals</a></li>
+        <li data-view-nav="simple"><a class="jump-nav-link" href="#playwright-captures">Screenshots</a></li>
+        <li data-view-nav="simple"><a class="jump-nav-link" href="#accessibility-summary">A11y</a></li>
+        <li data-view-nav="detailed"><a class="jump-nav-link" href="#accessibility-violations">Violations</a></li>
+        <li data-view-nav="detailed"><a class="jump-nav-link" href="#lighthouse-opportunities">Opportunities</a></li>
+        <li data-view-nav="detailed"><a class="jump-nav-link" href="#visual-comparisons">Visual</a></li>
+        <li data-view-nav="detailed"><a class="jump-nav-link" href="#runtime-errors">Runtime</a></li>
+        <li data-view-nav="detailed"><a class="jump-nav-link" href="#resource-breakdown">Resources</a></li>
       </ul>
     </nav>
     <div class="header">
@@ -2646,7 +2650,7 @@ export function renderReportTemplate(
       ${screenshotCardsOverflow}
     </section>
 
-    <div id="accessibility-summary" class="section card" data-view-section="detailed">
+    <div id="accessibility-summary" class="section card" data-view-section="simple">
       <h2>Accessibility</h2>
       <table>
         <tbody>
