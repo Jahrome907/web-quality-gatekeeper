@@ -36,6 +36,8 @@ describe("public story surface", () => {
     expect(source).toContain("- id: wqg");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
     expect(source).toContain("path: artifacts/");
+    expect(source).not.toContain("steps.wqg.outputs.bundle-complete");
+    expect(source).not.toContain("steps.wqg.outputs.artifact-paths");
     expect(source).toContain("toggles.visual");
     expect(source).toContain("baseline fails;");
     expect(source).toContain("not standalone default gates");

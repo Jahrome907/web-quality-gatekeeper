@@ -99,6 +99,8 @@ describe("consumer init scaffold", () => {
       );
       expect(workflow).toContain("- id: wqg");
       expect(workflow).toContain("path: artifacts/");
+      expect(workflow).not.toContain("steps.wqg.outputs.bundle-complete");
+      expect(workflow).not.toContain("steps.wqg.outputs.artifact-paths");
       expect(readme).toContain("The scaffold is pinned to `https://app.example.com/?a=1&b=2`");
       expect(readme).toContain(
         "The generated workflow uploads `artifacts/`, including screenshots and per-page"

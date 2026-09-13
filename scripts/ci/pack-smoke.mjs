@@ -186,13 +186,6 @@ async function runPackSmoke() {
         throw new Error(`Expected packaged wqg init workflow to contain ${expectedWorkflowText}.`);
       }
     }
-    const scaffoldedReadme = await readFile(
-      path.join(consumerDir, ".github", "web-quality", "README.md"),
-      "utf8"
-    );
-    if (!scaffoldedReadme.includes("The generated workflow uploads `artifacts/`")) {
-      throw new Error("Expected packaged wqg init README to document report artifact uploads.");
-    }
     await expectCommandExit(installedWqgBin, ["init", "--profile", "invalid-profile"], 2, {
       cwd: consumerDir
     });

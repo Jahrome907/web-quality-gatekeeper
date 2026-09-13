@@ -448,7 +448,8 @@ describe("workflow invariants", () => {
     expect(source).toContain("if: env.CHROME_PATH == '' && runner.os != 'Linux'");
     expect(source).toContain("npx playwright install --only-shell chromium");
     expect(source).toContain("AUDIT_EXIT=$?");
-    expect(source).toContain('if [[ -f "${OUT_DIR}/summary.json" ]]; then');
+    expect(source).toContain('if ! BUNDLE_OUTPUT="$(validate_completed_bundle)"; then');
+    expect(source).toContain('echo "bundle-complete=true"');
     expect(source).toContain('exit "$AUDIT_EXIT"');
   });
 
@@ -680,6 +681,8 @@ describe("workflow invariants", () => {
     expect(source).toContain("# v7.0.1");
     expect(source).toContain("path: artifacts/");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit == 'false'");
+    expect(source).not.toContain("steps.wqg.outputs.bundle-complete");
+    expect(source).not.toContain("steps.wqg.outputs.artifact-paths");
     expect(source).not.toContain(
       "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02"
     );

@@ -217,8 +217,26 @@ function hasActionBrowser() {
 async function readGithubOutputs(filePath) {
   const source = await readFile(filePath, "utf8");
   const outputs = new Map();
-  for (const line of source.split(/\r?\n/)) {
+  const lines = source.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     if (!line.trim()) {
+      continue;
+    }
+    const multilineSeparator = line.indexOf("<<");
+    if (multilineSeparator !== -1) {
+      const name = line.slice(0, multilineSeparator);
+      const delimiter = line.slice(multilineSeparator + 2);
+      const value = [];
+      index += 1;
+      while (index < lines.length && lines[index] !== delimiter) {
+        value.push(lines[index]);
+        index += 1;
+      }
+      if (index === lines.length) {
+        throw new Error(`Unterminated multiline GitHub output: ${name}`);
+      }
+      outputs.set(name, value.join("\n"));
       continue;
     }
     const separator = line.indexOf("=");
@@ -312,6 +330,33 @@ async function runActionAuditCase(params) {
   assertOutput(outputs, "action-plan-path", "artifacts/action-plan.md");
   assertOutput(outputs, "pr-risk-ledger-path", "artifacts/pr-risk-ledger.json");
   assertOutput(outputs, "pr-risk-ledger-md-path", "artifacts/pr-risk-ledger.md");
+  assertOutput(outputs, "bundle-complete", "true");
+
+  const receipt = JSON.parse(
+    await readFile(path.join(workspace, "artifacts", ".wqg-output-manifest.json"), "utf8")
+  );
+  if (
+    receipt.schemaVersion !== 1 ||
+    receipt.status !== "complete" ||
+    typeof receipt.runId !== "string" ||
+    receipt.runId.length === 0 ||
+    !Array.isArray(receipt.generatedFiles)
+  ) {
+    throw new Error("Expected the action audit to produce a completed output receipt.");
+  }
+  const artifactPaths = new Set((outputs.get("artifact-paths") ?? "").split("\n"));
+  for (const file of [
+    "summary.json",
+    "summary.v2.json",
+    "report.html",
+    "action-plan.md",
+    "pr-risk-ledger.json",
+    "pr-risk-ledger.md"
+  ]) {
+    if (!artifactPaths.has(`artifacts/${file}`)) {
+      throw new Error(`Expected artifact-paths to include artifacts/${file}.`);
+    }
+  }
 
   return outputs;
 }

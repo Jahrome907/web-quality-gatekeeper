@@ -251,6 +251,50 @@ describe("buildHtmlReport", () => {
     expect(html).toContain('aria-label="Image preview"');
   });
 
+  it("rebases local bundle assets for a per-page report without changing external URLs or fragments", () => {
+    const html = buildHtmlReport(
+      {
+        ...summary,
+        screenshots: [
+          {
+            ...summary.screenshots[0]!,
+            path: "pages/01-landing/screenshots/home.png"
+          }
+        ],
+        visual: {
+          ...summary.visual!,
+          results: [
+            {
+              ...summary.visual!.results[0]!,
+              baselinePath: "baselines/home.png",
+              currentPath: "pages/01-landing/screenshots/home.png",
+              diffPath: "pages/01-landing/diffs/home.png"
+            }
+          ]
+        }
+      },
+      { reportPath: "pages/01-landing/report.html" }
+    );
+
+    expect(html).toContain('src="screenshots/home.png"');
+    expect(html).toContain('src="../../baselines/home.png"');
+    expect(html).toContain('src="diffs/home.png"');
+
+    const externalHtml = buildHtmlReport(
+      {
+        ...summary,
+        screenshots: [
+          {
+            ...summary.screenshots[0]!,
+            path: "https://cdn.example.com/home.png"
+          }
+        ]
+      },
+      { reportPath: "pages/01-landing/report.html" }
+    );
+    expect(externalHtml).toContain('src="https://cdn.example.com/home.png"');
+  });
+
   it("renders sticky jump links and score drilldown panels", () => {
     const html = buildHtmlReport(summary);
     expect(html).toContain('class="jump-nav-link" href="#overview"');

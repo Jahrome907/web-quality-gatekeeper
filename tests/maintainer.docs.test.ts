@@ -200,6 +200,9 @@ describe("maintainer documentation", () => {
     expect(compatibility).toContain("schemas/summary.v2.json");
     expect(compatibility).toContain("schemas/pr-risk-ledger.v1.json");
     expect(compatibility).toContain("sensitive-audit");
+    expect(compatibility).toContain("## Published Action contract");
+    expect(compatibility).toContain("## Unreleased source outputs");
+    expect(compatibility).toContain("published `@v3` must not reference them");
     expect(compatibility).not.toContain("Historical 3.1.4 tarball contents");
     expect(compatibility).not.toContain("Remaining Follow-ups");
   });
