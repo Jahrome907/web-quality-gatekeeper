@@ -199,14 +199,15 @@
       </div>
       <p>
         Visual comparison is enabled by default. Run <code>--set-baseline</code> to write the current screenshots,
-        review and commit those images, then run normally. A missing baseline fails; <code>--no-fail-on-visual</code>
+        review and commit those images, then run normally. In current source builds, a missing baseline fails; <code>--no-fail-on-visual</code>
         only permits completed visual diffs. For an audit without visual comparison, set <code>toggles.visual</code>
         to <code>false</code> in the configuration. The <code>artifacts/</code> upload above contains run output and
         does not include an external baseline directory.
       </p>
       <p>
-        A navigated document returning HTTP 400 or higher fails. Lighthouse also rejects missing required measurements
-        rather than substituting values. Console and runtime-error counts are diagnostics, not standalone default gates.
+        In current source builds, a navigated document returning HTTP 400 or higher fails the audit. Lighthouse also
+        rejects missing required measurements rather than substituting values. Console and runtime-error counts are
+        diagnostics, not standalone default gates.
       </p>
       <h2>Install the CLI</h2>
       <p>The <a href="https://www.npmjs.com/package/web-quality-gatekeeper">npm package</a> is available for Node.js 22.19 or later.</p>

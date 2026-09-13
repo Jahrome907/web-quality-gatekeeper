@@ -88,6 +88,9 @@ commit has passed CI and deployment is approved, run **Deploy Pages** manually
 from `main` (or `gh workflow run pages.yml --ref main`). The workflow refuses to
 deploy other branches. A merge alone does not deploy the documentation site.
 
+Keep **Settings → Pages → Build and deployment → Source** set to **GitHub Actions**.
+The **Deploy from a branch** setting bypasses this workflow and publishes on pushes.
+
 Prepare a version and changelog only after the included PRs are reviewed and
 integrated. Run `npm run release:dry-run` on that candidate, then publish the exact
 validated commit through the existing tag/Release and npm workflows. Do not use a

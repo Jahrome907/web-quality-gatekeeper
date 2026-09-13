@@ -5,11 +5,11 @@ with `configs/docs-preview.ci.json`: 1280 x 720 viewport, light theme, full-page
 It is separate from baselines used for other audit targets.
 
 Captured on the Ubuntu GitHub Actions runner with its system Chrome from source
-`ecf127aecedbf2138fb3b85fc4d1c83288b7f2a3` in
-[run 34073173557](https://github.com/Jahrome907/web-quality-gatekeeper/actions/runs/34073173557).
-The initial run intentionally failed because no baseline existed. Its PNG was reviewed
-for complete page content, layout, and image loading before adoption. The checksum
-manifest identifies that original, unmodified capture.
+`eb49089afcf44cff62d87cdb5b18226ac53a7c4a` in
+[run 34732884325](https://github.com/Jahrome907/web-quality-gatekeeper/actions/runs/34732884325).
+The current-source wording adds one line of expected text reflow. The current and
+diff images were reviewed for complete content, layout, and image loading before
+adoption. The checksum manifest identifies the unmodified CI capture.
 
 For intentional page changes, inspect the CI current and diff images before updating
 this baseline. Keep the Linux capture environment consistent; a Windows screenshot
