@@ -82,17 +82,11 @@ jobs:
           config-path: .github/web-quality/config.json
           baseline-dir: .github/web-quality/baselines
       - name: Upload artifacts
-        if: always() && (steps.wqg.outputs.sensitive-audit != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: |
-            \${{ steps.wqg.outputs.summary-path }}
-            \${{ steps.wqg.outputs.summary-v2-path }}
-            \${{ steps.wqg.outputs.report-path }}
-            \${{ steps.wqg.outputs.action-plan-path }}
-            \${{ steps.wqg.outputs.pr-risk-ledger-path }}
-            \${{ steps.wqg.outputs.pr-risk-ledger-md-path }}
+          path: artifacts/
           if-no-files-found: warn
 `;
 }
@@ -122,22 +116,27 @@ This directory contains the Web Quality Gatekeeper consumer configuration for th
 
 ${targetLine}
 
-The generated workflow uploads the default report artifacts through the Action's
-artifact path outputs unless the Action reports \`sensitive-audit=true\`. Set
+The generated workflow uploads \`artifacts/\`, including screenshots and per-page
+reports, only when the Action reports \`sensitive-audit=false\`. Baseline images
+remain in the repository and are not included in this download. Set
 \`WQG_ALLOW_SENSITIVE_OUTPUTS=true\` only when publishing sensitive outputs is
 intentional.
 
-Refresh visual baselines only for intentional UI changes:
+Before the first CI run, install the CLI and explicitly create visual baselines
+from the intended page state:
 
-The supported consumer path is the GitHub Action in
-\`.github/workflows/web-quality.yml\`. Review any changed files under
-\`.github/web-quality/baselines/\` in the same pull request as the intentional
-UI update.
+\`\`\`bash
+npm install --save-dev web-quality-gatekeeper
+npx playwright install chromium
+npx wqg audit --config .github/web-quality/config.json --baseline-dir .github/web-quality/baselines --set-baseline
+\`\`\`
 
-This scaffold does not install a local \`wqg\` binary. If you need a manual
-baseline refresh before CI, use a reviewed source checkout of
-\`web-quality-gatekeeper\` and follow its source-checkout instructions against
-this repository's \`.github/web-quality/config.json\` and
-\`.github/web-quality/baselines/\` paths.
+Review and commit the PNGs and integrity manifest under
+\`.github/web-quality/baselines/\`. Missing baselines fail an enabled visual check;
+CI does not silently create them. Refresh baselines only for intentional UI changes
+and review the images in the same pull request as that change.
+
+The generated workflow audits the deployed URL, not the pull request's un-deployed
+source. Point it at your deployment preview when changes need pre-merge validation.
 `;
 }

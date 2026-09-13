@@ -16,8 +16,12 @@ On Linux hosts that need browser system dependencies, use `npx playwright instal
 Run a local audit with:
 
 ```bash
+npm run audit -- https://example.com --set-baseline
 npm run audit -- https://example.com
 ```
+
+The first command explicitly creates visual baselines. Review the images before
+using them for comparison; ordinary audits fail when a required baseline is missing.
 
 ## Choose the narrowest validation
 

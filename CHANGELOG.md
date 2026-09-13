@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reject missing or invalid Lighthouse performance measurements and HTTP error responses instead of reporting a passing audit.
+- Require explicit `--set-baseline` before visual comparison when baseline images are missing. Ordinary audits no longer create unreviewed baselines, including when `--no-fail-on-visual` is supplied.
+- Upload complete report artifacts in consumer examples and generated workflows, with publication disabled when the sensitivity output is unknown.
+- Exclude successful Lighthouse audits from remediation suggestions and keep opportunity ordering consistent between JSON and HTML.
+
+### Changed
+
+- Clarify visual setup, diagnostic limitations, and the experimental source-only Rust engine in the public documentation.
+- Exercise the Python analytics command and the real Rust adapter in tests; remove unused Python packaging metadata and an unreferenced documentation image.
+
 ## [3.2.7] - 2026-09-06
 
 ### Fixed

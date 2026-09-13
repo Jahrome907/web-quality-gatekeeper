@@ -229,11 +229,11 @@ describe("lighthouse runner", () => {
     );
 
     expect(summary.opportunities).toHaveLength(10);
-    expect(summary.opportunities?.[0]?.id).toBe("bytes-only");
+    expect(summary.opportunities?.[0]?.id).toBe("op-0");
     expect(summary.opportunities?.some((item) => item.id === "diagnostics")).toBe(false);
   });
 
-  it("handles partial/malformed lighthouse payloads with safe defaults", async () => {
+  it("rejects malformed required metrics instead of treating them as passing values", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
     mockLighthouse.mockResolvedValue({
@@ -255,6 +255,123 @@ describe("lighthouse runner", () => {
     });
 
     const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    await expect(
+      runLighthouseAudit(
+        "https://example.com",
+        "/tmp/artifacts",
+        createBaseConfig() as never,
+        { debug: vi.fn() } as never
+      )
+    ).rejects.toThrow(
+      "Lighthouse required performance score must be a finite number between 0 and 1."
+    );
+
+    expect(mockWriteJson).not.toHaveBeenCalled();
+    expect(kill).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects missing, non-finite, negative, and out-of-range required metrics", async () => {
+    const cases = [
+      {
+        name: "a missing LCP",
+        categories: { performance: { score: 0.9 } },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint" },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.02 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+        },
+        message: "Lighthouse required LCP must be a finite non-negative number."
+      },
+      {
+        name: "a negative CLS",
+        categories: { performance: { score: 0.9 } },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1200 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: -0.02 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+        },
+        message: "Lighthouse required CLS must be a finite non-negative number."
+      },
+      {
+        name: "a non-finite TBT",
+        categories: { performance: { score: 0.9 } },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1200 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.02 },
+          "total-blocking-time": {
+            id: "total-blocking-time",
+            numericValue: Number.POSITIVE_INFINITY
+          }
+        },
+        message: "Lighthouse required TBT must be a finite non-negative number."
+      },
+      {
+        name: "an out-of-range performance score",
+        categories: { performance: { score: 1.01 } },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1200 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.02 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+        },
+        message: "Lighthouse required performance score must be a finite number between 0 and 1."
+      }
+    ];
+
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+    for (const testCase of cases) {
+      const kill = vi.fn().mockResolvedValue(undefined);
+      mockLaunch.mockResolvedValue({ port: 9222, kill });
+      mockLighthouse.mockResolvedValue({
+        lhr: { categories: testCase.categories, audits: testCase.audits }
+      });
+
+      await expect(
+        runLighthouseAudit(
+          "https://example.com",
+          "/tmp/artifacts",
+          createBaseConfig() as never,
+          { debug: vi.fn() } as never
+        )
+      ).rejects.toThrow(testCase.message);
+
+      expect(kill, testCase.name).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("excludes unscored and fully-passing opportunity audits", async () => {
+    const kill = vi.fn().mockResolvedValue(undefined);
+    mockLaunch.mockResolvedValue({ port: 9222, kill });
+    mockLighthouse.mockResolvedValue({
+      lhr: {
+        categories: { performance: { score: 0.9 } },
+        audits: {
+          "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1200 },
+          "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.02 },
+          "total-blocking-time": { id: "total-blocking-time", numericValue: 100 },
+          "score-one": {
+            id: "score-one",
+            score: 1,
+            details: { overallSavingsMs: 500 }
+          },
+          "score-null": {
+            id: "score-null",
+            score: null,
+            details: { overallSavingsMs: 400 }
+          },
+          unscored: {
+            id: "unscored",
+            details: { overallSavingsMs: 300 }
+          },
+          actionable: {
+            id: "actionable",
+            score: 0.5,
+            details: { overallSavingsMs: 100 }
+          }
+        }
+      }
+    });
+
+    const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
     const summary = await runLighthouseAudit(
       "https://example.com",
       "/tmp/artifacts",
@@ -262,25 +379,9 @@ describe("lighthouse runner", () => {
       { debug: vi.fn() } as never
     );
 
-    expect(summary.metrics).toEqual({
-      performanceScore: 0,
-      lcpMs: 0,
-      cls: 0,
-      tbtMs: 0
-    });
-    expect(summary.categoryScores).toEqual({
-      performance: 0,
-      accessibility: 0,
-      bestPractices: 0,
-      seo: 0
-    });
-    expect(summary.extendedMetrics).toEqual({
-      fcpMs: 0,
-      speedIndexMs: 0,
-      ttiMs: 0,
-      ttfbMs: 0
-    });
-    expect(summary.opportunities).toEqual([]);
+    expect(summary.opportunities).toEqual([
+      expect.objectContaining({ id: "actionable", estimatedSavingsMs: 100 })
+    ]);
   });
 
   it("throws the Lighthouse runtime error instead of fabricating performance metrics", async () => {
@@ -910,7 +1011,9 @@ describe("lighthouse runner", () => {
       )
     ).resolves.toMatchObject({ metrics: expect.any(Object) });
 
-    expect(mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")).toHaveLength(1);
+    expect(
+      mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")
+    ).toHaveLength(1);
     requestAborts.forEach((requestAbort) =>
       expect(requestAbort).toHaveBeenCalledWith("blockedbyclient")
     );
@@ -978,7 +1081,9 @@ describe("lighthouse runner", () => {
       )
     ).rejects.toThrow("Blocked unresolved Lighthouse request target in sensitive mode");
 
-    expect(mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")).toHaveLength(1);
+    expect(
+      mockLookup.mock.calls.filter(([hostname]) => hostname === "unresolved.example.net")
+    ).toHaveLength(1);
     requestAborts.forEach((requestAbort) =>
       expect(requestAbort).toHaveBeenCalledWith("blockedbyclient")
     );

@@ -46,15 +46,9 @@ jobs:
           # allow-internal-targets: "true"
 
       - name: Upload artifacts
-        if: always() && (steps.wqg.outputs.sensitive-audit != 'true' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
+        if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: wqg-artifacts
-          path: |
-            ${{ steps.wqg.outputs.summary-path }}
-            ${{ steps.wqg.outputs.summary-v2-path }}
-            ${{ steps.wqg.outputs.report-path }}
-            ${{ steps.wqg.outputs.action-plan-path }}
-            ${{ steps.wqg.outputs.pr-risk-ledger-path }}
-            ${{ steps.wqg.outputs.pr-risk-ledger-md-path }}
+          path: artifacts/
           if-no-files-found: warn

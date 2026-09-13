@@ -254,6 +254,26 @@ export async function runVisualDiff(
   logger: Logger,
   options: VisualDiffRuntimeOptions = {}
 ): Promise<VisualDiffSummary> {
+  if (!setBaseline) {
+    const missingBaselineNames: string[] = [];
+
+    for (const shot of screenshots) {
+      const baselinePath = path.join(baselineDir, path.basename(shot.path));
+      validateResolvedPathWithinBase(baselinePath, baselineDir);
+      if (!(await pathExists(baselinePath))) {
+        missingBaselineNames.push(shot.name);
+      }
+    }
+
+    if (missingBaselineNames.length > 0) {
+      const label = missingBaselineNames.length === 1 ? "baseline is" : "baselines are";
+      throw new Error(
+        `Visual ${label} missing for ${missingBaselineNames.join(", ")}. ` +
+          "Run with --set-baseline after reviewing the screenshot."
+      );
+    }
+  }
+
   await ensureDir(baselineDir);
   await ensureDir(diffDir);
 
@@ -303,7 +323,7 @@ export async function runVisualDiff(
     validateResolvedPathWithinBase(diffPath, diffDir);
 
     const baselineExists = await pathExists(baselinePath);
-    if (!baselineExists || setBaseline) {
+    if (setBaseline) {
       const status: VisualStatus = baselineExists ? "baseline_updated" : "baseline_created";
       logger.debug(`Writing baseline for ${shot.name} (${status})`);
       await copyFileSafe(shot.path, baselinePath);
@@ -321,6 +341,13 @@ export async function runVisualDiff(
         status
       });
       continue;
+    }
+
+    if (!baselineExists) {
+      throw new Error(
+        `Visual baseline disappeared for ${shot.name} before comparison. ` +
+          "Restore it or run with --set-baseline after reviewing the screenshot."
+      );
     }
 
     if (loadedManifest.corrupt) {
