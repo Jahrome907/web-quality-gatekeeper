@@ -8,7 +8,7 @@ import { runLighthouseAudit } from "./runner/lighthouse.js";
 import { runVisualDiff, type VisualDiffRuntimeOptions } from "./runner/visualDiff.js";
 import * as summaryReport from "./report/summary.js";
 import { buildHtmlReport } from "./report/html.js";
-import { buildInsights } from "./report/insights.js";
+import { aggregateInsights, buildInsights } from "./report/insights.js";
 import { buildActionPlanMarkdown } from "./report/actionPlan.js";
 import {
   PR_RISK_LEDGER_ARTIFACT_NAMES,
@@ -102,43 +102,8 @@ function isTruthy(value: string | undefined): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
 }
 
-function severityWeight(value: string): number {
-  switch (value) {
-    case "critical":
-      return 4;
-    case "high":
-      return 3;
-    case "medium":
-      return 2;
-    default:
-      return 1;
-  }
-}
-
 function aggregateRunInsights(results: TargetAuditResult[]): DetailSummaryV2["insights"] {
-  const combined = results.flatMap((result) => result.summaryV2.insights?.recommendations ?? []);
-  if (combined.length === 0) {
-    return null;
-  }
-
-  const deduped = new Map<string, (typeof combined)[number]>();
-  combined.forEach((item) => {
-    deduped.set(item.id, item);
-  });
-
-  const recommendations = Array.from(deduped.values())
-    .sort((left, right) => {
-      const severity = severityWeight(right.severity) - severityWeight(left.severity);
-      if (severity !== 0) {
-        return severity;
-      }
-      return left.id.localeCompare(right.id);
-    })
-    .slice(0, 10);
-
-  return {
-    recommendations
-  };
+  return aggregateInsights(results.map((result) => result.summaryV2));
 }
 
 function buildCompatibilitySummary(params: {
