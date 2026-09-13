@@ -9,6 +9,7 @@ it("deploys Pages only by explicit dispatch from main", () => {
   expect(workflow).toMatch(/on:\s*\n\s+workflow_dispatch:/);
   expect(workflow).not.toMatch(/^\s+(push|pull_request|release|workflow_run):/m);
   expect(workflow).toContain("if: github.ref == 'refs/heads/main'");
+  expect(workflow).toContain("group: ${{ github.workflow }}-${{ github.ref }}");
   expect(workflow).toContain("name: github-pages");
 });
 
