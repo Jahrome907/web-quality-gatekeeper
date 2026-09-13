@@ -498,9 +498,9 @@ describe("playwright runner", () => {
 
     const { openPage } = await import("../src/runner/playwright.js");
 
-    await expect(openPage("https://example.com", auditConfig(), { debug: vi.fn() } as never)).rejects.toThrow(
-      "Browser navigation failed with HTTP 404 for https://example.com/missing"
-    );
+    await expect(
+      openPage("https://example.com", auditConfig(), { debug: vi.fn() } as never)
+    ).rejects.toThrow("Browser navigation failed with HTTP 404 for https://example.com/missing");
 
     expect(closePage).toHaveBeenCalledTimes(1);
     expect(closeContext).toHaveBeenCalledTimes(1);
@@ -521,7 +521,9 @@ describe("playwright runner", () => {
     mockLaunch.mockResolvedValue({ newContext });
 
     const { openPage } = await import("../src/runner/playwright.js");
-    const result = await openPage("https://example.com", auditConfig(), { debug: vi.fn() } as never);
+    const result = await openPage("https://example.com", auditConfig(), {
+      debug: vi.fn()
+    } as never);
 
     expect(result.resolvedUrl).toBe("https://www.example.com/");
   });
@@ -2017,55 +2019,59 @@ describe("playwright runner", () => {
     expect(closeContext).toHaveBeenCalledTimes(1);
     expect(closeBrowser).toHaveBeenCalledTimes(1);
   });
-  it("captures configured screenshots deterministically", async () => {
-    const page = createPageDouble();
+  it.each([5000, 30000])(
+    "uses the configured action timeout for screenshot selector waits: %i ms",
+    async (actionMs) => {
+      const page = createPageDouble();
 
-    const logger = { debug: vi.fn() };
-    const { captureScreenshots } = await import("../src/runner/playwright.js");
-    const outDir = path.resolve(process.cwd(), "artifacts/screenshots");
-    const results = await captureScreenshots(
-      page as never,
-      "https://example.com",
-      {
-        retries: { count: 2, delayMs: 15 },
-        screenshots: [
-          {
-            name: "Home Page",
-            path: "/",
-            fullPage: true,
-            waitForSelector: "#app",
-            waitForTimeoutMs: 100
-          }
-        ]
-      } as never,
-      outDir,
-      logger as never
-    );
+      const logger = { debug: vi.fn() };
+      const { captureScreenshots } = await import("../src/runner/playwright.js");
+      const outDir = path.resolve(process.cwd(), "artifacts/screenshots");
+      const results = await captureScreenshots(
+        page as never,
+        "https://example.com",
+        {
+          timeouts: { actionMs },
+          retries: { count: 2, delayMs: 15 },
+          screenshots: [
+            {
+              name: "Home Page",
+              path: "/",
+              fullPage: true,
+              waitForSelector: "#app",
+              waitForTimeoutMs: 100
+            }
+          ]
+        } as never,
+        outDir,
+        logger as never
+      );
 
-    expect(mockEnsureDir).toHaveBeenCalledWith(outDir);
-    expect(results).toHaveLength(1);
-    expect(results[0]!.path).toBe(path.join(outDir, "home-page.png"));
-    expect(results[0]!.url).toBe("https://example.com/");
-    expect(page.goto).toHaveBeenCalledWith("https://example.com/", { waitUntil: "load" });
-    expect(page.screenshot).toHaveBeenCalledWith({
-      path: path.join(outDir, "home-page.png"),
-      fullPage: true,
-      animations: "disabled"
-    });
-    expect(page.waitForSelector).toHaveBeenCalledWith("#app", { timeout: 10000 });
-    expect(page.waitForTimeout).toHaveBeenCalledWith(100);
-    expect(page.addStyleTag).toHaveBeenCalledTimes(1);
-    expect(page.emulateMedia).toHaveBeenCalledWith({ reducedMotion: "reduce" });
-    expect(mockRetry).toHaveBeenCalledWith(
-      expect.any(Function),
-      expect.objectContaining({
-        maxRetries: 2,
-        baseDelayMs: 15,
-        logger,
-        isRetryable: expect.any(Function)
-      })
-    );
-  });
+      expect(mockEnsureDir).toHaveBeenCalledWith(outDir);
+      expect(results).toHaveLength(1);
+      expect(results[0]!.path).toBe(path.join(outDir, "home-page.png"));
+      expect(results[0]!.url).toBe("https://example.com/");
+      expect(page.goto).toHaveBeenCalledWith("https://example.com/", { waitUntil: "load" });
+      expect(page.screenshot).toHaveBeenCalledWith({
+        path: path.join(outDir, "home-page.png"),
+        fullPage: true,
+        animations: "disabled"
+      });
+      expect(page.waitForSelector).toHaveBeenCalledWith("#app", { timeout: actionMs });
+      expect(page.waitForTimeout).toHaveBeenCalledWith(100);
+      expect(page.addStyleTag).toHaveBeenCalledTimes(1);
+      expect(page.emulateMedia).toHaveBeenCalledWith({ reducedMotion: "reduce" });
+      expect(mockRetry).toHaveBeenCalledWith(
+        expect.any(Function),
+        expect.objectContaining({
+          maxRetries: 2,
+          baseDelayMs: 15,
+          logger,
+          isRetryable: expect.any(Function)
+        })
+      );
+    }
+  );
 
   it("rejects a screenshot target when its final response is an HTTP error", async () => {
     const page = createPageDouble();
