@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Generated v4 scaffolds and the v4 consumer example upload the Action-provided complete artifact list only after `bundle-complete=true`; a sensitivity override does not permit an incomplete bundle.
 - The CLI refuses legacy generated files that lack an ownership receipt. Preserve old output as history and use a fresh `--out` directory for a new run.
 - The default audit user agent now aligns with version `4.0.0`.
+- Update Playwright to 1.63 and Zod to 4.6, together with compatible lint and development tooling updates.
 - Clarify visual setup, diagnostic limitations, and the experimental source-only Rust engine in the public documentation.
 - Exercise the Python analytics command and the real Rust adapter in tests; remove unused Python packaging metadata and an unreferenced documentation image.
 
