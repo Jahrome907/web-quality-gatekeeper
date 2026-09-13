@@ -212,6 +212,41 @@ describe("buildHtmlReport", () => {
     expect(html).toContain('class="scores-layout"');
   });
 
+  it("keeps Simple view jump links aligned with visible report sections", () => {
+    const html = buildHtmlReport(summary);
+    const simpleTargets = [
+      "overview",
+      "action-plan",
+      "category-scores",
+      "core-web-vitals",
+      "playwright-captures",
+      "accessibility-summary"
+    ];
+    const detailedTargets = [
+      "accessibility-violations",
+      "lighthouse-opportunities",
+      "visual-comparisons",
+      "runtime-errors",
+      "resource-breakdown"
+    ];
+
+    expect(html).toContain('[data-report-view="simple"] [data-view-nav="detailed"]');
+
+    for (const target of simpleTargets) {
+      expect(html).toContain(
+        `<li data-view-nav="simple"><a class="jump-nav-link" href="#${target}">`
+      );
+      expect(html).toMatch(new RegExp(`<[^>]+id="${target}"[^>]+data-view-section="simple"`));
+    }
+
+    for (const target of detailedTargets) {
+      expect(html).toContain(
+        `<li data-view-nav="detailed"><a class="jump-nav-link" href="#${target}">`
+      );
+      expect(html).toMatch(new RegExp(`<[^>]+id="${target}"[^>]+data-view-section="detailed"`));
+    }
+  });
+
   it("shows 8 items by default with expandable view-all for large screenshot galleries", () => {
     const html = buildHtmlReport({
       ...summary,
@@ -475,7 +510,7 @@ describe("buildHtmlReport", () => {
     expect(screenshotsSection?.[0]).toContain("screenshots/home.png");
 
     expect(html).toContain(
-      'id="accessibility-summary" class="section card" data-view-section="detailed"'
+      'id="accessibility-summary" class="section card" data-view-section="simple"'
     );
   });
 
@@ -651,6 +686,10 @@ describe("buildHtmlReport", () => {
     const html = buildHtmlReport(aggregateReport);
     expect(html).toContain("Aggregate report for 2 pages");
     expect(html).toContain("<h2>Target Coverage</h2>");
+    expect(html).toContain(
+      '<li data-view-nav="simple"><a class="jump-nav-link" href="#target-coverage">'
+    );
+    expect(html).toMatch(/<[^>]+id="target-coverage"[^>]+data-view-section="simple"/);
     expect(html).toContain('data-target-coverage-table="true"');
     expect(html).toContain("landing");
     expect(html).toContain("pricing");
