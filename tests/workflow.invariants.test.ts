@@ -246,7 +246,7 @@ describe("workflow invariants", () => {
       "Verify signed version tag",
       verifier,
       "validate-package:",
-      "ref: ${{ needs.validate-input.outputs.release_commit }}",
+      "ref: refs/tags/${{ inputs.release_tag }}",
       "Install dependencies",
       "  publish:",
       "Checkout verification code",
@@ -259,7 +259,13 @@ describe("workflow invariants", () => {
       "RELEASE_TAG_SHA: ${{ needs.validate-input.outputs.release_tag_sha }}"
     );
     expect(npmPublish).toContain("release_tag_sha: ${{ steps.signature.outputs.tag_sha }}");
-    expect(npmPublish).toContain('if [ "$RELEASE_COMMIT" != "$(git rev-parse HEAD)" ]; then');
+    expect(npmPublish).toContain(
+      'if [ "$RELEASE_COMMIT" != "$EXPECTED_RELEASE_COMMIT" ] || [ "$RELEASE_COMMIT" != "$(git rev-parse HEAD)" ]; then'
+    );
+    expect(npmPublish).toContain(
+      "EXPECTED_RELEASE_COMMIT: ${{ needs.validate-input.outputs.release_commit }}"
+    );
+    expect(release).toContain('if [ "$RELEASE_COMMIT" != "$(git rev-parse HEAD)" ]; then');
   });
 
   it("keeps PR summary comments fork-safe and permission-tolerant", () => {
@@ -586,7 +592,7 @@ describe("workflow invariants", () => {
     expect(source).toContain('echo "npm_dist_tag=latest" >> "$GITHUB_OUTPUT"');
     expect(source).not.toContain('if [[ "$RELEASE_TAG" == *-* ]]; then');
     expect(source).toContain("validate-package:");
-    expect(source).toContain("ref: ${{ needs.validate-input.outputs.release_commit }}");
+    expect(source).toContain("ref: refs/tags/${{ inputs.release_tag }}");
     expect(source).toContain("persist-credentials: false");
     expect(source).toContain("Smoke test packed tarball");
     expect(source).toContain("npm run smoke:pack");

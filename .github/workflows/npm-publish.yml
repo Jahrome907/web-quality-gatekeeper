@@ -74,7 +74,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.validate-input.outputs.release_commit }}
+          ref: refs/tags/${{ inputs.release_tag }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -83,10 +83,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          EXPECTED_RELEASE_COMMIT: ${{ needs.validate-input.outputs.release_commit }}
         run: |
           git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
           RELEASE_COMMIT="$(git rev-parse --verify "${RELEASE_TAG}^{commit}")"
-          if [ "$RELEASE_COMMIT" != "$(git rev-parse HEAD)" ]; then
+          if [ "$RELEASE_COMMIT" != "$EXPECTED_RELEASE_COMMIT" ] || [ "$RELEASE_COMMIT" != "$(git rev-parse HEAD)" ]; then
             echo "::error::Release tag changed after signature verification."
             exit 1
           fi
