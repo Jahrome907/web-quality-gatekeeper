@@ -28,16 +28,15 @@ describe("public story surface", () => {
     expect(source).toContain(
       "https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md"
     );
-    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v3");
+    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v4");
     expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
     expect(source).toContain("# v6.0.3");
     expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
     expect(source).toContain("# v7.0.1");
     expect(source).toContain("- id: wqg");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit");
-    expect(source).toContain("path: artifacts/");
-    expect(source).not.toContain("steps.wqg.outputs.bundle-complete");
-    expect(source).not.toContain("steps.wqg.outputs.artifact-paths");
+    expect(source).toContain("steps.wqg.outputs.bundle-complete");
+    expect(source).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
     expect(source).toContain("toggles.visual");
     expect(source).toContain("baseline fails;");
     expect(source).toContain("not standalone default gates");
@@ -47,7 +46,7 @@ describe("public story surface", () => {
     );
     expect(source).toMatch(/tabindex="0"\s+aria-label="GitHub Action usage example"/);
     expect(source).not.toMatch(/not published|E404|security bootstrap/i);
-    expect(source).toContain("npm install --save-dev web-quality-gatekeeper@3.2.7");
+    expect(source).toContain("npm install --save-dev web-quality-gatekeeper@^4");
     expect(source).toContain("npx wqg audit https://your-site.example");
     expect(source).not.toMatch(GENERATED_FROM_PATTERN);
   });

@@ -8,33 +8,11 @@ const root = path.resolve(import.meta.dirname, "..");
 const v4Sources = [
   ["scaffold", buildConsumerWorkflow()],
   ["README", readFileSync(path.join(root, "README.md"), "utf8")],
+  ["website", readFileSync(path.join(root, "docs/index.html"), "utf8").replaceAll("&amp;", "&")],
   ["example", readFileSync(path.join(root, "examples/consumer-workflow.yml"), "utf8")]
 ];
-const v3Sources = ["docs/index.html"].map((file) => [
-  file,
-  readFileSync(path.join(root, file), "utf8").replaceAll("&amp;", "&")
-]);
 
 describe("artifact publication", () => {
-  for (const [name, source] of v3Sources) {
-    it(`${name} requires an explicitly safe audit or explicit publication override`, () => {
-      const condition = source!
-        .split("\n")
-        .find((line) => line.includes("if: always()"))!
-        .split("if: ")[1]!;
-      for (const sensitive of ["true", "false", ""]) {
-        for (const override of ["true", "false"]) {
-          const expression = condition
-            .replaceAll("always()", "true")
-            .replaceAll("steps.wqg.outputs.sensitive-audit", JSON.stringify(sensitive))
-            .replaceAll("env.WQG_ALLOW_SENSITIVE_OUTPUTS", JSON.stringify(override));
-          const actual = runInNewContext(expression, {}, { timeout: 100 });
-          expect(actual).toBe(sensitive === "false" || override === "true");
-        }
-      }
-    });
-  }
-
   for (const [name, source] of v4Sources) {
     it(`${name} publishes only a completed, eligible v4 artifact list`, () => {
       const condition = source!
