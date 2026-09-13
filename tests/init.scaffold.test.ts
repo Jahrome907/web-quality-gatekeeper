@@ -25,7 +25,7 @@ describe("consumer init scaffold", () => {
       ).resolves.toContain('"policy:marketing"');
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
-      ).resolves.toContain("Jahrome907/web-quality-gatekeeper@v3");
+      ).resolves.toContain("Jahrome907/web-quality-gatekeeper@v4");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
       ).resolves.toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
@@ -95,16 +95,16 @@ describe("consumer init scaffold", () => {
       expect(workflow).toContain("url: 'https://app.example.com/?a=1&b=2'");
       expect(workflow).toContain('WQG_SENSITIVE_AUDIT: "false"');
       expect(workflow).toContain(
-        "if: always() && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')"
+        "if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')"
       );
       expect(workflow).toContain("- id: wqg");
-      expect(workflow).toContain("path: artifacts/");
-      expect(workflow).not.toContain("steps.wqg.outputs.bundle-complete");
-      expect(workflow).not.toContain("steps.wqg.outputs.artifact-paths");
+      expect(workflow).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
+      expect(workflow).not.toContain("path: artifacts/");
       expect(readme).toContain("The scaffold is pinned to `https://app.example.com/?a=1&b=2`");
       expect(readme).toContain(
-        "The generated workflow uploads `artifacts/`, including screenshots and per-page"
+        "The generated workflow targets the v4 Action and uploads only the files listed by"
       );
+      expect(readme).toContain("web-quality-gatekeeper@^4");
       expect(readme).toContain("--set-baseline");
       expect(readme).toContain("CI does not silently create them.");
       expect(readme).not.toContain("wqg audit 'https://app.example.com/?a=1&b=2'");

@@ -24,9 +24,9 @@ Summary v2:
 | Composite Action  | Preserve documented input names and the outputs listed below.                                                                | `action.yml` and Action smoke tests                                                               |
 | Package           | Preserve the advertised binary, root API types, schemas, configs, README, and license when npm distribution becomes public.  | `package.json` and package smoke tests                                                            |
 
-The published stable Action reference is `Jahrome907/web-quality-gatekeeper@v3` at v3.2.7. GitHub tags and Releases, not the version on `main`, define published versions.
+The v3.2.7 published Action reference is `Jahrome907/web-quality-gatekeeper@v3`. GitHub tags and Releases, not the version on `main`, define published versions.
 
-## Published Action contract
+## Published v3.2.7 Action contract
 
 Inputs:
 
@@ -48,9 +48,16 @@ Outputs:
 
 Consumer-relative config and baseline paths resolve from the consumer workspace. The Action writes ordinary output under `artifacts/`. Auth inputs, internal-target overrides, or explicit sensitive-audit controls set `sensitive-audit` so consumers can suppress publication.
 
-## Unreleased source outputs
+## v4.0.0 Action contract (after publication)
 
-`bundle-complete` and `artifact-paths` are current-source Action outputs intended for the next release. Workflows that use published `@v3` must not reference them until a release updates that tag.
+Version 4 preserves the inputs and outputs above and adds:
+
+- `bundle-complete`: `true` only for a completed current audit, including a completed audit that fails a quality budget.
+- `artifact-paths`: a newline-separated list of generated files belonging to that completed audit.
+
+The [v4 example](../../examples/consumer-workflow.yml) requires completion and an eligible sensitivity result before uploading that list. A publication override does not make an incomplete audit publishable. Use `@v4` only after its GitHub tag and Release exist; until then keep `@v3`. Published `@v3` does not provide these outputs and remains on its own major line.
+
+Version 4 intentionally changes missing-baseline and legacy output-directory handling. Follow the [v4 migration guide](../migrations/v4.md). Report schema versions and URIs are unchanged; these CLI transitions do not introduce a new JSON schema major.
 
 ## Change rules
 

@@ -27,7 +27,7 @@ The [project-site case study](https://jahrome907.github.io/web-quality-gatekeepe
 
 ## Use it in GitHub Actions
 
-Add a job like this to your workflow. See the full [consumer example](examples/consumer-workflow.yml) for optional inputs, pinned action SHAs, and safe report uploads.
+Add a job like this to use published v3.2.7. The [v4 consumer example](examples/consumer-workflow.yml) is the migration target after v4 publication; read the [v4 migration guide](docs/migrations/v4.md) before adopting it.
 
 ```yaml
 jobs:
@@ -56,7 +56,7 @@ jobs:
 
 The `policy` input is optional; this minimal example uses the Action defaults. The Action exposes `status`, artifact path outputs, and `sensitive-audit`. Authenticated or internal audits should keep artifact publication disabled unless the output is deliberately safe to share.
 
-Current source builds require explicit visual baselines and verify complete output bundles. These changes are not yet in published v3.2.7; the `@v3` workflow above uses its published output contract. See the [compatibility baseline](docs/contracts/compatibility-baseline.md#unreleased-source-outputs) for the new source outputs.
+Version 4 requires explicit visual baselines and verifies complete output bundles. Published v3.2.7 keeps its existing contract; the `@v3` example above uses only its available outputs. The [v4 migration guide](docs/migrations/v4.md) covers the changed setup and completion-aware uploads. Version 4's `wqg init` workflows target `@v4` and require its tag and Release to exist before use in GitHub Actions.
 
 In current source builds, visual comparison is enabled by default and has no implicit first-run baseline. `--set-baseline` writes the current screenshots to the baseline directory; review and commit those images, then run the workflow normally. For a quick audit that intentionally omits visual comparison, set `toggles.visual` to `false` in the configuration. `--no-fail-on-visual` only permits completed visual diffs; it does not bypass a missing baseline.
 
@@ -119,7 +119,8 @@ ownership receipt, use a fresh `--out` directory instead of deleting or adopting
 contents automatically. Interrupted runs remain incomplete and must not be uploaded.
 If a terminated process leaves an output lock, use a fresh output directory; remove
 the old lock only after confirming its writer has stopped.
-The Action upload list excludes unrelated files and saved trend snapshots. Trend
+The v4 Action's explicit upload list excludes unrelated files and saved trend snapshots;
+the published v3 example above uploads the whole output directory. Trend
 reports can include historical measurements; apply the sensitive-output policy to that history too.
 
 ## What it checks

@@ -5,16 +5,17 @@ import { describe, expect, it } from "vitest";
 import { buildConsumerWorkflow } from "../src/init/templates.js";
 
 const root = path.resolve(import.meta.dirname, "..");
-const sources = [
+const v4Sources = [
   ["scaffold", buildConsumerWorkflow()],
-  ...["README.md", "examples/consumer-workflow.yml", "docs/index.html"].map((file) => [
-    file,
-    readFileSync(path.join(root, file), "utf8").replaceAll("&amp;", "&")
-  ])
+  ["example", readFileSync(path.join(root, "examples/consumer-workflow.yml"), "utf8")]
 ];
+const v3Sources = ["README.md", "docs/index.html"].map((file) => [
+  file,
+  readFileSync(path.join(root, file), "utf8").replaceAll("&amp;", "&")
+]);
 
 describe("artifact publication", () => {
-  for (const [name, source] of sources) {
+  for (const [name, source] of v3Sources) {
     it(`${name} requires an explicitly safe audit or explicit publication override`, () => {
       const condition = source!
         .split("\n")
@@ -28,6 +29,33 @@ describe("artifact publication", () => {
             .replaceAll("env.WQG_ALLOW_SENSITIVE_OUTPUTS", JSON.stringify(override));
           const actual = runInNewContext(expression, {}, { timeout: 100 });
           expect(actual).toBe(sensitive === "false" || override === "true");
+        }
+      }
+    });
+  }
+
+  for (const [name, source] of v4Sources) {
+    it(`${name} publishes only a completed, eligible v4 artifact list`, () => {
+      const condition = source!
+        .split("\n")
+        .find((line) => line.includes("if: always()"))!
+        .split("if: ")[1]!;
+      expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v4");
+      expect(source).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
+      expect(source).not.toContain("path: artifacts/");
+      expect(source).toContain("if-no-files-found: error");
+      for (const complete of ["true", "false", ""]) {
+        for (const sensitive of ["true", "false", ""]) {
+          for (const override of ["true", "false"]) {
+            const expression = condition
+              .replaceAll("always()", "true")
+              .replaceAll("steps.wqg.outputs.bundle-complete", JSON.stringify(complete))
+              .replaceAll("steps.wqg.outputs.sensitive-audit", JSON.stringify(sensitive))
+              .replaceAll("env.WQG_ALLOW_SENSITIVE_OUTPUTS", JSON.stringify(override));
+            expect(runInNewContext(expression, {}, { timeout: 100 })).toBe(
+              complete === "true" && (sensitive === "false" || override === "true")
+            );
+          }
         }
       }
     });
