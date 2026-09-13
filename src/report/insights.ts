@@ -63,9 +63,66 @@ function severityWeight(severity: InsightSeverity): number {
   }
 }
 
-function scoreInsight(item: RemediationInsight): number {
-  const evidenceBoost = Math.min(item.evidence.length, 5);
-  return severityWeight(item.severity) * 10 + evidenceBoost;
+interface RankedInsight {
+  item: RemediationInsight;
+  summary: SummaryV2;
+}
+
+function isGateFailure({ item, summary }: RankedInsight): boolean {
+  switch (item.source) {
+    case "a11y":
+    case "visual":
+      return summary.steps[item.source] === "fail";
+    case "perf":
+      return item.id === "perf:budgets" && summary.steps.perf === "fail";
+    case "runtime":
+      return summary.steps.playwright === "fail";
+    default:
+      return false;
+  }
+}
+
+function compareInsights(left: RankedInsight, right: RankedInsight): number {
+  const gateOrder = Number(isGateFailure(right)) - Number(isGateFailure(left));
+  if (gateOrder !== 0) return gateOrder;
+
+  const severityOrder = severityWeight(right.item.severity) - severityWeight(left.item.severity);
+  if (severityOrder !== 0) return severityOrder;
+
+  const leftOpportunity = left.summary.performance?.opportunities?.find(
+    (opportunity) => left.item.id === `perf:${opportunity.id}`
+  );
+  const rightOpportunity = right.summary.performance?.opportunities?.find(
+    (opportunity) => right.item.id === `perf:${opportunity.id}`
+  );
+  if (leftOpportunity && rightOpportunity) {
+    const timeOrder =
+      (rightOpportunity.estimatedSavingsMs ?? 0) - (leftOpportunity.estimatedSavingsMs ?? 0);
+    const byteOrder =
+      (rightOpportunity.estimatedSavingsBytes ?? 0) - (leftOpportunity.estimatedSavingsBytes ?? 0);
+    if (timeOrder !== 0 || byteOrder !== 0) return timeOrder || byteOrder;
+  }
+  return left.item.id.localeCompare(right.item.id);
+}
+
+function rankInsights(entries: RankedInsight[], limit: number): InsightsSummary {
+  const unique = new Map<string, RemediationInsight>();
+  for (const { item } of entries.sort(compareInsights)) {
+    if (!unique.has(item.id)) unique.set(item.id, item);
+  }
+  return { recommendations: [...unique.values()].slice(0, Math.max(1, limit)) };
+}
+
+export function aggregateInsights(summaries: SummaryV2[]): InsightsSummary | null {
+  const entries = summaries.flatMap((summary) =>
+    (summary.insights?.recommendations ?? []).map((item) => ({ item, summary }))
+  );
+  const budgetEntries = entries.filter(({ item }) => item.id === "perf:budgets");
+  if (budgetEntries.length > 1) {
+    const evidence = budgetEntries.flatMap(({ item }) => item.evidence);
+    for (const entry of budgetEntries) entry.item = { ...entry.item, evidence };
+  }
+  return entries.length > 0 ? rankInsights(entries, DEFAULT_LIMIT) : null;
 }
 
 function toA11ySeverity(impact: string | null): InsightSeverity {
@@ -101,6 +158,37 @@ export function buildInsights(
 ): InsightsSummary {
   const recommendations: RemediationInsight[] = [];
 
+  if (summary.steps.perf === "fail" && summary.performance) {
+    const { metrics, budgets, budgetResults } = summary.performance;
+    const evidence: string[] = [];
+    if (!budgetResults.performance) {
+      evidence.push(
+        `Performance score: ${metrics.performanceScore}; minimum: ${budgets.performance}`
+      );
+    }
+    if (!budgetResults.lcp) evidence.push(`LCP: ${metrics.lcpMs} ms; maximum: ${budgets.lcpMs} ms`);
+    if (!budgetResults.cls) evidence.push(`CLS: ${metrics.cls}; maximum: ${budgets.cls}`);
+    if (!budgetResults.tbt) evidence.push(`TBT: ${metrics.tbtMs} ms; maximum: ${budgets.tbtMs} ms`);
+    if (evidence.length > 0) {
+      recommendations.push({
+        id: "perf:budgets",
+        source: "perf",
+        severity: "high",
+        title: "Meet configured performance budgets",
+        why: "These measured performance results failed the configured gate.",
+        evidence: [`Page: ${summary.url}`, ...evidence],
+        remediation: [
+          "Inspect the Lighthouse report for the failed metrics and investigate their causes."
+        ],
+        verification: [
+          "Re-run the audit under comparable conditions and check each failed budget."
+        ],
+        expectedImpact: "The performance gate passes when all configured budgets are met.",
+        references: []
+      });
+    }
+  }
+
   if (summary.a11y?.details) {
     for (const violation of summary.a11y.details) {
       const guidance = A11Y_GUIDANCE[violation.id];
@@ -135,9 +223,9 @@ export function buildInsights(
       recommendations.push({
         id: `perf:${opportunity.id}`,
         source: "perf",
-        severity: opportunity.score < 0.3 ? "high" : opportunity.score < 0.6 ? "medium" : "low",
+        severity: "low",
         title: guidance?.title ?? opportunity.title,
-        why: `Lighthouse reported ${opportunity.title} as an opportunity.`,
+        why: "Optional performance improvement. This opportunity does not itself fail a configured budget.",
         evidence: [
           `Opportunity: ${opportunity.id}`,
           `Estimated savings: ${estimatedSavings}`,
@@ -147,8 +235,7 @@ export function buildInsights(
           "Apply the Lighthouse recommendation for this opportunity."
         ],
         verification: [
-          "Re-run WQG and verify Lighthouse opportunity savings are reduced.",
-          "Confirm performance score and LCP trend improves over subsequent runs."
+          "Re-run WQG under comparable conditions and compare the opportunity estimates and measured metrics."
         ],
         expectedImpact: `Lighthouse estimated savings: ${estimatedSavings}.`,
         references: []
@@ -217,11 +304,8 @@ export function buildInsights(
     });
   }
 
-  const ranked = [...recommendations]
-    .sort(
-      (left, right) => scoreInsight(right) - scoreInsight(left) || left.id.localeCompare(right.id)
-    )
-    .slice(0, Math.max(1, maxRecommendations));
-
-  return { recommendations: ranked };
+  return rankInsights(
+    recommendations.map((item) => ({ item, summary })),
+    maxRecommendations
+  );
 }
