@@ -1,119 +1,63 @@
-# Visual Diff Benchmark Harness
+# Visual diff engines and benchmarks
 
-This document defines the benchmark and fallback workflow for the optional
-native visual-diff track.
+`pixelmatch` is the default engine. The optional `native-rust` engine is deprecated
+and will be retired in the next major release. Existing native configurations,
+binary execution, fallback behavior, and security checks remain supported in 4.x.
+See [the retirement plan](https://github.com/Jahrome907/web-quality-gatekeeper/issues/133).
 
-The benchmark harness lives at:
+## Measured result
 
-- `benchmarks/visual-diff-benchmark.mjs`
-- sample output: `benchmarks/results/visual-diff-benchmark.sample.json`
+A September 2026 comparison used two real page captures, three change patterns,
+and the complete `runVisualDiff` path: PNG decoding, normalization, diff output,
+and native process startup and temporary-file I/O. Each case had one warmup and
+seven measured samples with alternating engine order. Diff-count parity passed
+all six cases with `includeAA: true`.
 
-The optional native engine lives at:
+| Capture / change                 | Pixelmatch median | Native median |
+| -------------------------------- | ----------------: | ------------: |
+| 1280 x 11549 / unchanged         |         1317.4 ms |     1494.2 ms |
+| 1280 x 11549 / 20 changed pixels |         1494.5 ms |     1528.9 ms |
+| 1280 x 11549 / 4% changed area   |         1968.1 ms |     1949.6 ms |
+| 1280 x 2654 / unchanged          |          395.1 ms |      522.1 ms |
+| 1280 x 2654 / 20 changed pixels  |          400.3 ms |      430.9 ms |
+| 1280 x 2654 / 4% changed area    |          392.1 ms |      400.2 ms |
 
-- `native/wqg-visual-diff-native/`
+Native was slower in five cases. The one 18 ms gain was smaller than the observed
+run-to-run variation. These results provide no demonstrated benefit for expanding
+the integration. They come from one Windows x64 host running Node 22.22.3, with
+warm caches and uncontrolled host load; they do not establish cross-platform
+performance or include screenshot capture time.
 
-## What the benchmark measures
+## Existing synthetic benchmark
 
-The harness compares two paths on deterministic synthetic RGBA fixtures:
-
-- the current TypeScript reference engine using `pixelmatch`
-- the optional Rust engine invoked through the same file-based adapter contract used by
-  `src/runner/visualDiffEngine.ts`
-
-The benchmark intentionally includes process-spawn and temporary-file overhead for the
-native engine. That makes the result honest for the current integration seam, rather than
-measuring a hypothetical future shared-library path.
-
-Recorded output includes:
-
-- platform and Node metadata
-- per-case dimensions and iteration count
-- `min`, `max`, and `avg` milliseconds for the TypeScript path
-- native status (`ok`, `skipped`, or `error`) plus timings when a native binary is available
-- diff pixel counts and mismatch ratios for parity inspection
-
-## Run locally
-
-TypeScript-only baseline:
-
-```bash
-node benchmarks/visual-diff-benchmark.mjs --iterations 5 --out /tmp/wqg-visual-bench.json
-```
-
-With the Rust engine after building it:
+[The harness](../../benchmarks/visual-diff-benchmark.mjs) compares synthetic RGBA
+fixtures, including native process and temporary-file overhead. It does not
+include PNG decoding and encoding. [The sample result](../../benchmarks/results/visual-diff-benchmark.sample.json)
+is historical and uses this narrower measurement.
 
 ```bash
+node benchmarks/visual-diff-benchmark.mjs --iterations 5 --out artifacts/visual-bench.json
+
 npm run native:visual-diff:build
 node benchmarks/visual-diff-benchmark.mjs \
   --iterations 5 \
   --native-bin native/wqg-visual-diff-native/target/release/wqg-visual-diff-native \
-  --out /tmp/wqg-visual-bench.json
+  --out artifacts/visual-bench.json
 ```
 
-You can also point the runtime seam at the same binary for an explicit local audit run.
-To actually exercise the diff engine instead of only seeding a baseline, run the audit twice
-against a visual-enabled config and keep the same baseline directory across both runs:
+On Windows, the compiled binary has an `.exe` extension.
 
-```bash
-python3 -m http.server 4173 --bind 127.0.0.1 --directory tests/fixtures/site
+## Native compatibility in 4.x
 
-WQG_VISUAL_DIFF_ENGINE=native-rust \
-WQG_VISUAL_DIFF_NATIVE_BIN="$PWD/native/wqg-visual-diff-native/target/release/wqg-visual-diff-native" \
-node dist/cli.js audit http://127.0.0.1:4173 \
-  --config tests/fixtures/visual-only-config.json \
-  --out /tmp/wqg-native-visual \
-  --baseline-dir /tmp/wqg-native-baselines \
-  --allow-internal-targets \
-  --no-fail-on-a11y \
-  --no-fail-on-perf \
-  --set-baseline
+Native execution requires `visual.pixelmatch.includeAA: true`; unsupported or
+unavailable native execution falls back to pixelmatch. The default installation
+has no native download or required Rust toolchain.
 
-WQG_VISUAL_DIFF_ENGINE=native-rust \
-WQG_VISUAL_DIFF_NATIVE_BIN="$PWD/native/wqg-visual-diff-native/target/release/wqg-visual-diff-native" \
-node dist/cli.js audit http://127.0.0.1:4173 \
-  --config tests/fixtures/visual-only-config.json \
-  --out /tmp/wqg-native-visual \
-  --baseline-dir /tmp/wqg-native-baselines \
-  --allow-internal-targets \
-  --no-fail-on-a11y \
-  --no-fail-on-perf
-```
+The [Rust binary](../../native/wqg-visual-diff-native/src/main.rs) accepts
+`--width`, `--height`, `--baseline`, `--current`, `--diff-out`, and `--threshold`.
+The three file arguments use normalized raw RGBA buffers of `width * height * 4`
+bytes. Standard output is a JSON object containing `diffPixels`.
 
-## Native binary contract
-
-The current adapter boundary is deliberately simple so the TypeScript path remains the
-default and reference implementation.
-
-Arguments:
-
-```text
---width <px>
---height <px>
---baseline <raw-rgba-path>
---current <raw-rgba-path>
---diff-out <raw-rgba-path>
---threshold <0..1>
-```
-
-Inputs and outputs:
-
-- `baseline` and `current` must be normalized raw RGBA buffers with length `width * height * 4`
-- `diff-out` must be written as a raw RGBA diff buffer with the same length
-- stdout must be one JSON object containing at least `diffPixels`
-
-Current scope boundaries:
-
-- anti-alias-aware diff semantics still belong to the TypeScript path; native
-  execution is limited to runs that set `visual.pixelmatch.includeAA=true`
-- the native engine is allowed to fall back automatically when unavailable or unsupported
-- no install scripts or required native artifact downloads are allowed in the default consumer path
-
-## Measured decision rule
-
-The benchmark does not assume the native track is faster. It is there to answer:
-
-- does the current adapter seam beat `pixelmatch` enough to justify more native work?
-- if not, is the measured slowdown explained by process and file overhead rather than diff math?
-
-Until the benchmark shows a clear benefit, the TypeScript implementation remains the default
-and reference implementation.
+Existing users can keep their reviewed binary configuration during 4.x. For new
+configurations, use pixelmatch. Consult [SECURITY.md](../../SECURITY.md) before
+allowing native binary execution.
