@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Remove the optional native Rust visual-diff engine, its executable adapter, and its build tooling. This is a breaking change for the next major release. Use pixelmatch and follow the [configuration migration](docs/engineering/VISUAL_DIFF_BENCHMARK.md).
+
+### Fixed
+
+- Rank failed performance budgets ahead of optional suggestions, using measured impact for priorities.
+- Recognize installed Chromium in setup diagnostics and print audit status and report location for HTML output.
+- Require a verified signed version tag before publishing a release.
+
 ## [4.0.0]
 
 ### Added

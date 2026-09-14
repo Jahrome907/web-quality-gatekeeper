@@ -1,33 +1,21 @@
 import { existsSync, statSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { loadConfig } from "./config/loadConfig.js";
-import type { Config } from "./config/schema.js";
+import { assertSupportedVisualDiffEnvironment } from "./config/visualDiffMigration.js";
 import { validateOutputDirectory } from "./utils/fs.js";
 import {
   isBrowserExecutableFile,
   resolveBrowserExecutablePath
 } from "./utils/browserExecutable.js";
-import {
-  buildNativeVisualDiffChildEnv,
-  classifyNativeVisualDiffPath,
-  isCiEnvironment,
-  isNativeVisualEngine,
-  isTruthy,
-  resolveNativeVisualDiffInvocation
-} from "./runner/nativeVisualDiffSupport.js";
-
 const execFileAsync = promisify(execFile);
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as {
   version: string;
   engines?: { node?: string };
 };
-const NATIVE_PROBE_TIMEOUT_MS = 3000;
 const BROWSER_PROBE_TIMEOUT_MS = 3000;
 
 export type DoctorCheckStatus = "pass" | "warn" | "fail";
@@ -173,58 +161,6 @@ async function probeBrowserExecutable(
   }
 }
 
-async function probeNativeVisualEngine(
-  binaryPath: string,
-  env: NodeJS.ProcessEnv
-): Promise<string | null> {
-  const tempDir = await mkdtemp(path.join(tmpdir(), "wqg-doctor-native-"));
-  const baselinePath = path.join(tempDir, "baseline.rgba");
-  const currentPath = path.join(tempDir, "current.rgba");
-  const diffPath = path.join(tempDir, "diff.rgba");
-  const invocation = resolveNativeVisualDiffInvocation(binaryPath);
-
-  try {
-    const pixel = Buffer.from([255, 255, 255, 255]);
-    await Promise.all([writeFile(baselinePath, pixel), writeFile(currentPath, pixel)]);
-    const { stdout } = await execFileAsync(
-      invocation.command,
-      [
-        ...invocation.args,
-        "--width",
-        "1",
-        "--height",
-        "1",
-        "--baseline",
-        baselinePath,
-        "--current",
-        currentPath,
-        "--diff-out",
-        diffPath,
-        "--threshold",
-        "0.1"
-      ],
-      {
-        timeout: NATIVE_PROBE_TIMEOUT_MS,
-        env: buildNativeVisualDiffChildEnv(env)
-      }
-    );
-    const stdoutText = String(stdout);
-    const parsed = JSON.parse(stdoutText.trim()) as { diffPixels?: unknown };
-    if (typeof parsed.diffPixels !== "number" || parsed.diffPixels < 0) {
-      return "Native visual diff engine failed the health probe; audits will fall back to pixelmatch.";
-    }
-
-    const diff = await readFile(diffPath);
-    return diff.length === pixel.length
-      ? null
-      : "Native visual diff engine failed the health probe; audits will fall back to pixelmatch.";
-  } catch {
-    return "Native visual diff engine failed the health probe; audits will fall back to pixelmatch.";
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
-  }
-}
-
 async function checkBrowser(
   env: NodeJS.ProcessEnv,
   strict: boolean,
@@ -307,100 +243,6 @@ async function checkBrowser(
   };
 }
 
-async function checkNativeVisualEngine(
-  visualConfig: Config["visual"],
-  env: NodeJS.ProcessEnv,
-  strict: boolean
-): Promise<DoctorCheck> {
-  const engine = env.WQG_VISUAL_DIFF_ENGINE ?? visualConfig.engine;
-  if (!isNativeVisualEngine(engine)) {
-    return {
-      id: "native-visual-engine",
-      status: "pass",
-      message: "Native visual diff engine is not requested; pixelmatch will be used.",
-      details: { engine: engine ?? "pixelmatch" }
-    };
-  }
-
-  const binaryPath = env.WQG_VISUAL_DIFF_NATIVE_BIN ?? visualConfig.nativeBinaryPath ?? null;
-  if (!binaryPath) {
-    return {
-      id: "native-visual-engine",
-      status: strictStatus(strict),
-      message:
-        "Native visual diff engine is requested but no binary path is configured; audits will fall back to pixelmatch.",
-      details: { engine }
-    };
-  }
-
-  if (!existsSync(binaryPath)) {
-    return {
-      id: "native-visual-engine",
-      status: strictStatus(strict),
-      message:
-        "Native visual diff engine is requested but the configured binary does not exist; audits will fall back to pixelmatch.",
-      details: { engine, binaryPath }
-    };
-  }
-
-  const nativePathType = await classifyNativeVisualDiffPath(binaryPath);
-  if (nativePathType === "script") {
-    return {
-      id: "native-visual-engine",
-      status: strictStatus(strict),
-      message:
-        "Native visual diff engine points to a shell, batch, PowerShell, or shebang script. Use a reviewed native binary or a JavaScript test adapter.",
-      details: { engine, binaryPath }
-    };
-  }
-  if (nativePathType === "javascript-adapter" && !isTruthy(env.WQG_ALLOW_SCRIPT_NATIVE_ENGINE)) {
-    return {
-      id: "native-visual-engine",
-      status: strictStatus(strict),
-      message:
-        "Native visual diff engine points to a JavaScript adapter. Set WQG_ALLOW_SCRIPT_NATIVE_ENGINE=true only for trusted test adapters.",
-      details: { engine, binaryPath }
-    };
-  }
-
-  if (visualConfig.pixelmatch?.includeAA !== true) {
-    return {
-      id: "native-visual-engine",
-      status: strictStatus(strict),
-      message:
-        "Native visual diff engine is configured, but visual.pixelmatch.includeAA is not true; audits will fall back to pixelmatch to preserve anti-aliased pixel handling.",
-      details: { engine, binaryPath }
-    };
-  }
-
-  if (isCiEnvironment(env) && !isTruthy(env.WQG_ALLOW_NATIVE_VISUAL_ENGINE)) {
-    return {
-      id: "native-visual-engine",
-      status: strictStatus(strict),
-      message:
-        "Native visual diff engine is requested in CI, but WQG_ALLOW_NATIVE_VISUAL_ENGINE=true is not set; audits will fall back to pixelmatch.",
-      details: { engine, binaryPath }
-    };
-  }
-
-  const probeFailure = await probeNativeVisualEngine(binaryPath, env);
-  if (probeFailure) {
-    return {
-      id: "native-visual-engine",
-      status: strictStatus(strict),
-      message: probeFailure,
-      details: { engine, binaryPath }
-    };
-  }
-
-  return {
-    id: "native-visual-engine",
-    status: "pass",
-    message: "Native visual diff engine passed the health probe for this environment.",
-    details: { engine, binaryPath }
-  };
-}
-
 function checkDirectory(id: string, label: string, directory: string): DoctorCheck {
   try {
     validateOutputDirectory(directory);
@@ -423,11 +265,11 @@ function checkDirectory(id: string, label: string, directory: string): DoctorChe
 export async function runDoctor(options: DoctorOptions): Promise<DoctorResult> {
   const cwd = process.cwd();
   const env = options.env ?? process.env;
+  assertSupportedVisualDiffEnvironment(env);
   const nodeRange = pkg.engines?.node ?? ">=22.19.0";
   const nodeVersion = options.nodeVersion ?? process.versions.node;
   const strict = Boolean(options.strict);
   const checks: DoctorCheck[] = [];
-  let visualConfig: Config["visual"] | null = null;
 
   checks.push({
     id: "node",
@@ -442,7 +284,6 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorResult> {
   const configPath = path.resolve(cwd, options.config);
   try {
     const config = await loadConfig(configPath, { policy: options.policy ?? null });
-    visualConfig = config.visual;
     checks.push({
       id: "config",
       status: "pass",
@@ -462,9 +303,6 @@ export async function runDoctor(options: DoctorOptions): Promise<DoctorResult> {
     });
   }
 
-  if (visualConfig) {
-    checks.push(await checkNativeVisualEngine(visualConfig, env, strict));
-  }
   checks.push(checkDirectory("out", "Output directory", path.resolve(cwd, options.out)));
   checks.push(
     checkDirectory("baseline", "Baseline directory", path.resolve(cwd, options.baselineDir))

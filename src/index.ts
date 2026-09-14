@@ -2,6 +2,7 @@ import path from "node:path";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { loadConfig } from "./config/loadConfig.js";
+import { assertSupportedVisualDiffEnvironment } from "./config/visualDiffMigration.js";
 import { captureScreenshots, runPlaywrightLifecycle } from "./runner/playwright.js";
 import { runAxeScan } from "./runner/axe.js";
 import { runLighthouseAudit } from "./runner/lighthouse.js";
@@ -283,10 +284,6 @@ async function runTargetAudit(params: {
 
   if (config.toggles.visual) {
     const visualDiffOptions: VisualDiffRuntimeOptions = {
-      ...(config.visual.engine ? { engine: config.visual.engine } : {}),
-      ...(config.visual.nativeBinaryPath
-        ? { nativeBinaryPath: config.visual.nativeBinaryPath }
-        : {}),
       ...(config.visual.pixelmatch ? { pixelmatch: config.visual.pixelmatch } : {}),
       ...(config.visual.ignoreRegions ? { ignoreRegions: config.visual.ignoreRegions } : {})
     };
@@ -456,6 +453,7 @@ export async function runAudit(
   url: string | undefined,
   options: AuditOptions
 ): Promise<{ exitCode: number; summary: Summary; summaryV2: AuditSummaryV2 }> {
+  assertSupportedVisualDiffEnvironment();
   const configPath = path.resolve(process.cwd(), options.config);
   const outDir = path.resolve(process.cwd(), options.out);
   const baselineDir = path.resolve(process.cwd(), options.baselineDir);

@@ -181,8 +181,6 @@ function createFullConfig() {
     toggles: { a11y: true, perf: true, visual: true },
     visual: {
       threshold: 0.01,
-      engine: "native-rust",
-      nativeBinaryPath: "native/bin/wqg-visual-diff",
       pixelmatch: { includeAA: true, threshold: 0.2 },
       ignoreRegions: [{ x: 5, y: 5, width: 10, height: 10 }]
     }
@@ -348,6 +346,36 @@ describe("runAudit orchestration", () => {
     expect(mockOpenPage).not.toHaveBeenCalled();
   });
 
+  it("rejects removed native engine environment requests before opening a browser", async () => {
+    const previousEngine = process.env.WQG_VISUAL_DIFF_ENGINE;
+    process.env.WQG_VISUAL_DIFF_ENGINE = "native-rust";
+
+    try {
+      const { runAudit } = await import("../src/index.js");
+      await expect(
+        runAudit("https://example.com", {
+          config: "configs/default.json",
+          out: "artifacts",
+          baselineDir: "baselines",
+          setBaseline: false,
+          failOnA11y: true,
+          failOnPerf: true,
+          failOnVisual: true,
+          verbose: false
+        })
+      ).rejects.toThrow('WQG_VISUAL_DIFF_ENGINE="native-rust" is no longer supported.');
+    } finally {
+      if (previousEngine === undefined) {
+        delete process.env.WQG_VISUAL_DIFF_ENGINE;
+      } else {
+        process.env.WQG_VISUAL_DIFF_ENGINE = previousEngine;
+      }
+    }
+
+    expect(mockLoadConfig).not.toHaveBeenCalled();
+    expect(mockOpenPage).not.toHaveBeenCalled();
+  });
+
   it("runs all enabled checks, rewrites paths, and writes both summary versions", async () => {
     const outDir = path.resolve(process.cwd(), "artifacts");
     const baselineDir = path.resolve(process.cwd(), "baselines");
@@ -474,8 +502,6 @@ describe("runAudit orchestration", () => {
       0.01,
       expect.anything(),
       {
-        engine: "native-rust",
-        nativeBinaryPath: "native/bin/wqg-visual-diff",
         pixelmatch: { includeAA: true, threshold: 0.2 },
         ignoreRegions: [{ x: 5, y: 5, width: 10, height: 10 }]
       }
