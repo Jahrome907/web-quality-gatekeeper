@@ -687,7 +687,7 @@ describe("CLI integration", () => {
     }
   }, 20000);
 
-  it("lets doctor warnings stay non-blocking unless --strict is set", async () => {
+  it("rejects removed native engine environment requests before doctor probes", async () => {
     const modeRoot = await mkdtemp(path.join(ROOT, ".tmp-int-doctor-strict-"));
     const args = [
       "doctor",
@@ -704,13 +704,9 @@ describe("CLI integration", () => {
     };
 
     try {
-      const warningRun = await runCli(cliPath, args, 15000, env);
-      expectCliSuccess(warningRun, "CLI doctor warning run");
-      expect(warningRun.stdout).toContain("Status: WARN");
-
-      const strictRun = await runCli(cliPath, [...args, "--strict"], 15000, env);
-      expect(strictRun.status).toBe(1);
-      expect(strictRun.stdout).toContain("Status: FAIL");
+      const run = await runCli(cliPath, args, 15000, env);
+      expect(run.status).toBe(1);
+      expect(run.stderr).toContain('WQG_VISUAL_DIFF_ENGINE="native-rust" is no longer supported.');
     } finally {
       await rm(modeRoot, { recursive: true, force: true });
     }

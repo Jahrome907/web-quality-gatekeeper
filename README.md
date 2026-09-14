@@ -9,6 +9,8 @@ Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Li
 
 These instructions target the published v4.0.0 release. For v3, use the [3.2.7 instructions](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v3.2.7/README.md). Upgrading users should read the [v4 migration guide](docs/migrations/v4.md).
 
+`main` contains unreleased breaking changes, including removal of the optional native visual-diff engine. Source users should read the [migration notes](docs/engineering/VISUAL_DIFF_BENCHMARK.md); published v4 packages and tags are unchanged.
+
 Set up and review visual baselines before enabling the normal gate:
 
 ```bash
@@ -132,7 +134,7 @@ The target host comes from the audit URL or config. Built-in policies supply pat
 
 ## Security
 
-Only audit sites you trust. Reports can contain page content, screenshots, URLs, and authenticated data. Internal/private targets are blocked by default in CI and authenticated runs unless explicitly allowed. Read [SECURITY.md](SECURITY.md) before using credentials, internal targets, or native binaries.
+Only audit sites you trust. Reports can contain page content, screenshots, URLs, and authenticated data. Internal/private targets are blocked by default in CI and authenticated runs unless explicitly allowed. Read [SECURITY.md](SECURITY.md) before using credentials or internal targets.
 
 ## Proof and contracts
 
@@ -145,7 +147,7 @@ Reproduce that bundle with [the fixture walkthrough](docs/case-study-run.md). Pu
 - [Architecture map](docs/engineering/ARCHITECTURE_MAP.md) and [testing matrix](docs/testing-matrix.md)
 - [Provenance](docs/provenance.md) and [SBOM](docs/sbom.md)
 - [Optional Python analytics tooling](tools/python/README.md) for case-study artifact post-processing; the core CLI and Action do not require Python
-- [Native visual-diff deprecation and measurements](docs/engineering/VISUAL_DIFF_BENCHMARK.md); existing configurations remain supported in 4.x. Use the default pixelmatch engine for new configurations.
+- [Native visual-diff removal: migration and measurements](docs/engineering/VISUAL_DIFF_BENCHMARK.md)
 - [Roadmap](docs/roadmap.md)
 
 ## Contributing

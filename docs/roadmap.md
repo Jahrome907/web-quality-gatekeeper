@@ -10,6 +10,6 @@ Current priorities:
 - improve useful reports and merge-review evidence without expanding the default artifact set
 - retain optional tooling only when consumer demand and measured results justify it
 
-The native Rust visual-diff engine is deprecated and will be removed in the next major release. Existing reviewed configurations remain supported in 4.x; new configurations should use pixelmatch. See the [measurements and retirement plan](engineering/VISUAL_DIFF_BENCHMARK.md).
+The unreleased development branch uses pixelmatch exclusively. Removal of the optional native Rust engine requires a major release; published 4.x releases are unchanged. See the [migration notes and measurements](engineering/VISUAL_DIFF_BENCHMARK.md).
 
 The project is not a hosted monitoring service, credential store, or remote run-history platform. Proposed work should fit the local CLI and GitHub Action model and include a testable consumer outcome.

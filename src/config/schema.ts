@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isAbsolute } from "node:path";
+import { NATIVE_VISUAL_DIFF_REMOVAL_GUIDANCE } from "./visualDiffMigration.js";
 
 // Security limits to prevent DoS
 const MAX_SCREENSHOTS = 50;
@@ -113,6 +114,39 @@ export const ScreenshotGallerySchema = z.object({
     .default(DEFAULT_SCREENSHOT_GALLERY_MAX_PER_PATH)
 });
 
+const VisualSettingsSchema = z
+  .object({
+    threshold: z.number().min(0).max(1),
+    pixelmatch: z
+      .object({
+        includeAA: z.boolean().default(DEFAULT_PIXELMATCH_INCLUDE_AA),
+        threshold: z.number().min(0).max(1).default(DEFAULT_PIXELMATCH_THRESHOLD)
+      })
+      .optional(),
+    ignoreRegions: z.array(VisualIgnoreRegionSchema).max(MAX_IGNORE_REGIONS).optional()
+  })
+  .passthrough()
+  .superRefine((visual, ctx) => {
+    if (visual.engine !== undefined && visual.engine !== DEFAULT_VISUAL_DIFF_ENGINE) {
+      ctx.addIssue({
+        code: "custom",
+        message: `visual.engine=${JSON.stringify(visual.engine)} is no longer supported. ${NATIVE_VISUAL_DIFF_REMOVAL_GUIDANCE}`
+      });
+    }
+    if (Object.prototype.hasOwnProperty.call(visual, "nativeBinaryPath")) {
+      ctx.addIssue({
+        code: "custom",
+        message: `visual.nativeBinaryPath is no longer supported. ${NATIVE_VISUAL_DIFF_REMOVAL_GUIDANCE}`
+      });
+    }
+  })
+  .transform((visual) => ({
+    threshold: visual.threshold,
+    engine: DEFAULT_VISUAL_DIFF_ENGINE,
+    ...(visual.pixelmatch ? { pixelmatch: visual.pixelmatch } : {}),
+    ...(visual.ignoreRegions ? { ignoreRegions: visual.ignoreRegions } : {})
+  }));
+
 export const ConfigSchema = z.object({
   extends: z
     .array(z.string().min(1).max(MAX_EXTENDS_REFERENCE_LENGTH))
@@ -156,20 +190,7 @@ export const ConfigSchema = z.object({
     }),
     formFactor: z.enum(["desktop", "mobile"] as const)
   }),
-  visual: z.object({
-    threshold: z.number().min(0).max(1),
-    engine: z
-      .enum(["pixelmatch", "native-rust", "native-rust-spike"])
-      .default(DEFAULT_VISUAL_DIFF_ENGINE),
-    nativeBinaryPath: z.string().min(1).max(500).optional(),
-    pixelmatch: z
-      .object({
-        includeAA: z.boolean().default(DEFAULT_PIXELMATCH_INCLUDE_AA),
-        threshold: z.number().min(0).max(1).default(DEFAULT_PIXELMATCH_THRESHOLD)
-      })
-      .optional(),
-    ignoreRegions: z.array(VisualIgnoreRegionSchema).max(MAX_IGNORE_REGIONS).optional()
-  }),
+  visual: VisualSettingsSchema,
   toggles: z.object({
     a11y: z.boolean(),
     perf: z.boolean(),

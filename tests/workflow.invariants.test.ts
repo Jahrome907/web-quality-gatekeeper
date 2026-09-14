@@ -26,7 +26,6 @@ it("ships an intact baseline for the required Pages preview visual gate", () => 
 
 const WORKFLOW_FILES = [
   ".github/workflows/action-smoke.yml",
-  ".github/workflows/native-visual-diff.yml",
   ".github/workflows/npm-pack-smoke.yml",
   ".github/workflows/npm-publish.yml",
   ".github/workflows/pages.yml",
@@ -505,49 +504,6 @@ describe("workflow invariants", () => {
     expect(source).toContain('if ! BUNDLE_OUTPUT="$(validate_completed_bundle)"; then');
     expect(source).toContain('echo "bundle-complete=true"');
     expect(source).toContain('exit "$AUDIT_EXIT"');
-  });
-
-  it("runs native visual diff smoke when its implementation or smoke script changes", () => {
-    const source = readRepoFile(".github/workflows/native-visual-diff.yml");
-    const buildSource = readRepoFile("scripts/ci/native-visual-diff-build.mjs");
-    const smokeSource = readRepoFile("scripts/ci/native-visual-diff-smoke.mjs");
-
-    expect(source).toContain("Setup Node");
-    expect(source).toContain("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020");
-    expect(source).toContain("node-version: 24");
-    expect(source).toContain("package-manager-cache: false");
-    expect(source).toContain("src/runner/nativeVisualDiffSupport.ts");
-    expect(source).toContain("scripts/ci/native-visual-diff-build.mjs");
-    expect(source).toContain("scripts/ci/native-visual-diff-smoke.mjs");
-    expect(source).toContain(
-      [
-        "      - name: Test native visual diff engine",
-        "        timeout-minutes: 10",
-        "        run: cargo test --manifest-path native/wqg-visual-diff-native/Cargo.toml --locked"
-      ].join("\n")
-    );
-    expect(source).toContain(
-      [
-        "      - name: Build native visual diff engine",
-        "        timeout-minutes: 10",
-        "        run: npm run native:visual-diff:build"
-      ].join("\n")
-    );
-    expect(source).toContain(
-      [
-        "      - name: Smoke native visual diff binary",
-        "        timeout-minutes: 2",
-        "        run: npm run native:visual-diff:smoke"
-      ].join("\n")
-    );
-    expect(source).toContain("npm run native:visual-diff:smoke");
-    expect(buildSource).toContain("WQG_CARGO_BIN");
-    expect(buildSource).toContain("cargo.exe");
-    expect(buildSource).toContain('"--locked"');
-    expect(smokeSource).toContain("WQG_VISUAL_DIFF_NATIVE_BIN");
-    expect(smokeSource).toContain("NATIVE_VISUAL_DIFF_SMOKE_TIMEOUT_MS");
-    expect(smokeSource).toContain("timeout: NATIVE_VISUAL_DIFF_SMOKE_TIMEOUT_MS");
-    expect(smokeSource).toContain("if (result.error)");
   });
 
   it("keeps npm pack smoke coverage on a cross-platform matrix", () => {

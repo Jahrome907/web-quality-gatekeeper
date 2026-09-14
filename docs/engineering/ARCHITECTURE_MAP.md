@@ -14,8 +14,7 @@ main subsystems in `web-quality-gatekeeper`.
      signals.
    - `axe.ts` runs accessibility scans.
    - `lighthouse.ts` runs performance audits.
-   - `visualDiff*.ts` manages baseline comparisons and the optional native
-     adapter seam.
+   - `visualDiff.ts` compares screenshots with reviewed baselines using pixelmatch.
 4. `src/report/*` converts runner output into HTML, Markdown, `summary.json`,
    `summary.v2.json`, and PR Risk Ledger artifacts.
 5. `action.yml`, `.github/workflows/*`, and `scripts/ci/*` verify how the
@@ -28,8 +27,7 @@ main subsystems in `web-quality-gatekeeper`.
 - `src/cli.ts`: CLI flag definitions, environment defaults, and exit-code
   behavior.
 - `src/doctor.ts`: local prerequisite checks for Node.js, config validity, safe
-  paths, browser availability, and native visual diff readiness, including the
-  native engine health probe used by `wqg doctor --strict`.
+  paths, and browser availability.
 - `src/config/*`: default config, schema validation, built-in policies, and
   config inheritance.
 - `src/utils/url.ts`: SSRF-aware target classification, internal-target
@@ -52,8 +50,7 @@ Change here when:
   console/network signals.
 - `src/runner/lighthouse.ts`: Chrome launch, Lighthouse execution, metrics, and
   portable runtime handling.
-- `src/runner/visualDiff.ts` and `src/runner/visualDiffEngine.ts`: baseline
-  loading, diffing, and JS/native engine selection.
+- `src/runner/visualDiff.ts`: baseline loading, normalization, and pixel-level comparisons.
 
 Change here when:
 

@@ -2,6 +2,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { PNG } from "pngjs";
+import pixelmatch from "pixelmatch";
 import { DEFAULT_PIXELMATCH_INCLUDE_AA, DEFAULT_PIXELMATCH_THRESHOLD } from "../config/schema.js";
 import {
   copyFileSafe,
@@ -12,11 +13,9 @@ import {
 } from "../utils/fs.js";
 import type { Logger } from "../utils/logger.js";
 import type { ScreenshotResult } from "./playwright.js";
-import {
-  computeVisualDiff,
-  type ConfiguredVisualDiffEngineName,
-  type VisualDiffEngineName
-} from "./visualDiffEngine.js";
+
+// Retain the historic value so consumers can read existing v2 reports.
+export type VisualDiffEngineName = "pixelmatch" | "native-rust";
 
 // Security: Baseline manifest for integrity verification
 interface BaselineManifest {
@@ -141,8 +140,6 @@ export interface VisualIgnoreRegion {
 }
 
 export interface VisualDiffRuntimeOptions {
-  engine?: ConfiguredVisualDiffEngineName;
-  nativeBinaryPath?: string;
   pixelmatch?: Partial<PixelmatchRuntimeOptions>;
   ignoreRegions?: VisualIgnoreRegion[];
 }
@@ -403,21 +400,16 @@ export async function runVisualDiff(
       ignoreRegions
     );
 
-    const engineOptions = {
-      includeAA: pixelmatchIncludeAA,
-      threshold: pixelmatchThreshold,
-      logger,
-      ...(options.engine ? { engine: options.engine } : {}),
-      ...(options.nativeBinaryPath ? { nativeBinaryPath: options.nativeBinaryPath } : {})
-    };
-
-    const { diffPixels, engine } = await computeVisualDiff(
+    const diffPixels = pixelmatch(
       baselineNormalized.data,
       currentNormalized.data,
       diff.data,
       width,
       height,
-      engineOptions
+      {
+        includeAA: pixelmatchIncludeAA,
+        threshold: pixelmatchThreshold
+      }
     );
 
     const mismatchRatio = calculateMismatchRatio(diffPixels, width, height, ignoredPixels);
@@ -435,7 +427,7 @@ export async function runVisualDiff(
       diffPath,
       mismatchRatio,
       status: "diffed",
-      engine
+      engine: "pixelmatch"
     });
   }
 

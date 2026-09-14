@@ -1,9 +1,19 @@
-# Visual diff engines and benchmarks
+# Native visual-diff removal
 
-`pixelmatch` is the default engine. The optional `native-rust` engine is deprecated
-and will be retired in the next major release. Existing native configurations,
-binary execution, fallback behavior, and security checks remain supported in 4.x.
-See [the retirement plan](https://github.com/Jahrome907/web-quality-gatekeeper/issues/133).
+The unreleased development branch uses pixelmatch only. Native Rust execution,
+its build tooling, and its CI workflow have been removed for the next major
+release. Published 4.x packages and tags are unchanged.
+
+## Migrate a native configuration
+
+- Remove `visual.engine` (or set it to `pixelmatch`) and remove `visual.nativeBinaryPath`.
+- Unset `WQG_VISUAL_DIFF_ENGINE` if it selects `native-rust` or `native-rust-spike`.
+- Remove `WQG_VISUAL_DIFF_NATIVE_BIN`, `WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS`, `WQG_ALLOW_NATIVE_VISUAL_ENGINE`, and `WQG_ALLOW_SCRIPT_NATIVE_ENGINE` from your environment and workflows.
+- Run an audit with your existing baselines and review any changed comparison results. Do not regenerate baselines merely to make a failure pass.
+
+Legacy engine selections fail with migration guidance instead of silently changing
+the engine. Default pixelmatch configurations need no change. Historical reports
+that record `native-rust` remain valid under the existing summary schema.
 
 ## Measured result
 
@@ -27,37 +37,3 @@ run-to-run variation. These results provide no demonstrated benefit for expandin
 the integration. They come from one Windows x64 host running Node 22.22.3, with
 warm caches and uncontrolled host load; they do not establish cross-platform
 performance or include screenshot capture time.
-
-## Existing synthetic benchmark
-
-[The harness](../../benchmarks/visual-diff-benchmark.mjs) compares synthetic RGBA
-fixtures, including native process and temporary-file overhead. It does not
-include PNG decoding and encoding. [The sample result](../../benchmarks/results/visual-diff-benchmark.sample.json)
-is historical and uses this narrower measurement.
-
-```bash
-node benchmarks/visual-diff-benchmark.mjs --iterations 5 --out artifacts/visual-bench.json
-
-npm run native:visual-diff:build
-node benchmarks/visual-diff-benchmark.mjs \
-  --iterations 5 \
-  --native-bin native/wqg-visual-diff-native/target/release/wqg-visual-diff-native \
-  --out artifacts/visual-bench.json
-```
-
-On Windows, the compiled binary has an `.exe` extension.
-
-## Native compatibility in 4.x
-
-Native execution requires `visual.pixelmatch.includeAA: true`; unsupported or
-unavailable native execution falls back to pixelmatch. The default installation
-has no native download or required Rust toolchain.
-
-The [Rust binary](../../native/wqg-visual-diff-native/src/main.rs) accepts
-`--width`, `--height`, `--baseline`, `--current`, `--diff-out`, and `--threshold`.
-The three file arguments use normalized raw RGBA buffers of `width * height * 4`
-bytes. Standard output is a JSON object containing `diffPixels`.
-
-Existing users can keep their reviewed binary configuration during 4.x. For new
-configurations, use pixelmatch. Consult [SECURITY.md](../../SECURITY.md) before
-allowing native binary execution.

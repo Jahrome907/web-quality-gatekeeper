@@ -44,7 +44,6 @@ Use the relevant smoke check when a change crosses a distribution boundary:
 - `npm run smoke:action` for `action.yml` or consumer Action behavior
 - `npm run smoke:pack` for packaged files or CLI installation
 - `npm run python:smoke` for the optional Python analytics bundle
-- `npm run native:visual-diff:smoke` for the Rust adapter path
 - `npm run release:dry-run` for release preparation
 
 `npm run validate:full` is the comprehensive engine, lint, type, build, test, and dependency-audit gate. Do not treat a skipped optional smoke as release evidence.
