@@ -1,19 +1,8 @@
-# Native visual-diff removal
+# Native visual-diff measurements
 
-The unreleased development branch uses pixelmatch only. Native Rust execution,
-its build tooling, and its CI workflow have been removed for the next major
-release. Published 4.x packages and tags are unchanged.
-
-## Migrate a native configuration
-
-- Remove `visual.engine` (or set it to `pixelmatch`) and remove `visual.nativeBinaryPath`.
-- Unset `WQG_VISUAL_DIFF_ENGINE` if it selects `native-rust` or `native-rust-spike`.
-- Remove `WQG_VISUAL_DIFF_NATIVE_BIN`, `WQG_VISUAL_DIFF_NATIVE_TIMEOUT_MS`, `WQG_ALLOW_NATIVE_VISUAL_ENGINE`, and `WQG_ALLOW_SCRIPT_NATIVE_ENGINE` from your environment and workflows.
-- Run an audit with your existing baselines and review any changed comparison results. Do not regenerate baselines merely to make a failure pass.
-
-Legacy engine selections fail with migration guidance instead of silently changing
-the engine. Default pixelmatch configurations need no change. Historical reports
-that record `native-rust` remain valid under the existing summary schema.
+Version 5 removes the optional Rust engine after the comparison below found no
+dependable benefit. See the [v5 migration guide](../migrations/v5.md) for native
+configuration changes. Published 4.x tags retain their original behavior.
 
 ## Measured result
 

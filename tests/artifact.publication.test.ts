@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { buildConsumerWorkflow } from "../src/init/templates.js";
 
 const root = path.resolve(import.meta.dirname, "..");
-const v4Sources = [
+const consumerSources = [
   ["scaffold", buildConsumerWorkflow()],
   ["README", readFileSync(path.join(root, "README.md"), "utf8")],
   ["website", readFileSync(path.join(root, "docs/index.html"), "utf8").replaceAll("&amp;", "&")],
@@ -13,13 +13,13 @@ const v4Sources = [
 ];
 
 describe("artifact publication", () => {
-  for (const [name, source] of v4Sources) {
-    it(`${name} publishes only a completed, eligible v4 artifact list`, () => {
+  for (const [name, source] of consumerSources) {
+    it(`${name} publishes only a completed, eligible artifact list`, () => {
       const condition = source!
         .split("\n")
         .find((line) => line.includes("if: always()"))!
         .split("if: ")[1]!;
-      expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v4");
+      expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v5");
       expect(source).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
       expect(source).not.toContain("path: artifacts/");
       expect(source).toContain("if-no-files-found: error");

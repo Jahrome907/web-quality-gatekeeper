@@ -113,7 +113,7 @@ describe("workflow invariants", () => {
           (value): value is string =>
             typeof value === "string" &&
             !value.startsWith("./") &&
-            value !== "Jahrome907/web-quality-gatekeeper@v4"
+            value !== "Jahrome907/web-quality-gatekeeper@v5"
         );
 
       expect(externalUses, `${relativePath} contains unpinned external actions`).toSatisfy(
@@ -679,10 +679,10 @@ describe("workflow invariants", () => {
     expect(publishRuntime).toContain('"npm.cmd --version"');
   });
 
-  it("keeps the v4 consumer workflow aligned with repo pinning policy", () => {
+  it("keeps the consumer workflow aligned with repo pinning policy", () => {
     const source = readRepoFile("examples/consumer-workflow.yml");
 
-    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v4");
+    expect(source).toContain("uses: Jahrome907/web-quality-gatekeeper@v5");
     expect(source).toContain("id: wqg");
     expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
     expect(source).toContain("# v6.0.3");
