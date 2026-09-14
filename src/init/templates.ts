@@ -54,7 +54,8 @@ export function buildConsumerWorkflow(options: ConsumerTemplateOptions = {}): st
     ? yamlSingleQuote(options.url)
     : "${{ vars.WQG_URL || 'https://your-site.example' }}";
 
-  return `name: Web Quality Gate
+  return `# Requires the published v5 Action before use.
+name: Web Quality Gate
 
 on:
   pull_request:
@@ -76,7 +77,7 @@ jobs:
         with:
           persist-credentials: false
       - id: wqg
-        uses: Jahrome907/web-quality-gatekeeper@v4
+        uses: Jahrome907/web-quality-gatekeeper@v5
         with:
           url: ${urlValue}
           config-path: .github/web-quality/config.json
@@ -116,7 +117,7 @@ This directory contains the Web Quality Gatekeeper consumer configuration for th
 
 ${targetLine}
 
-The generated workflow targets the published v4 Action and uploads only the files listed by
+The generated workflow targets v5 and requires its publication before use. It uploads only the files listed by
 \`artifact-paths\` when \`bundle-complete=true\` and \`sensitive-audit=false\`.
 Incomplete audits never publish artifacts, even with a sensitivity override.
 Baseline images remain in the repository and are not included in this download. Set
@@ -127,7 +128,7 @@ Before the first CI run, install the CLI and explicitly create visual baselines
 from the intended page state:
 
 \`\`\`bash
-npm install --save-dev web-quality-gatekeeper@^4
+npm install --save-dev web-quality-gatekeeper@^5
 npx playwright install chromium
 npx wqg audit --config .github/web-quality/config.json --baseline-dir .github/web-quality/baselines --set-baseline
 \`\`\`

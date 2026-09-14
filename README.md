@@ -7,14 +7,12 @@
 
 Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual comparisons in one CI job. It produces an HTML report plus JSON and Markdown artifacts for automation.
 
-These instructions target the published v4.0.0 release. For v3, use the [3.2.7 instructions](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v3.2.7/README.md). Upgrading users should read the [v4 migration guide](docs/migrations/v4.md).
-
-`main` contains unreleased breaking changes, including removal of the optional native visual-diff engine. Source users should read the [migration notes](docs/engineering/VISUAL_DIFF_BENCHMARK.md); published v4 packages and tags are unchanged.
+These instructions target 5.0.0. The npm and `@v5` examples require its publication; check [Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) and [npm](https://www.npmjs.com/package/web-quality-gatekeeper) before using them. For the published v4 line, use the [4.0.0 instructions](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v4.0.0/README.md). Read the [v5 migration guide](docs/migrations/v5.md) when upgrading a native visual-diff configuration.
 
 Set up and review visual baselines before enabling the normal gate:
 
 ```bash
-npm install --save-dev web-quality-gatekeeper@^4
+npm install --save-dev web-quality-gatekeeper@^5
 npx playwright install chromium
 npx wqg audit https://your-site.example --set-baseline --baseline-dir .github/web-quality/baselines
 # review the resulting baseline images, then commit them
@@ -45,7 +43,7 @@ jobs:
         with:
           persist-credentials: false
       - id: wqg
-        uses: Jahrome907/web-quality-gatekeeper@v4
+        uses: Jahrome907/web-quality-gatekeeper@v5
         with:
           url: https://your-site.example
           baseline-dir: .github/web-quality/baselines

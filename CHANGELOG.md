@@ -9,9 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0]
+
 ### Removed
 
-- Remove the optional native Rust visual-diff engine, its executable adapter, and its build tooling. This is a breaking change for the next major release. Use pixelmatch and follow the [configuration migration](docs/engineering/VISUAL_DIFF_BENCHMARK.md).
+- Remove the optional native Rust visual-diff engine and its tooling. Use pixelmatch; see the [migration guide](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v5.0.0/docs/migrations/v5.md).
 
 ### Fixed
 

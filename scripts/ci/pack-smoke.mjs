@@ -179,7 +179,7 @@ async function runPackSmoke() {
       "WQG_SENSITIVE_AUDIT",
       "WQG_ALLOW_SENSITIVE_OUTPUTS",
       "id: wqg",
-      "Jahrome907/web-quality-gatekeeper@v4",
+      "Jahrome907/web-quality-gatekeeper@v5",
       "path: ${{ steps.wqg.outputs.artifact-paths }}",
       "steps.wqg.outputs.bundle-complete == 'true'",
       "steps.wqg.outputs.sensitive-audit == 'false'"

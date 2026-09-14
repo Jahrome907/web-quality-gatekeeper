@@ -140,14 +140,14 @@
         Lighthouse budgets, and visual comparisons. Each run produces an HTML report plus stable
         JSON and Markdown artifacts for CI.
       </p>
-      <p>Examples target v4. Check <a href="https://github.com/Jahrome907/web-quality-gatekeeper/releases">Releases</a> and <a href="https://www.npmjs.com/package/web-quality-gatekeeper">npm</a> for availability. Upgrading from v3? Read the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/migrations/v4.md">migration guide</a>.</p>
+      <p>Examples target 5.0.0 and require its publication before use. Check <a href="https://github.com/Jahrome907/web-quality-gatekeeper/releases">Releases</a> and <a href="https://www.npmjs.com/package/web-quality-gatekeeper">npm</a> for availability. Read the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/migrations/v5.md">migration guide</a> when upgrading a native configuration.</p>
       <div class="actions">
         <a class="button primary" href="#install">Use the GitHub Action</a>
         <a class="button" href="proof/fixture-report.html">Open the sample report</a>
       </div>
       <table class="availability" aria-label="Supported entry points">
         <tbody>
-          <tr><th scope="row">GitHub Action</th><td class="available">Targets <code>@v4</code></td></tr>
+          <tr><th scope="row">GitHub Action</th><td class="available">Targets <code>@v5</code></td></tr>
           <tr><th scope="row">Local CLI</th><td>Install from npm with Node.js 22.19 or later</td></tr>
         </tbody>
       </table>
@@ -179,7 +179,7 @@
   with:
     persist-credentials: false
 - id: wqg
-  uses: Jahrome907/web-quality-gatekeeper@v4
+  uses: Jahrome907/web-quality-gatekeeper@v5
   with:
     url: https://your-site.example
     baseline-dir: .github/web-quality/baselines
@@ -213,7 +213,7 @@
       </p>
       <h2>Install the CLI</h2>
       <p>The <a href="https://www.npmjs.com/package/web-quality-gatekeeper">npm package</a> is available for Node.js 22.19 or later.</p>
-      <pre tabindex="0" aria-label="npm CLI installation"><code>npm install --save-dev web-quality-gatekeeper@^4
+      <pre tabindex="0" aria-label="npm CLI installation"><code>npm install --save-dev web-quality-gatekeeper@^5
 npx playwright install chromium
 npx wqg audit https://your-site.example --set-baseline --baseline-dir .github/web-quality/baselines
 # review the resulting baseline images, then commit them
@@ -228,7 +228,7 @@ npx wqg audit https://your-site.example --baseline-dir .github/web-quality/basel
         or review the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/case-study/public-oss-repro.md">public comparison protocol</a>.
       </p>
       <p>
-        The unreleased development branch removes the optional native Rust engine; published 4.x releases are unchanged.
+        Version 5 uses pixelmatch exclusively; published 4.x releases are unchanged.
         See the <a href="https://github.com/Jahrome907/web-quality-gatekeeper/blob/main/docs/engineering/VISUAL_DIFF_BENCHMARK.md">migration notes and measurements</a> before upgrading a native configuration.
       </p>
     </main>

@@ -55,9 +55,11 @@ Version 4 preserves the inputs and outputs above and adds:
 - `bundle-complete`: `true` only for a completed current audit, including a completed audit that fails a quality budget.
 - `artifact-paths`: a newline-separated list of generated files belonging to that completed audit.
 
-The [v4 example](../../examples/consumer-workflow.yml) requires completion and an eligible sensitivity result before uploading that list. A publication override does not make an incomplete audit publishable. Published `@v4` provides these outputs. Published `@v3` does not provide them and remains on its own major line.
+The [v4 example](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v4.0.0/examples/consumer-workflow.yml) requires completion and an eligible sensitivity result before uploading that list. A publication override does not make an incomplete audit publishable. Published `@v4` provides these outputs. Published `@v3` does not provide them and remains on its own major line.
 
 Version 4 intentionally changes missing-baseline and legacy output-directory handling. Follow the [v4 migration guide](../migrations/v4.md). Report schema versions and URIs are unchanged; these CLI transitions do not introduce a new JSON schema major.
+
+Version 5 retains these Action outputs and report schemas. It removes native visual-diff configuration; see the [v5 migration guide](../migrations/v5.md). The [current example](../../examples/consumer-workflow.yml) targets v5 and requires its publication before use.
 
 ## Change rules
 

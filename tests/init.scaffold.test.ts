@@ -25,7 +25,7 @@ describe("consumer init scaffold", () => {
       ).resolves.toContain('"policy:marketing"');
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
-      ).resolves.toContain("Jahrome907/web-quality-gatekeeper@v4");
+      ).resolves.toContain("Jahrome907/web-quality-gatekeeper@v5");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
       ).resolves.toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
@@ -101,7 +101,7 @@ describe("consumer init scaffold", () => {
       expect(workflow).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
       expect(workflow).not.toContain("path: artifacts/");
       expect(readme).toContain("The scaffold is pinned to `https://app.example.com/?a=1&b=2`");
-      expect(readme).toContain("web-quality-gatekeeper@^4");
+      expect(readme).toContain("web-quality-gatekeeper@^5");
       expect(readme).toContain("--set-baseline");
       expect(readme).toContain("CI does not silently create them.");
       expect(readme).not.toContain("wqg audit 'https://app.example.com/?a=1&b=2'");
