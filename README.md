@@ -145,7 +145,7 @@ Reproduce that bundle with [the fixture walkthrough](docs/case-study-run.md). Pu
 - [Architecture map](docs/engineering/ARCHITECTURE_MAP.md) and [testing matrix](docs/testing-matrix.md)
 - [Provenance](docs/provenance.md) and [SBOM](docs/sbom.md)
 - [Optional Python analytics tooling](tools/python/README.md) for case-study artifact post-processing; the core CLI and Action do not require Python
-- [Experimental source-only Rust visual-diff benchmark](docs/engineering/VISUAL_DIFF_BENCHMARK.md); the TypeScript engine remains the shipped default
+- [Native visual-diff deprecation and measurements](docs/engineering/VISUAL_DIFF_BENCHMARK.md); existing configurations remain supported in 4.x. Use the default pixelmatch engine for new configurations.
 - [Roadmap](docs/roadmap.md)
 
 ## Contributing

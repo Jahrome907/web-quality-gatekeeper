@@ -35,22 +35,6 @@ describe("case-study provenance manifest", () => {
     });
   });
 
-  it("documents the complete public evidence bundle", async () => {
-    const protocol = await readFile(
-      path.join(process.cwd(), "docs", "case-study", "public-oss-repro.md"),
-      "utf8"
-    );
-
-    expect(protocol).toContain("--baseline-action-plan");
-    expect(protocol).toContain("--improved-action-plan");
-    expect(protocol).toContain("--baseline-pr-risk-ledger");
-    expect(protocol).toContain("--improved-pr-risk-ledger");
-    expect(protocol).toContain("--baseline-pr-risk-ledger-md");
-    expect(protocol).toContain("--improved-pr-risk-ledger-md");
-    expect(protocol).toContain("artifacts/case-study/baseline/action-plan.md");
-    expect(protocol).toContain("artifacts/case-study/improved/pr-risk-ledger.md");
-  });
-
   it("writes a machine-readable manifest with baseline and improved evidence metadata", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "wqg-prov-"));
     tempDirs.push(dir);

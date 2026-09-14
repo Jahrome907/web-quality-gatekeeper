@@ -1,8 +1,9 @@
 # Native Visual Diff Engine
 
-This crate is an optional Rust-backed visual diff engine for Web Quality Gatekeeper.
-It is source-checkout tooling for benchmarks and reviewed opt-in audits; it is not distributed in
-the npm package.
+This optional engine is deprecated and will be removed in the next major release.
+Existing reviewed configurations remain supported in 4.x; use pixelmatch for new
+configurations. See the [measurements and retirement plan](../../docs/engineering/VISUAL_DIFF_BENCHMARK.md).
+The crate is not distributed in the npm package.
 
 ## What It Does
 
