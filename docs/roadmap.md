@@ -10,6 +10,6 @@ Current priorities:
 - improve useful reports and merge-review evidence without expanding the default artifact set
 - retain optional tooling only when consumer demand and measured results justify it
 
-The Rust visual-diff track is experimental and source-only; its benchmark and fallback behavior are documented in [VISUAL_DIFF_BENCHMARK.md](engineering/VISUAL_DIFF_BENCHMARK.md). The TypeScript engine is the shipped default.
+The native Rust visual-diff engine is deprecated and will be removed in the next major release. Existing reviewed configurations remain supported in 4.x; new configurations should use pixelmatch. See the [measurements and retirement plan](engineering/VISUAL_DIFF_BENCHMARK.md).
 
 The project is not a hosted monitoring service, credential store, or remote run-history platform. Proposed work should fit the local CLI and GitHub Action model and include a testable consumer outcome.
