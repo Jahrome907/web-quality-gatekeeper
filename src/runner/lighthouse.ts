@@ -277,6 +277,7 @@ function getChromeFlags(): string[] {
 
 interface PortableLighthouseRuntime {
   restore: () => Promise<void>;
+  envVars?: Record<string, string | undefined>;
   userDataDir?: string;
 }
 
@@ -309,53 +310,54 @@ async function disconnectPuppeteerBrowser(
   }
 }
 
-async function applyPortableLighthouseEnv(
+async function createPortableLighthouseRuntime(
   outDir: string,
   logger: Logger
 ): Promise<PortableLighthouseRuntime> {
-  const previousLocalDataRoot = process.env[LOCAL_DATA_ENV_KEY];
-  const previousTemp = process.env.TEMP;
-  const previousTmp = process.env.TMP;
-
   if (process.platform === "win32") {
     return { restore: async () => {} };
   }
 
   await mkdir(outDir, { recursive: true });
-  const runtimeRoot = await mkdtemp(path.join(outDir, ".lighthouse-runtime-"));
-  const portableLocalDataRoot = path.join(runtimeRoot, "localdata");
-  const portableTemp = path.join(runtimeRoot, "temp");
-  const portableProfile = path.join(runtimeRoot, "profile");
-  await mkdir(portableLocalDataRoot, { recursive: true });
-  await mkdir(portableTemp, { recursive: true });
-  await mkdir(portableProfile, { recursive: true });
+  let runtimeRoot: string | null = null;
+  try {
+    runtimeRoot = await mkdtemp(path.join(outDir, ".lighthouse-runtime-"));
+    const portableLocalDataRoot = path.join(runtimeRoot, "localdata");
+    const portableTemp = path.join(runtimeRoot, "temp");
+    const portableProfile = path.join(runtimeRoot, "profile");
+    await mkdir(portableLocalDataRoot, { recursive: true });
+    await mkdir(portableTemp, { recursive: true });
+    await mkdir(portableProfile, { recursive: true });
+    const createdRuntimeRoot = runtimeRoot;
 
-  process.env[LOCAL_DATA_ENV_KEY] = portableLocalDataRoot;
-  process.env.TEMP = portableTemp;
-  process.env.TMP = portableTemp;
-  logger.debug(`Using portable Lighthouse runtime root at ${runtimeRoot}`);
+    logger.debug(`Using portable Lighthouse runtime root at ${runtimeRoot}`);
 
-  return {
-    userDataDir: portableProfile,
-    restore: async () => {
-      if (previousLocalDataRoot === undefined) {
-        delete process.env[LOCAL_DATA_ENV_KEY];
-      } else {
-        process.env[LOCAL_DATA_ENV_KEY] = previousLocalDataRoot;
+    return {
+      envVars: {
+        ...process.env,
+        [LOCAL_DATA_ENV_KEY]: portableLocalDataRoot,
+        TEMP: portableTemp,
+        TMP: portableTemp
+      },
+      userDataDir: portableProfile,
+      restore: async () => {
+        await rm(createdRuntimeRoot, { recursive: true, force: true });
       }
-      if (previousTemp === undefined) {
-        delete process.env.TEMP;
-      } else {
-        process.env.TEMP = previousTemp;
+    };
+  } catch (error) {
+    if (runtimeRoot) {
+      try {
+        await rm(runtimeRoot, { recursive: true, force: true });
+      } catch (cleanupError) {
+        logger.debug(
+          `Ignoring Lighthouse runtime setup cleanup failure: ${
+            cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+          }`
+        );
       }
-      if (previousTmp === undefined) {
-        delete process.env.TMP;
-      } else {
-        process.env.TMP = previousTmp;
-      }
-      await rm(runtimeRoot, { recursive: true, force: true });
     }
-  };
+    throw error;
+  }
 }
 
 /**
@@ -440,247 +442,254 @@ export async function runLighthouseAudit(
   options: LighthouseRunOptions = {}
 ): Promise<LighthouseSummary> {
   logger.debug("Running Lighthouse audit");
-  const runtime = await applyPortableLighthouseEnv(outDir, logger);
-  const initialTarget = options.targetPolicy
-    ? await resolveAuditedTarget(url, logger, options.targetPolicy, {
-        context: "Lighthouse target"
-      })
-    : null;
-  const authHeaders = buildLighthouseHeaders(auth);
-  const authTargetUrl = initialTarget?.url ?? url;
-  const chromePath = resolveChromePath();
-  if (chromePath) {
-    logger.debug(`Using Chrome at: ${chromePath}`);
-  }
-
-  async function runAttempt(
-    auditUrl: string,
-    launchHostResolverRules: string | null,
-    launchPinnedHostResolverRules: Map<string, string | null>
-  ): Promise<LighthouseAttemptResult> {
-    const resolverSnapshot = createResolverLaunchSnapshot(
-      launchPinnedHostResolverRules,
-      launchHostResolverRules
-    );
-    const chromeFlags = getChromeFlags();
-    const resolverRuleArgument = buildHostResolverRuleArgument(
-      resolverSnapshot.hostResolverRules,
-      "Lighthouse",
-      normalizeUrlHostname(auditUrl)
-    );
-    if (resolverRuleArgument) {
-      chromeFlags.push(resolverRuleArgument);
+  const runtime = await createPortableLighthouseRuntime(outDir, logger);
+  try {
+    const initialTarget = options.targetPolicy
+      ? await resolveAuditedTarget(url, logger, options.targetPolicy, {
+          context: "Lighthouse target"
+        })
+      : null;
+    const authHeaders = buildLighthouseHeaders(auth);
+    const authTargetUrl = initialTarget?.url ?? url;
+    const chromePath = resolveChromePath();
+    if (chromePath) {
+      logger.debug(`Using Chrome at: ${chromePath}`);
     }
-    const chrome = await launch({
-      chromeFlags,
-      ...(runtime.userDataDir ? { userDataDir: runtime.userDataDir } : {}),
-      ...(chromePath ? { chromePath } : {})
-    });
-    let puppeteerBrowser: PuppeteerBrowserLike | null = null;
-    let puppeteerPage: PuppeteerPageLike | null = null;
-    let blockedRequestError: Error | null = null;
-    try {
-      const activePinnedHosts = resolverSnapshot.pinnedHosts;
-      const pendingResolverVerifications = new Map<string, Promise<VerifiedAuditTarget | null>>();
-      const navigationTargetVerifier = new NavigationTargetVerifier(logger, options.targetPolicy, {
-        initialTrustedHosts: activePinnedHosts,
-        trustResolvedHosts: false
+
+    async function runAttempt(
+      auditUrl: string,
+      launchHostResolverRules: string | null,
+      launchPinnedHostResolverRules: Map<string, string | null>
+    ): Promise<LighthouseAttemptResult> {
+      const resolverSnapshot = createResolverLaunchSnapshot(
+        launchPinnedHostResolverRules,
+        launchHostResolverRules
+      );
+      const chromeFlags = getChromeFlags();
+      const resolverRuleArgument = buildHostResolverRuleArgument(
+        resolverSnapshot.hostResolverRules,
+        "Lighthouse",
+        normalizeUrlHostname(auditUrl)
+      );
+      if (resolverRuleArgument) {
+        chromeFlags.push(resolverRuleArgument);
+      }
+      const chrome = await launch({
+        chromeFlags,
+        ...(runtime.envVars ? { envVars: runtime.envVars } : {}),
+        ...(runtime.userDataDir ? { userDataDir: runtime.userDataDir } : {}),
+        ...(chromePath ? { chromePath } : {})
       });
+      let puppeteerBrowser: PuppeteerBrowserLike | null = null;
+      let puppeteerPage: PuppeteerPageLike | null = null;
+      let blockedRequestError: Error | null = null;
+      try {
+        const activePinnedHosts = resolverSnapshot.pinnedHosts;
+        const pendingResolverVerifications = new Map<string, Promise<VerifiedAuditTarget | null>>();
+        const navigationTargetVerifier = new NavigationTargetVerifier(
+          logger,
+          options.targetPolicy,
+          {
+            initialTrustedHosts: activePinnedHosts,
+            trustResolvedHosts: false
+          }
+        );
 
-      if (options.targetPolicy || authHeaders) {
-        const puppeteer = await loadLighthousePuppeteer();
-        puppeteerBrowser = await puppeteer.connect({
-          browserURL: `http://127.0.0.1:${chrome.port}`,
-          defaultViewport: null
-        });
-        puppeteerPage = await puppeteerBrowser.newPage();
-        await puppeteerPage.setRequestInterception(true);
-        puppeteerPage.on("request", async (request) => {
-          const isNavigationRequest = request.isNavigationRequest();
-          let hadPendingVerification = false;
-          try {
-            if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
-              const hostname = normalizeUrlHostname(request.url());
-              hadPendingVerification = pendingResolverVerifications.has(hostname);
-              const contextLabel = isNavigationRequest
-                ? "Lighthouse navigation target"
-                : "Lighthouse request target";
-              const verifiedTarget = await coordinateResolverHostVerification(
-                launchPinnedHostResolverRules,
-                pendingResolverVerifications,
-                hostname,
-                "Lighthouse",
-                () => navigationTargetVerifier.verify(request.url(), contextLabel),
-                { retainUnresolvedRejection: !isNavigationRequest }
-              );
-              if (!activePinnedHosts.has(hostname)) {
-                if (verifiedTarget?.hostResolverRules) {
-                  throw new ResolverPinningRequiredError(hostname);
-                }
-                activePinnedHosts.set(hostname, null);
-              }
-            }
-
-            const scopedHeaders = applyScopedAuthHeaders({
-              requestUrl: request.url(),
-              targetUrl: authTargetUrl,
-              requestHeaders: request.headers(),
-              authHeaders
-            });
-            await request.continue({ headers: scopedHeaders });
-          } catch (error) {
-            const nextError = toError(error, "Blocked Lighthouse request");
-            if (nextError instanceof UnresolvedTargetError && !isNavigationRequest) {
-              if (!hadPendingVerification) {
-                logger.warn(
-                  `Blocked unresolved non-navigation Lighthouse request: ${nextError.hostname}. ` +
-                    "DNS resolution failed during SSRF safety checks."
+        if (options.targetPolicy || authHeaders) {
+          const puppeteer = await loadLighthousePuppeteer();
+          puppeteerBrowser = await puppeteer.connect({
+            browserURL: `http://127.0.0.1:${chrome.port}`,
+            defaultViewport: null
+          });
+          puppeteerPage = await puppeteerBrowser.newPage();
+          await puppeteerPage.setRequestInterception(true);
+          puppeteerPage.on("request", async (request) => {
+            const isNavigationRequest = request.isNavigationRequest();
+            let hadPendingVerification = false;
+            try {
+              if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
+                options.targetPolicy.observeUrl?.(request.url());
+                const hostname = normalizeUrlHostname(request.url());
+                hadPendingVerification = pendingResolverVerifications.has(hostname);
+                const contextLabel = isNavigationRequest
+                  ? "Lighthouse navigation target"
+                  : "Lighthouse request target";
+                const verifiedTarget = await coordinateResolverHostVerification(
+                  launchPinnedHostResolverRules,
+                  pendingResolverVerifications,
+                  hostname,
+                  "Lighthouse",
+                  () => navigationTargetVerifier.verify(request.url(), contextLabel),
+                  { retainUnresolvedRejection: !isNavigationRequest }
                 );
+                if (!activePinnedHosts.has(hostname)) {
+                  if (verifiedTarget?.hostResolverRules) {
+                    throw new ResolverPinningRequiredError(hostname);
+                  }
+                  activePinnedHosts.set(hostname, null);
+                }
+              }
+
+              const scopedHeaders = applyScopedAuthHeaders({
+                requestUrl: request.url(),
+                targetUrl: authTargetUrl,
+                requestHeaders: request.headers(),
+                authHeaders
+              });
+              await request.continue({ headers: scopedHeaders });
+            } catch (error) {
+              const nextError = toError(error, "Blocked Lighthouse request");
+              if (nextError instanceof UnresolvedTargetError && !isNavigationRequest) {
+                if (!hadPendingVerification) {
+                  logger.warn(
+                    `Blocked unresolved non-navigation Lighthouse request: ${nextError.hostname}. ` +
+                      "DNS resolution failed during SSRF safety checks."
+                  );
+                }
+                await request.abort("blockedbyclient");
+                return;
+              }
+              if (
+                !blockedRequestError ||
+                (nextError instanceof ResolverPinningBudgetError &&
+                  blockedRequestError instanceof ResolverPinningRequiredError)
+              ) {
+                blockedRequestError = nextError;
               }
               await request.abort("blockedbyclient");
-              return;
             }
-            if (
-              !blockedRequestError ||
-              (nextError instanceof ResolverPinningBudgetError &&
-                blockedRequestError instanceof ResolverPinningRequiredError)
-            ) {
-              blockedRequestError = nextError;
-            }
-            await request.abort("blockedbyclient");
-          }
-        });
-      }
-
-      const retryCount = config.retries?.count ?? 1;
-      const retryDelayMs = config.retries?.delayMs ?? 2000;
-      const isMobile = config.lighthouse.formFactor === "mobile";
-      const screenEmulation = isMobile
-        ? {
-            mobile: true,
-            width: 412,
-            height: 823,
-            deviceScaleFactor: 2
-          }
-        : {
-            mobile: false,
-            width: 1350,
-            height: 940,
-            deviceScaleFactor: 1
-          };
-
-      const runnerFlags = {
-        port: chrome.port,
-        output: "json" as const,
-        logLevel: "error" as const,
-        onlyCategories: ["performance", "accessibility", "best-practices", "seo"]
-      };
-      const lighthouseConfig = isMobile
-        ? {
-            extends: "lighthouse:default" as const,
-            settings: {
-              formFactor: config.lighthouse.formFactor,
-              screenEmulation
-            }
-          }
-        : desktopConfig;
-
-      const runnerResult = await retry(
-        async () => {
-          try {
-            const result = puppeteerPage
-              ? await lighthouse(auditUrl, runnerFlags, lighthouseConfig, puppeteerPage as never)
-              : await lighthouse(auditUrl, runnerFlags, lighthouseConfig);
-            if (blockedRequestError) {
-              throw blockedRequestError;
-            }
-            const lhr = result?.lhr as LighthouseLhrLike | undefined;
-            if (lhr?.runtimeError) {
-              throw toLighthouseRuntimeError(lhr.runtimeError);
-            }
-            return result;
-          } catch (error) {
-            throw blockedRequestError ?? toError(error, "Lighthouse run failed");
-          }
-        },
-        {
-          maxRetries: retryCount,
-          baseDelayMs: retryDelayMs,
-          logger,
-          isRetryable: (error) =>
-            !(error instanceof UsageError) && !(error instanceof ResolverPinningRequiredError)
+          });
         }
-      );
 
-      if (blockedRequestError) {
-        throw blockedRequestError;
-      }
+        const retryCount = config.retries?.count ?? 1;
+        const retryDelayMs = config.retries?.delayMs ?? 2000;
+        const isMobile = config.lighthouse.formFactor === "mobile";
+        const screenEmulation = isMobile
+          ? {
+              mobile: true,
+              width: 412,
+              height: 823,
+              deviceScaleFactor: 2
+            }
+          : {
+              mobile: false,
+              width: 1350,
+              height: 940,
+              deviceScaleFactor: 1
+            };
 
-      if (!runnerResult?.lhr) {
-        throw new Error("Lighthouse did not return a result");
-      }
+        const runnerFlags = {
+          port: chrome.port,
+          output: "json" as const,
+          logLevel: "error" as const,
+          onlyCategories: ["performance", "accessibility", "best-practices", "seo"]
+        };
+        const lighthouseConfig = isMobile
+          ? {
+              extends: "lighthouse:default" as const,
+              settings: {
+                formFactor: config.lighthouse.formFactor,
+                screenEmulation
+              }
+            }
+          : desktopConfig;
 
-      const lhr = runnerResult.lhr as LighthouseLhrLike;
-      const finalNavigationUrl =
-        typeof lhr.finalDisplayedUrl === "string"
-          ? lhr.finalDisplayedUrl
-          : typeof lhr.finalUrl === "string"
-            ? lhr.finalUrl
-            : auditUrl;
-      let finalTarget: VerifiedAuditTarget | null = null;
-      if (options.targetPolicy) {
-        if (normalizeUrlHostname(finalNavigationUrl) !== normalizeUrlHostname(auditUrl)) {
-          finalTarget = await navigationTargetVerifier.verify(
-            finalNavigationUrl,
-            "final Lighthouse target"
-          );
+        const runnerResult = await retry(
+          async () => {
+            try {
+              const result = puppeteerPage
+                ? await lighthouse(auditUrl, runnerFlags, lighthouseConfig, puppeteerPage as never)
+                : await lighthouse(auditUrl, runnerFlags, lighthouseConfig);
+              if (blockedRequestError) {
+                throw blockedRequestError;
+              }
+              const lhr = result?.lhr as LighthouseLhrLike | undefined;
+              if (lhr?.runtimeError) {
+                throw toLighthouseRuntimeError(lhr.runtimeError);
+              }
+              return result;
+            } catch (error) {
+              throw blockedRequestError ?? toError(error, "Lighthouse run failed");
+            }
+          },
+          {
+            maxRetries: retryCount,
+            baseDelayMs: retryDelayMs,
+            logger,
+            isRetryable: (error) =>
+              !(error instanceof UsageError) && !(error instanceof ResolverPinningRequiredError)
+          }
+        );
+
+        if (blockedRequestError) {
+          throw blockedRequestError;
         }
+
+        if (!runnerResult?.lhr) {
+          throw new Error("Lighthouse did not return a result");
+        }
+
+        const lhr = runnerResult.lhr as LighthouseLhrLike;
+        const finalNavigationUrl =
+          typeof lhr.finalDisplayedUrl === "string"
+            ? lhr.finalDisplayedUrl
+            : typeof lhr.finalUrl === "string"
+              ? lhr.finalUrl
+              : auditUrl;
+        options.targetPolicy?.observeUrl?.(finalNavigationUrl);
+        let finalTarget: VerifiedAuditTarget | null = null;
+        if (options.targetPolicy) {
+          if (normalizeUrlHostname(finalNavigationUrl) !== normalizeUrlHostname(auditUrl)) {
+            finalTarget = await navigationTargetVerifier.verify(
+              finalNavigationUrl,
+              "final Lighthouse target"
+            );
+          }
+        }
+        const lcpAudit = lhr.audits["largest-contentful-paint"];
+        const clsAudit = lhr.audits["cumulative-layout-shift"];
+        const tbtAudit = lhr.audits["total-blocking-time"];
+
+        const metrics: LighthouseMetrics = {
+          performanceScore: requiredPerformanceScore(lhr.categories?.performance?.score),
+          lcpMs: requiredNonNegativeMetric("LCP", lcpAudit?.numericValue),
+          cls: requiredNonNegativeMetric("CLS", clsAudit?.numericValue),
+          tbtMs: requiredNonNegativeMetric("TBT", tbtAudit?.numericValue)
+        };
+
+        const budgets = config.lighthouse.budgets;
+        const budgetResults = evaluateBudgets(metrics, budgets);
+
+        const categoryScores: LighthouseCategoryScores = {
+          performance: metrics.performanceScore,
+          accessibility: categoryScore(lhr, "accessibility"),
+          bestPractices: categoryScore(lhr, "best-practices"),
+          seo: categoryScore(lhr, "seo")
+        };
+
+        const reportPath = path.join(outDir, "lighthouse.json");
+        await writeJson(reportPath, runnerResult.lhr);
+
+        return {
+          summary: {
+            metrics,
+            budgets,
+            budgetResults,
+            reportPath,
+            categoryScores,
+            extendedMetrics: extractExtendedMetrics(lhr),
+            opportunities: extractOpportunities(lhr)
+          },
+          finalNavigationUrl,
+          finalTarget
+        };
+      } finally {
+        await closePuppeteerPage(puppeteerPage, logger);
+        await disconnectPuppeteerBrowser(puppeteerBrowser, logger);
+        await killChromeQuietly(chrome, logger);
       }
-      const lcpAudit = lhr.audits["largest-contentful-paint"];
-      const clsAudit = lhr.audits["cumulative-layout-shift"];
-      const tbtAudit = lhr.audits["total-blocking-time"];
-
-      const metrics: LighthouseMetrics = {
-        performanceScore: requiredPerformanceScore(lhr.categories?.performance?.score),
-        lcpMs: requiredNonNegativeMetric("LCP", lcpAudit?.numericValue),
-        cls: requiredNonNegativeMetric("CLS", clsAudit?.numericValue),
-        tbtMs: requiredNonNegativeMetric("TBT", tbtAudit?.numericValue)
-      };
-
-      const budgets = config.lighthouse.budgets;
-      const budgetResults = evaluateBudgets(metrics, budgets);
-
-      const categoryScores: LighthouseCategoryScores = {
-        performance: metrics.performanceScore,
-        accessibility: categoryScore(lhr, "accessibility"),
-        bestPractices: categoryScore(lhr, "best-practices"),
-        seo: categoryScore(lhr, "seo")
-      };
-
-      const reportPath = path.join(outDir, "lighthouse.json");
-      await writeJson(reportPath, runnerResult.lhr);
-
-      return {
-        summary: {
-          metrics,
-          budgets,
-          budgetResults,
-          reportPath,
-          categoryScores,
-          extendedMetrics: extractExtendedMetrics(lhr),
-          opportunities: extractOpportunities(lhr)
-        },
-        finalNavigationUrl,
-        finalTarget
-      };
-    } finally {
-      await closePuppeteerPage(puppeteerPage, logger);
-      await disconnectPuppeteerBrowser(puppeteerBrowser, logger);
-      await killChromeQuietly(chrome, logger);
     }
-  }
 
-  try {
     let currentAuditUrl = url;
     let currentLaunchHostResolverRules =
       options.hostResolverRules ?? initialTarget?.hostResolverRules ?? null;

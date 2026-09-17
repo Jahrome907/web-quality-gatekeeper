@@ -25,6 +25,7 @@ const mockWriteText = vi.fn();
 const mockValidateOutputDirectory = vi.fn();
 const mockPrepareOutputBundle = vi.fn();
 const mockValidatePreservedOutputDirectory = vi.fn();
+const mockPathExists = vi.fn();
 
 vi.mock("../src/config/loadConfig.js", () => ({
   loadConfig: mockLoadConfig
@@ -32,7 +33,9 @@ vi.mock("../src/config/loadConfig.js", () => ({
 vi.mock("../src/runner/playwright.js", () => ({
   openPage: mockOpenPage,
   runPlaywrightLifecycle: mockRunPlaywrightLifecycle,
-  captureScreenshots: mockCaptureScreenshots
+  captureScreenshots: mockCaptureScreenshots,
+  resolveUrl: (baseUrl: string, shotPath: string) =>
+    shotPath === "@target" ? baseUrl : new URL(shotPath, baseUrl).toString()
 }));
 vi.mock("../src/runner/axe.js", () => ({
   runAxeScan: mockRunAxeScan
@@ -78,7 +81,8 @@ vi.mock("../src/utils/fs.js", () => ({
   validateResolvedPathWithinBase: vi.fn(),
   writeJson: mockWriteJson,
   writeText: mockWriteText,
-  validateOutputDirectory: mockValidateOutputDirectory
+  validateOutputDirectory: mockValidateOutputDirectory,
+  pathExists: mockPathExists
 }));
 vi.mock("../src/audit/outputBundle.js", () => ({
   prepareOutputBundle: mockPrepareOutputBundle,
@@ -226,6 +230,7 @@ describe("runAudit orchestration", () => {
     );
     mockRm.mockResolvedValue(undefined);
     mockCopyFileSafe.mockResolvedValue(undefined);
+    mockPathExists.mockResolvedValue(false);
     mockPrepareOutputBundle.mockImplementation(async (outDir: string) => ({
       stagingDir: outDir,
       runId: "test-run",
@@ -487,10 +492,10 @@ describe("runAudit orchestration", () => {
       null,
       expect.objectContaining({
         hostResolverRules: "MAP www.example.com 203.0.113.11",
-        targetPolicy: {
+        targetPolicy: expect.objectContaining({
           allowInternalTargets: false,
           blockInternalTargets: isCiLike()
-        }
+        })
       })
     );
     expect(mockRunVisualDiff).toHaveBeenCalledTimes(1);
@@ -721,10 +726,10 @@ describe("runAudit orchestration", () => {
       auth,
       expect.objectContaining({
         hostResolverRules: expect.any(String),
-        targetPolicy: {
+        targetPolicy: expect.objectContaining({
           allowInternalTargets: false,
           blockInternalTargets: true
-        }
+        })
       })
     );
     expect(mockRunLighthouseAudit).toHaveBeenCalledWith(
@@ -735,14 +740,96 @@ describe("runAudit orchestration", () => {
       auth,
       expect.objectContaining({
         hostResolverRules: "MAP example.com 203.0.113.10",
-        targetPolicy: {
+        targetPolicy: expect.objectContaining({
           allowInternalTargets: false,
           blockInternalTargets: true
-        }
+        })
       })
     );
     expect(mockBuildSummary.mock.calls[0]?.[0]?.url).toBe("https://example.com/");
     expect(mockBuildSummaryV2.mock.calls[0]?.[0]?.url).toBe("https://example.com/");
+  });
+
+  it("marks a multi-target bundle sensitive after a redirect URL is observed", async () => {
+    const complete = vi.fn(async (afterPromotion?: () => Promise<void>) => afterPromotion?.());
+    mockPrepareOutputBundle.mockImplementation(async (outDir: string) => ({
+      stagingDir: outDir,
+      runId: "test-run",
+      complete,
+      abort: vi.fn().mockResolvedValue(undefined)
+    }));
+    mockLoadConfig.mockResolvedValue({
+      toggles: { a11y: false, perf: false, visual: false },
+      visual: { threshold: 0.01 },
+      screenshots: [],
+      trends: {
+        enabled: true,
+        historyDir: ".wqg-history",
+        maxSnapshots: 5,
+        dashboard: { window: 5 }
+      },
+      urls: [
+        { name: "home", url: "https://example.com/" },
+        { name: "docs", url: "https://docs.example.com/" }
+      ]
+    });
+    const opened = {
+      browser: { close: vi.fn().mockResolvedValue(undefined) },
+      page: {},
+      runtimeSignals: { snapshot: () => createRuntimeSignals() },
+      resolvedUrl: "https://example.com/",
+      resolvedHostResolverRules: "MAP example.com 203.0.113.10"
+    };
+    mockCaptureScreenshots.mockResolvedValue([]);
+    let lifecycleCalls = 0;
+    let observeRedirect = true;
+    mockRunPlaywrightLifecycle.mockImplementation(
+      async (_url, _config, _logger, _auth, browserOptions, run) => {
+        lifecycleCalls += 1;
+        if (observeRedirect && lifecycleCalls === 1) {
+          browserOptions.targetPolicy.observeUrl(
+            "https://login.example.com/callback?code=demo-value"
+          );
+        }
+        return run(opened);
+      }
+    );
+
+    const orchestration = await import("../src/audit/orchestration.js");
+    const writeTrendSnapshot = vi
+      .spyOn(orchestration, "writeTrendSnapshot")
+      .mockResolvedValue(undefined);
+    const { runAudit } = await import("../src/index.js");
+    await runAudit(undefined, {
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      setBaseline: false,
+      failOnA11y: true,
+      failOnPerf: true,
+      failOnVisual: true,
+      verbose: false
+    });
+
+    expect(lifecycleCalls).toBe(2);
+    expect(complete).toHaveBeenCalledWith(expect.any(Function), true);
+    expect(writeTrendSnapshot).not.toHaveBeenCalled();
+
+    lifecycleCalls = 0;
+    observeRedirect = false;
+    const plainResult = await runAudit(undefined, {
+      config: "configs/default.json",
+      out: "artifacts",
+      baselineDir: "baselines",
+      setBaseline: false,
+      failOnA11y: true,
+      failOnPerf: true,
+      failOnVisual: true,
+      verbose: false
+    });
+
+    expect(plainResult.summaryV2.trend.status).toBe("no_previous");
+    expect(writeTrendSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it("fails fast on invalid config loading without opening browser", async () => {

@@ -29,7 +29,9 @@ vi.mock("../../src/runner/playwright.js", () => ({
       await opened.browser.close();
     }
   },
-  captureScreenshots: mockCaptureScreenshots
+  captureScreenshots: mockCaptureScreenshots,
+  resolveUrl: (baseUrl: string, shotPath: string) =>
+    shotPath === "@target" ? baseUrl : new URL(shotPath, baseUrl).toString()
 }));
 vi.mock("../../src/utils/fs.js", async () => ({
   ...(await vi.importActual("../../src/utils/fs.js")),

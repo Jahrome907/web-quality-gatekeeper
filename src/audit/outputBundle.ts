@@ -45,12 +45,13 @@ export interface OutputBundleReceipt {
   status: BundleStatus;
   runId: string;
   generatedFiles: string[];
+  sensitive: boolean;
 }
 
 export interface PreparedOutputBundle {
   stagingDir: string;
   runId: string;
-  complete(afterPromotion?: () => Promise<void>): Promise<void>;
+  complete(afterPromotion?: () => Promise<void>, sensitive?: boolean): Promise<void>;
   abort(): Promise<void>;
 }
 
@@ -127,6 +128,9 @@ function normalizeReceipt(value: unknown): OutputBundleReceipt {
   if (!Array.isArray(candidate.generatedFiles)) {
     throw new Error("Output bundle receipt must list generated files.");
   }
+  if (candidate.sensitive !== undefined && typeof candidate.sensitive !== "boolean") {
+    throw new Error("Output bundle receipt has an invalid sensitivity classification.");
+  }
 
   const generatedFiles = candidate.generatedFiles.map(normalizeOwnedPath);
   if (new Set(generatedFiles).size !== generatedFiles.length) {
@@ -140,7 +144,8 @@ function normalizeReceipt(value: unknown): OutputBundleReceipt {
     schemaVersion: RECEIPT_SCHEMA_VERSION,
     status: candidate.status,
     runId: candidate.runId,
-    generatedFiles
+    generatedFiles,
+    sensitive: candidate.sensitive ?? true
   };
 }
 
@@ -332,7 +337,8 @@ async function createStagingDirectory(outDir: string, runId: string): Promise<st
     schemaVersion: RECEIPT_SCHEMA_VERSION,
     status: "incomplete",
     runId,
-    generatedFiles: []
+    generatedFiles: [],
+    sensitive: true
   } satisfies OutputBundleReceipt);
   return stagingDir;
 }
@@ -530,7 +536,8 @@ export async function prepareOutputBundle(
       schemaVersion: RECEIPT_SCHEMA_VERSION,
       status: "incomplete",
       runId,
-      generatedFiles: previousGeneratedFiles
+      generatedFiles: previousGeneratedFiles,
+      sensitive: true
     });
     const stagingDir = await createStagingDirectory(canonicalOutDir, runId);
 
@@ -538,7 +545,7 @@ export async function prepareOutputBundle(
     return {
       stagingDir,
       runId,
-      async complete(afterPromotion?: () => Promise<void>): Promise<void> {
+      async complete(afterPromotion?: () => Promise<void>, sensitive = true): Promise<void> {
         if (settled) {
           throw new Error("Output bundle has already been finalized.");
         }
@@ -556,7 +563,8 @@ export async function prepareOutputBundle(
           schemaVersion: RECEIPT_SCHEMA_VERSION,
           status: "incomplete",
           runId,
-          generatedFiles: recoveryFiles
+          generatedFiles: recoveryFiles,
+          sensitive: true
         });
         await promoteStagedFiles(canonicalOutDir, stagingDir, recoveryFiles, generatedFiles);
         if (afterPromotion) {
@@ -567,7 +575,8 @@ export async function prepareOutputBundle(
           schemaVersion: RECEIPT_SCHEMA_VERSION,
           status: "complete",
           runId,
-          generatedFiles
+          generatedFiles,
+          sensitive
         });
         settled = true;
         await releaseLock();

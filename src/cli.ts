@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { runAudit } from "./index.js";
-import { UsageError, validateUrl } from "./utils/url.js";
+import { sanitizeUrlsInText, UsageError, validateUrl } from "./utils/url.js";
 import { formatSummaryAsMarkdown } from "./report/markdown.js";
 import { parseAuditAuth } from "./utils/auth.js";
 import { listBuiltinPolicies, type BuiltinPolicyName } from "./config/policies.js";
@@ -60,7 +60,7 @@ program
       process.exitCode = 0;
     } catch (error) {
       const message = (error as Error).message || "Unexpected error";
-      console.error(message);
+      console.error(sanitizeUrlsInText(message));
       process.exitCode = error instanceof UsageError ? 2 : 1;
     }
   });
@@ -163,7 +163,7 @@ program
       process.exitCode = exitCode;
     } catch (error) {
       const message = (error as Error).message || "Unexpected error";
-      console.error(message);
+      console.error(sanitizeUrlsInText(message));
       process.exitCode = error instanceof UsageError ? 2 : 1;
     }
   });
@@ -197,7 +197,7 @@ program
         result.status === "fail" || (options.strict && result.status === "warn") ? 1 : 0;
     } catch (error) {
       const message = (error as Error).message || "Unexpected error";
-      console.error(message);
+      console.error(sanitizeUrlsInText(message));
       process.exitCode = 1;
     }
   });

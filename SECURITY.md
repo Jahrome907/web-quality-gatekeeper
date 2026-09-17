@@ -54,7 +54,9 @@ When running in CI environments:
 - Credentials are not persisted after checkout
 - Remote audits are blocking by default; relaxed/non-blocking remote mode requires explicit opt-in via `WQG_RELAXED_REMOTE=true`
 - The repository Quality Gate never loads `WQG_AUTH_HEADER`, `WQG_AUTH_HEADERS`, `WQG_AUTH_COOKIE`, or `WQG_AUTH_COOKIES` while it can run pull request code. Use credentials only in a separately approved non-pull-request workflow.
-- Do not place secrets in target URLs, query strings, or fragments. Reports and summaries preserve audited URLs; use header or cookie inputs for credentials.
+- Do not place secrets in target URLs, query strings, or fragments; use header or cookie inputs for credentials. Navigation retains the original URL, while report URL fields omit query and fragment values.
+- Encountering query or fragment data in audit URLs or browser requests marks the completed output bundle sensitive. Automatic artifact uploads and PR comments remain disabled unless explicitly overridden. This includes ordinary query parameters and anchors, not only known credential names.
+- URL redaction does not sanitize page content, screenshots, console messages, or raw accessibility and Lighthouse reports. Treat those local files as potentially sensitive. Missing or invalid sensitivity metadata never permits publication.
 - Sensitive Quality Gate runs suppress artifact uploads and PR comments by default (`WQG_SENSITIVE_AUDIT=true`)
 - Only set `WQG_ALLOW_SENSITIVE_OUTPUTS=true` when you intentionally accept publication risk for artifacts/comments
 - Chrome sandbox is disabled only in CI containers where it's required

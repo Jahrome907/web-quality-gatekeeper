@@ -69,7 +69,7 @@ outputs:
     description: "Path to the PR Risk Ledger Markdown file"
     value: ${{ steps.audit.outputs.pr-risk-ledger-md-path }}
   sensitive-audit:
-    description: "Whether auth headers, cookies, internal-target overrides, or sensitive-audit controls were present"
+    description: "Whether the audit encountered URL query/fragment data, authentication, internal-target overrides, or explicit sensitivity controls"
     value: ${{ steps.audit.outputs.sensitive-audit }}
   bundle-complete:
     description: "Whether this invocation produced a complete, verified artifact bundle"
@@ -363,6 +363,9 @@ runs:
         if (receipt.schemaVersion !== 1 || receipt.status !== "complete" || receipt.runId !== runId) {
           fail("receipt is incomplete, unsupported, or belongs to another run");
         }
+        if (typeof receipt.sensitive !== "boolean") {
+          fail("receipt has no valid sensitivity classification");
+        }
         if (!Array.isArray(receipt.generatedFiles) || receipt.generatedFiles.some((file) => typeof file !== "string")) {
           fail("receipt generatedFiles must be a list of relative file names");
         }
@@ -415,7 +418,7 @@ runs:
         const artifactPaths = [...generatedFiles]
           .map((file) => `artifacts/${file}`)
           .sort((left, right) => left.localeCompare(right));
-        process.stdout.write(`${summary.overallStatus}\n${artifactPaths.join("\n")}`);
+        process.stdout.write(`${summary.overallStatus}\n${receipt.sensitive}\n${artifactPaths.join("\n")}`);
         NODE
         }
 
@@ -425,7 +428,10 @@ runs:
         fi
 
         STATUS="${BUNDLE_OUTPUT%%$'\n'*}"
-        ARTIFACT_PATHS="${BUNDLE_OUTPUT#*$'\n'}"
+        CLASSIFIED_OUTPUT="${BUNDLE_OUTPUT#*$'\n'}"
+        URL_SENSITIVE="${CLASSIFIED_OUTPUT%%$'\n'*}"
+        [[ "$URL_SENSITIVE" == "true" ]] && SENSITIVE_AUDIT=true
+        ARTIFACT_PATHS="${CLASSIFIED_OUTPUT#*$'\n'}"
         if [[ "$ARTIFACT_PATHS" == "$BUNDLE_OUTPUT" || -z "$ARTIFACT_PATHS" ]]; then
           echo "Audit receipt did not provide uploadable artifact paths." >&2
           exit 2

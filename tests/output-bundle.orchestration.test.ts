@@ -45,7 +45,9 @@ vi.mock("../src/runner/playwright.js", () => ({
       resolvedUrl: url,
       resolvedHostResolverRules: null
     }),
-  captureScreenshots: mockCaptureScreenshots
+  captureScreenshots: mockCaptureScreenshots,
+  resolveUrl: (baseUrl: string, shotPath: string) =>
+    shotPath === "@target" ? baseUrl : new URL(shotPath, baseUrl).toString()
 }));
 vi.mock("../src/runner/axe.js", () => ({
   runAxeScan: mockRunAxeScan

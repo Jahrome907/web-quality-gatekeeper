@@ -132,6 +132,36 @@ function createSummaryFixture(): AuditSummaryV2 {
 }
 
 describe("trend snapshot regression coverage", () => {
+  it("omits prior page comparisons when URL display values are redacted", async () => {
+    const current = createSummaryFixture();
+    const previous = createSummaryFixture();
+    previous.pages[0]!.metrics.a11yViolations = 8;
+    previous.pages[0]!.metrics.performanceScore = 0.4;
+
+    const { buildTrendSummary } = await import("../src/audit/orchestration.js");
+    const trend = buildTrendSummary(
+      current,
+      {
+        snapshot: previous,
+        path: "artifacts/.wqg-history/previous.summary.v2.json",
+        hadCorruptSnapshot: false,
+        hadIncompatibleSnapshot: false
+      },
+      "artifacts",
+      "artifacts/.wqg-history",
+      true,
+      [],
+      30,
+      { allowPageComparisons: false }
+    );
+
+    expect(trend.message).toBe(
+      "Page-level trend comparisons are unavailable because this run includes redacted URLs and is not saved for future page comparisons."
+    );
+    expect(trend.pages[0]?.a11yViolations.previous).toBeNull();
+    expect(trend.pages[0]?.performanceScore.previous).toBeNull();
+  });
+
   it("preserves concurrent snapshots created within the same millisecond", async () => {
     const historyDir = await mkdtemp(path.join(tmpdir(), "wqg-trend-concurrent-"));
 

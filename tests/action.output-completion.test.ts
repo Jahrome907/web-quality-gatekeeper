@@ -92,11 +92,14 @@ for (const file of generatedFiles) {
 writeFileSync(path.join(outDir, "unlisted-private.txt"), "private", "utf8");
 mkdirSync(path.join(outDir, ".wqg-history"), { recursive: true });
 writeFileSync(path.join(outDir, ".wqg-history", "previous.json"), "private", "utf8");
+mkdirSync(path.join(outDir, "private-history"), { recursive: true });
+writeFileSync(path.join(outDir, "private-history", "previous.json"), "private", "utf8");
 if (scenario !== "absent" && scenario !== "fatal") {
   writeFileSync(
     path.join(outDir, ".wqg-output-manifest.json"),
     JSON.stringify({
       schemaVersion: 1,
+      sensitive: scenario === "missing-sensitivity" ? undefined : scenario === "invalid-sensitivity" ? "false" : scenario === "sensitive",
       status: scenario === "incomplete" ? "incomplete" : "complete",
       runId: scenario === "stale" ? "previous-run" : process.env.WQG_RUN_ID,
       generatedFiles
@@ -168,6 +171,7 @@ describe.skipIf(!HAS_BASH)("composite action output completion receipt", () => {
       expect(pass.outputs.get("artifact-paths")).toContain("artifacts/screenshots/current.png");
       expect(pass.outputs.get("artifact-paths")).toContain("artifacts/trends/history.json");
       expect(pass.outputs.get("artifact-paths")).not.toContain(".wqg-history");
+      expect(pass.outputs.get("artifact-paths")).not.toContain("private-history");
       expect(pass.outputs.get("artifact-paths")).not.toContain("unlisted-private.txt");
 
       const qualityFail = await runReceiptScenario(root, "current-fail");
@@ -179,12 +183,19 @@ describe.skipIf(!HAS_BASH)("composite action output completion receipt", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15000);
 
   it("does not publish stale or incomplete output", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "wqg-action-receipt-"));
     try {
-      for (const scenario of ["stale", "incomplete", "absent", "fatal"]) {
+      for (const scenario of [
+        "stale",
+        "incomplete",
+        "absent",
+        "fatal",
+        "missing-sensitivity",
+        "invalid-sensitivity"
+      ]) {
         const result = await runReceiptScenario(root, scenario);
         expect(result.status).not.toBe(0);
         expect(result.outputs.get("sensitive-audit")).toBe("true");
@@ -195,7 +206,7 @@ describe.skipIf(!HAS_BASH)("composite action output completion receipt", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15000);
 
   it("keeps completed authenticated audits marked sensitive", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "wqg-action-receipt-"));
@@ -207,8 +218,12 @@ describe.skipIf(!HAS_BASH)("composite action output completion receipt", () => {
       expect(result.outputs.get("sensitive-audit")).toBe("true");
       expect(result.outputs.get("bundle-complete")).toBe("true");
       expect(result.outputs.get("status")).toBe("pass");
+      const detected = await runReceiptScenario(root, "sensitive");
+      expect(detected.status).toBe(0);
+      expect(detected.outputs.get("sensitive-audit")).toBe("true");
+      expect(detected.outputs.get("bundle-complete")).toBe("true");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15000);
 });

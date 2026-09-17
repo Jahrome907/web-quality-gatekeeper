@@ -120,6 +120,8 @@ ${targetLine}
 The generated workflow targets v5 and requires its publication before use. It uploads only the files listed by
 \`artifact-paths\` when \`bundle-complete=true\` and \`sensitive-audit=false\`.
 Incomplete audits never publish artifacts, even with a sensitivity override.
+Query or fragment data in audit URLs or browser requests marks the run sensitive.
+Review screenshots and raw reports before overriding publication restrictions.
 Baseline images remain in the repository and are not included in this download. Set
 \`WQG_ALLOW_SENSITIVE_OUTPUTS=true\` only when publishing sensitive outputs is
 intentional.

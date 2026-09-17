@@ -20,6 +20,7 @@ import {
   UnresolvedTargetError,
   isAuditableHttpUrl,
   normalizeUrlHostname,
+  sanitizeUrlForDisplay,
   UsageError,
   type TargetResolutionPolicy,
   type VerifiedAuditTarget
@@ -150,7 +151,7 @@ function sanitizeConsoleLocation(message: ConsoleMessage): string | null {
   }
   const line = typeof location.lineNumber === "number" ? location.lineNumber : 0;
   const column = typeof location.columnNumber === "number" ? location.columnNumber : 0;
-  return `${location.url}:${line}:${column}`;
+  return `${sanitizeUrlForDisplay(location.url)}:${line}:${column}`;
 }
 
 function toSortedBreakdown(source: Map<string, number>): Record<string, number> {
@@ -315,6 +316,7 @@ interface BlockedRequestState {
 }
 
 const blockedRequestStates = new WeakMap<Page, BlockedRequestState>();
+const pageUrlObservers = new WeakMap<Page, (url: string) => void>();
 
 function toError(error: unknown, fallbackMessage: string): Error {
   return error instanceof Error ? error : new Error(fallbackMessage);
@@ -356,7 +358,7 @@ function assertSuccessfulNavigationResponse(
   const status = response.status();
   if (status >= 400) {
     throw new Error(
-      `Browser navigation failed with HTTP ${status} for ${response.url() || requestedUrl}`
+      `Browser navigation failed with HTTP ${status} for ${sanitizeUrlForDisplay(response.url() || requestedUrl)}`
     );
   }
 }
@@ -450,6 +452,7 @@ async function launchNavigatedPage(
         const request = route.request() as Request;
 
         if (options.targetPolicy && isAuditableHttpUrl(request.url())) {
+          options.targetPolicy.observeUrl?.(request.url());
           const hostname = normalizeUrlHostname(request.url());
           const isNavigationRequest = request.isNavigationRequest();
           const hadPendingVerification = pendingResolverVerifications.has(hostname);
@@ -500,6 +503,9 @@ async function launchNavigatedPage(
     const createdPage = await context.newPage();
     page = createdPage;
     blockedRequestStates.set(createdPage, blockedRequestState);
+    if (options.targetPolicy?.observeUrl) {
+      pageUrlObservers.set(createdPage, options.targetPolicy.observeUrl);
+    }
     const runtimeSignals = createRuntimeSignalCollector(createdPage);
     createdPage.setDefaultNavigationTimeout(config.timeouts.navigationMs);
     createdPage.setDefaultTimeout(config.timeouts.actionMs);
@@ -507,7 +513,7 @@ async function launchNavigatedPage(
     const retryCount = config.retries?.count ?? 1;
     const retryDelayMs = config.retries?.delayMs ?? 2000;
 
-    logger.debug(`Navigating to ${navigationUrl}`);
+    logger.debug(`Navigating to ${sanitizeUrlForDisplay(navigationUrl)}`);
     await retry(
       () =>
         runWithBlockedRequestHandling(createdPage, async () => {
@@ -671,7 +677,11 @@ export async function runPlaywrightLifecycle<T>(
         resolverPinningState
       });
       const currentAttempt = opened;
-      return await runWithBlockedRequestHandling(currentAttempt.page, () => run(currentAttempt));
+      try {
+        return await runWithBlockedRequestHandling(currentAttempt.page, () => run(currentAttempt));
+      } finally {
+        pageUrlObservers.get(currentAttempt.page)?.(currentAttempt.page.url());
+      }
     } catch (error) {
       if (!(error instanceof ResolverPinningRequiredError) || !options.targetPolicy) {
         throw error;
@@ -701,7 +711,8 @@ async function captureScreenshot(
   actionTimeoutMs: number
 ): Promise<ScreenshotResult> {
   const url = resolveUrl(baseUrl, shot.path);
-  logger.debug(`Capturing screenshot ${shot.name} -> ${url}`);
+  logger.debug(`Capturing screenshot ${shot.name} -> ${sanitizeUrlForDisplay(url)}`);
+  pageUrlObservers.get(page)?.(url);
   assertNoBlockedBrowserRequest(page);
   await retry(
     () =>
@@ -727,6 +738,7 @@ async function captureScreenshot(
   }
   await page.waitForTimeout(250);
   assertNoBlockedBrowserRequest(page);
+  pageUrlObservers.get(page)?.(page.url());
 
   const filename = `${screenshotBaseName}.png`;
   const filePath = path.join(outDir, filename);
