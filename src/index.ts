@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { loadConfig } from "./config/loadConfig.js";
 import { assertSupportedVisualDiffEnvironment } from "./config/visualDiffMigration.js";
-import { captureScreenshots, runPlaywrightLifecycle } from "./runner/playwright.js";
+import { captureScreenshots, resolveUrl, runPlaywrightLifecycle } from "./runner/playwright.js";
 import { runAxeScan } from "./runner/axe.js";
 import { runLighthouseAudit } from "./runner/lighthouse.js";
 import { runVisualDiff, type VisualDiffRuntimeOptions } from "./runner/visualDiff.js";
@@ -35,7 +35,11 @@ import type { LighthouseSummary } from "./runner/lighthouse.js";
 import type { VisualDiffSummary } from "./runner/visualDiff.js";
 import type { RuntimeSignalSummary, ScreenshotResult } from "./runner/playwright.js";
 import type { AuditAuth } from "./utils/auth.js";
-import type { TargetResolutionPolicy } from "./utils/url.js";
+import {
+  createUrlPrivacyTracker,
+  sanitizeUrlForDisplay,
+  type TargetResolutionPolicy
+} from "./utils/url.js";
 import type { Summary, SummaryV2 as DetailSummaryV2 } from "./report/summary.js";
 import {
   type AuditSummaryV2,
@@ -300,6 +304,7 @@ async function runTargetAudit(params: {
 
   const relativeScreenshots = screenshots.map((shot) => ({
     ...shot,
+    url: sanitizeUrlForDisplay(shot.url),
     path: toRelative(publishedOutDir, toPublishedArtifactPath(outDir, publishedOutDir, shot.path))
   }));
 
@@ -382,7 +387,7 @@ async function runTargetAudit(params: {
 
   const runDurationMs = durationMs(startTime);
   const summary = summaryReport.buildSummary({
-    url: auditedUrl,
+    url: sanitizeUrlForDisplay(auditedUrl),
     startedAt,
     durationMs: runDurationMs,
     toolVersion: pkg.version,
@@ -399,7 +404,7 @@ async function runTargetAudit(params: {
   });
 
   const summaryV2Base = summaryReport.buildSummaryV2({
-    url: auditedUrl,
+    url: sanitizeUrlForDisplay(auditedUrl),
     startedAt,
     durationMs: runDurationMs,
     toolVersion: pkg.version,
@@ -462,14 +467,24 @@ export async function runAudit(
   validateOutputDirectory(baselineDir);
 
   const logger = createLogger(options.verbose);
+  const urlPrivacy = createUrlPrivacyTracker(
+    Boolean(options.auth) || Boolean(options.allowInternalTargets)
+  );
   const config = await loadConfig(configPath, {
     policy: options.policy ?? null
   });
   const targetPolicy: TargetResolutionPolicy = {
     allowInternalTargets: options.allowInternalTargets ?? false,
-    blockInternalTargets: isCiEnvironment() || Boolean(options.auth)
+    blockInternalTargets: isCiEnvironment() || Boolean(options.auth),
+    observeUrl: (observedUrl) => urlPrivacy.observeUrl(observedUrl)
   };
   const targets = await resolveTargets(url, config, outDir, baselineDir, logger, targetPolicy);
+
+  for (const target of targets) {
+    for (const screenshot of config.screenshots ?? []) {
+      targetPolicy.observeUrl?.(resolveUrl(target.url, screenshot.path));
+    }
+  }
 
   for (const target of targets) {
     validateOutputDirectory(target.outDir);
@@ -510,7 +525,7 @@ export async function runAudit(
       const target = stagedTargets[index]!;
       const publishedTarget = targets[index]!;
       logger.debug(
-        `Running audit target ${target.index + 1}/${targets.length}: ${target.name} (${target.url})`
+        `Running audit target ${target.index + 1}/${targets.length}: ${target.name} (${sanitizeUrlForDisplay(target.url)})`
       );
       const result = await runTargetAudit({
         target,
@@ -610,7 +625,8 @@ export async function runAudit(
         trendHistoryDir,
         true,
         historyPoints,
-        trendSettings.dashboardWindow
+        trendSettings.dashboardWindow,
+        { allowPageComparisons: !urlPrivacy.urlSensitive }
       );
       summaryV2.artifacts.trendHistoryJson = toRelative(stagedOutDir, trendHistoryJsonPath);
       summaryV2.artifacts.trendDashboardHtml = toRelative(stagedOutDir, trendDashboardHtmlPath);
@@ -647,10 +663,10 @@ export async function runAudit(
     }
 
     await bundle.complete(async () => {
-      if (trendSettings.enabled) {
+      if (trendSettings.enabled && !urlPrivacy.urlSensitive) {
         await writeTrendSnapshot(trendHistoryDir, summaryV2, trendSettings.maxSnapshots);
       }
-    });
+    }, urlPrivacy.sensitive);
 
     const exitCode = overallStatus === "fail" ? 1 : 0;
     return { exitCode, summary: compatibilitySummary, summaryV2 };

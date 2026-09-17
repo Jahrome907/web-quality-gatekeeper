@@ -116,6 +116,18 @@ the old lock only after confirming its writer has stopped.
 The Action's upload list excludes unrelated files and saved trend snapshots. Trend
 reports can include historical measurements; apply the sensitive-output policy to that history too.
 
+Query or fragment data encountered in audit URLs and browser requests marks the run
+sensitive and disables automatic artifact publication. Report URL fields omit that
+data; screenshots and raw reports can still contain private content. Use
+`WQG_ALLOW_SENSITIVE_OUTPUTS=true` only after reviewing the outputs. For these runs,
+per-page trend comparisons are omitted to avoid matching distinct URLs after
+redaction; aggregate measurements remain available in the current report. These runs
+are not saved as future trend comparison snapshots.
+
+For an immutable Action reference, replace `@v5` with the verified v5.0.0 commit:
+`Jahrome907/web-quality-gatekeeper@56fa790ce098f82328d9c0cba475948445c9c239`.
+When updating a pin, verify the new release tag's commit and review its changes.
+
 ## What it checks
 
 - Playwright navigation and runtime error capture

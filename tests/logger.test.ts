@@ -58,6 +58,19 @@ describe("logger utilities", () => {
     expect(payload).toContain("\x1b[32m"); // green for INFO
   });
 
+  it.each(["json", "human"])("redacts URL payloads from %s diagnostics and context", (format) => {
+    process.env.WQG_LOG_FORMAT = format;
+    const logger = createLogger(true);
+    logger.warn('Navigation failed for "https://example.com/?code=fixture-secret#fragment"', {
+      target: "https://example.com/?key=fixture-context"
+    });
+    const output = String(warnSpy.mock.calls[0]?.[0]);
+    expect(output).toContain("https://example.com/");
+    expect(output).not.toContain("fixture-secret");
+    expect(output).not.toContain("fixture-context");
+    expect(output).not.toContain("fragment");
+  });
+
   it("logs plain output with level prefix when TTY is disabled", () => {
     setTTY(false);
     const logger = createLogger(false);

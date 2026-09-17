@@ -3,7 +3,7 @@ import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Server } from "node:http";
+import { createServer, type Server } from "node:http";
 import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import {
@@ -455,6 +455,78 @@ describe("CLI integration", () => {
       }
     },
     MULTI_AUDIT_TEST_TIMEOUT_MS
+  );
+
+  it(
+    "classifies input and redirect URL payloads without changing browser navigation",
+    async () => {
+      const root = await mkdtemp(path.join(ROOT, ".tmp-int-url-privacy-"));
+      const received: string[] = [];
+      const server = createServer((request, response) => {
+        received.push(request.url ?? "");
+        if (request.url === "/redirect") {
+          response.writeHead(302, { Location: "/?code=fixture-redirect#fixture-fragment" });
+        } else {
+          response.writeHead(200, { "Content-Type": "text/html" });
+        }
+        response.end("<!doctype html><title>Fixture</title><main>Public fixture</main>");
+      });
+      try {
+        await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+        const address = server.address();
+        if (!address || typeof address === "string") throw new Error("Fixture has no TCP port");
+        const origin = `http://127.0.0.1:${address.port}`;
+        const configPath = path.join(root, "config.json");
+        await writeFile(
+          configPath,
+          JSON.stringify({
+            ...JSON.parse(await readFile(TEST_CONFIG, "utf8")),
+            screenshots: [{ name: "page", path: "@target", fullPage: false }],
+            toggles: { a11y: false, perf: false, visual: false }
+          })
+        );
+        for (const [name, suffix, sensitive] of [
+          ["plain", "/", false],
+          ["input", "/?code=fixture-input#fixture-fragment", true],
+          ["redirect", "/redirect", true]
+        ] as const) {
+          const outDir = path.join(root, name);
+          const run = await runCli(cliPath, [
+            "audit",
+            `${origin}${suffix}`,
+            "--config",
+            configPath,
+            "--out",
+            outDir,
+            "--baseline-dir",
+            path.join(root, "baselines"),
+            "--verbose"
+          ]);
+          expectCliSuccess(run, `URL privacy ${name}`);
+          const receipt = JSON.parse(
+            await readFile(path.join(outDir, ".wqg-output-manifest.json"), "utf8")
+          );
+          expect(receipt.sensitive).toBe(sensitive);
+          for (const file of [
+            "summary.json",
+            "summary.v2.json",
+            "report.html",
+            "pr-risk-ledger.json"
+          ]) {
+            expect(await readFile(path.join(outDir, file), "utf8")).not.toMatch(
+              /fixture-(input|redirect|fragment)/
+            );
+          }
+          expect(`${run.stdout}\n${run.stderr}`).not.toMatch(/fixture-(input|redirect|fragment)/);
+        }
+        expect(received).toContain("/?code=fixture-input");
+        expect(received).toContain("/?code=fixture-redirect");
+      } finally {
+        await closeFixtureServer(server);
+        await rm(root, { recursive: true, force: true });
+      }
+    },
+    AUDIT_TEST_TIMEOUT_MS
   );
 
   it("returns exit code 2 for invalid URL", async () => {

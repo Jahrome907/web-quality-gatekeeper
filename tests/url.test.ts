@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   UsageError,
   classifyTargetUrl,
+  createUrlPrivacyTracker,
   isInternalIpAddress,
+  sanitizeUrlForDisplay,
+  sanitizeUrlsInText,
   validateUrl
 } from "../src/utils/url.js";
 
@@ -15,6 +18,38 @@ describe("validateUrl edge cases", () => {
     expect(validateUrl("https://example.com/path?q=1#frag").url).toBe(
       "https://example.com/path?q=1#frag"
     );
+  });
+
+  it("uses a redacted URL for tool-authored display", () => {
+    expect(
+      sanitizeUrlForDisplay("https://alice:secret@example.com/path?access_token=demo-value#callback")
+    ).toBe("https://example.com/path");
+  });
+
+  it("redacts HTTP URLs embedded in diagnostics", () => {
+    expect(
+      sanitizeUrlsInText("Navigation failed for https://example.com/callback?code=demo-value#done")
+    ).toBe("Navigation failed for https://example.com/callback");
+  });
+
+  it("tracks URL sensitivity for the whole run", () => {
+    const tracker = createUrlPrivacyTracker();
+
+    tracker.observeUrl("https://example.com/health");
+    expect(tracker.sensitive).toBe(false);
+
+    tracker.observeUrl("https://example.com/callback?code=demo-value");
+    expect(tracker.sensitive).toBe(true);
+
+    tracker.observeUrl("https://example.com/health");
+    expect(tracker.sensitive).toBe(true);
+  });
+
+  it("keeps non-URL sensitivity separate from URL-sensitive display handling", () => {
+    const tracker = createUrlPrivacyTracker(true);
+
+    expect(tracker.sensitive).toBe(true);
+    expect(tracker.urlSensitive).toBe(false);
   });
 
   it("flags private 172.16 address as internal", () => {

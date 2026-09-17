@@ -1,3 +1,5 @@
+import { sanitizeUrlsInText } from "./url.js";
+
 export type LogLevel = "info" | "warn" | "error" | "debug";
 
 export interface LogContext {
@@ -30,21 +32,21 @@ const COLORS = {
   cyan: "\x1b[36m",
   gray: "\x1b[90m",
   bold: "\x1b[1m",
-  reset: "\x1b[0m",
+  reset: "\x1b[0m"
 };
 
 const LEVEL_LABELS: Record<LogLevel, string> = {
   info: "INFO",
   warn: "WARN",
   error: "ERR!",
-  debug: "DEBG",
+  debug: "DEBG"
 };
 
 const LEVEL_COLORS: Record<LogLevel, string> = {
   info: COLORS.green,
   warn: COLORS.yellow,
   error: COLORS.red,
-  debug: COLORS.gray,
+  debug: COLORS.gray
 };
 
 function useColor(): boolean {
@@ -114,8 +116,17 @@ export function createLogger(verbose: boolean): Logger {
       level,
       timestamp: new Date().toISOString(),
       elapsedMs: Date.now() - startTime,
-      message,
-      ...(context && Object.keys(context).length > 0 ? { context } : {})
+      message: sanitizeUrlsInText(message),
+      ...(context && Object.keys(context).length > 0
+        ? {
+            context: Object.fromEntries(
+              Object.entries(context).map(([key, value]) => [
+                key,
+                typeof value === "string" ? sanitizeUrlsInText(value) : value
+              ])
+            )
+          }
+        : {})
     };
 
     const formatted = structured ? formatStructured(entry) : formatHuman(entry, colorEnabled);

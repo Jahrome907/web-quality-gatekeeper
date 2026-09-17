@@ -45,8 +45,10 @@ describe("artifact publication", () => {
     for (const step of ["Upload artifacts", "Prepare PR summary comment"]) {
       const block = workflow.split(`- name: ${step}`)[1]!.split("uses:")[0]!;
       expect(block).toContain("steps.audit.outputs.bundle_complete == 'true'");
+      expect(block).toContain("steps.audit.outputs.sensitive_audit == 'false'");
     }
     expect(workflow).toContain("receipt.runId === process.env.WQG_RUN_ID");
     expect(workflow).toContain('receipt.status === "complete"');
+    expect(workflow).toContain('typeof receipt.sensitive === "boolean"');
   });
 });

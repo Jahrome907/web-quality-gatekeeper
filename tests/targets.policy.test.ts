@@ -43,6 +43,35 @@ describe("target resolution security policy", () => {
     expect(targets[0]?.hostResolverRules).toBe("MAP example.com 203.0.113.10");
   });
 
+  it("observes configured and verified URLs even when a host is already trusted", async () => {
+    mockLookup.mockResolvedValueOnce([{ address: "203.0.113.10", family: 4 }]);
+    const observedUrls: string[] = [];
+    const policy = {
+      allowInternalTargets: false,
+      blockInternalTargets: true,
+      observeUrl: (url: string) => observedUrls.push(url)
+    };
+    const logger = { warn: vi.fn() };
+
+    await resolveTargets(
+      undefined,
+      createConfig("https://example.com/login?code=demo-value"),
+      "artifacts",
+      "baselines",
+      logger,
+      policy
+    );
+    const verifier = new NavigationTargetVerifier(logger, policy, {
+      initialTrustedHosts: [["example.com", "MAP example.com 203.0.113.10"]]
+    });
+    await verifier.verify("https://example.com/redirect#callback", "final navigation target");
+
+    expect(observedUrls).toEqual([
+      "https://example.com/login?code=demo-value",
+      "https://example.com/redirect#callback"
+    ]);
+  });
+
   it("blocks internal targets in sensitive mode by default", async () => {
     const logger = { warn: vi.fn() };
 

@@ -560,7 +560,8 @@ export function buildTrendSummary(
   historyDir: string,
   enabled: boolean,
   historyPoints: TrendHistoryPoint[],
-  dashboardWindow: number
+  dashboardWindow: number,
+  options: { allowPageComparisons?: boolean } = {}
 ): TrendDeltaSummary {
   const historyWithCurrent = [...historyPoints, toHistoryPoint(current)].slice(-dashboardWindow);
   const trendInsights = buildTrendInsights(historyWithCurrent);
@@ -606,9 +607,12 @@ export function buildTrendSummary(
   }
 
   const previousSnapshot = previous.snapshot;
-  const previousPageMap = new Map<string, PageSummaryEntry>(
-    previousSnapshot.pages.map((page) => [`${page.name}::${page.url}`, page] as const)
-  );
+  const allowPageComparisons = options.allowPageComparisons ?? true;
+  const previousPageMap = allowPageComparisons
+    ? new Map<string, PageSummaryEntry>(
+        previousSnapshot.pages.map((page) => [`${page.name}::${page.url}`, page] as const)
+      )
+    : new Map<string, PageSummaryEntry>();
 
   const pageDeltas: TrendPageDelta[] = current.pages.map((page) => {
     const key = `${page.name}::${page.url}`;
@@ -637,7 +641,9 @@ export function buildTrendSummary(
     status: "ready",
     historyDir: historyDirRel,
     previousSnapshotPath: previous.path ? toRelative(outDir, previous.path) : null,
-    message: null,
+    message: allowPageComparisons
+      ? null
+      : "Page-level trend comparisons are unavailable because this run includes redacted URLs and is not saved for future page comparisons.",
     metrics: {
       overallStatusChanged: current.overallStatus !== previousSnapshot.overallStatus,
       durationMs: toTrendDelta(current.durationMs, previousSnapshot.durationMs),

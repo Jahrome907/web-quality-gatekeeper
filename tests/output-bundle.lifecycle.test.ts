@@ -71,7 +71,7 @@ describe("output bundle lifecycle", () => {
       writeStagedFile(second.stagingDir, "summary.v2.json", "current summary v2"),
       writeStagedFile(second.stagingDir, "screenshots/current.png", "current screenshot")
     ]);
-    await second.complete();
+    await second.complete(undefined, false);
 
     expect(await readFile(path.join(outDir, "summary.json"), "utf8")).toBe("current summary");
     expect(existsSync(path.join(outDir, "screenshots", "current.png"))).toBe(true);
@@ -93,6 +93,7 @@ describe("output bundle lifecycle", () => {
       schemaVersion: 1,
       status: "complete",
       runId: "run-b",
+      sensitive: false,
       generatedFiles: ["screenshots/current.png", "summary.json", "summary.v2.json"]
     });
   });
@@ -117,6 +118,7 @@ describe("output bundle lifecycle", () => {
       schemaVersion: 1,
       status: "incomplete",
       runId: "fatal-run",
+      sensitive: true,
       generatedFiles: ["summary.json"]
     });
   });

@@ -1090,7 +1090,7 @@ describe("lighthouse runner", () => {
     requestContinues.forEach((requestContinue) => expect(requestContinue).not.toHaveBeenCalled());
   });
 
-  it("does not re-resolve the final Lighthouse URL when it stays on the original host", async () => {
+  it("observes the final Lighthouse URL without re-resolving its original host", async () => {
     const kill = vi.fn().mockResolvedValue(undefined);
     mockLaunch.mockResolvedValue({ port: 9222, kill });
     const puppeteer = createPuppeteerHarness();
@@ -1099,7 +1099,7 @@ describe("lighthouse runner", () => {
     });
     mockLighthouse.mockResolvedValue({
       lhr: {
-        finalDisplayedUrl: "https://example.com/dashboard",
+        finalDisplayedUrl: "https://example.com/dashboard#invite-token",
         categories: {
           performance: { score: 0.95 }
         },
@@ -1112,6 +1112,7 @@ describe("lighthouse runner", () => {
     });
 
     const logger = { debug: vi.fn(), warn: vi.fn() };
+    const observedUrls: string[] = [];
     const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
 
     await expect(
@@ -1125,7 +1126,8 @@ describe("lighthouse runner", () => {
           hostResolverRules: "MAP example.com 203.0.113.10",
           targetPolicy: {
             allowInternalTargets: false,
-            blockInternalTargets: true
+            blockInternalTargets: true,
+            observeUrl: (observedUrl) => observedUrls.push(observedUrl)
           }
         }
       )
@@ -1134,6 +1136,7 @@ describe("lighthouse runner", () => {
     });
 
     expect(logger.warn).not.toHaveBeenCalled();
+    expect(observedUrls).toContain("https://example.com/dashboard#invite-token");
     expect(puppeteer.page.setRequestInterception).toHaveBeenCalledWith(true);
     expect(puppeteer.page.close).toHaveBeenCalledTimes(1);
     expect(puppeteer.browser.disconnect).toHaveBeenCalledTimes(1);
@@ -1251,6 +1254,7 @@ describe("lighthouse runner", () => {
       vi.fn().mockResolvedValue(undefined),
       vi.fn().mockResolvedValue(undefined)
     ];
+    const observedUrls: string[] = [];
     mockLookup.mockImplementation(async (hostname: string) => [
       { address: hostname === "8.8.8.8" ? "8.8.8.8" : "203.0.113.10", family: 4 }
     ]);
@@ -1261,7 +1265,7 @@ describe("lighthouse runner", () => {
       }
 
       await Promise.all(
-        ["app.js", "styles.css"].map((resource, index) =>
+        ["app.js?first=1", "styles.css?second=2"].map((resource, index) =>
           requestHandler({
             isNavigationRequest: () => false,
             url: () => `https://8.8.8.8/${resource}`,
@@ -1300,12 +1304,22 @@ describe("lighthouse runner", () => {
         null,
         {
           hostResolverRules: "MAP example.com 203.0.113.10",
-          targetPolicy: { allowInternalTargets: false, blockInternalTargets: true }
+          targetPolicy: {
+            allowInternalTargets: false,
+            blockInternalTargets: true,
+            observeUrl: (observedUrl) => observedUrls.push(observedUrl)
+          }
         }
       )
     ).resolves.toMatchObject({ metrics: expect.any(Object) });
 
     expect(mockLookup.mock.calls.map((call) => call[0])).toEqual(["example.com", "8.8.8.8"]);
+    expect(observedUrls).toEqual(
+      expect.arrayContaining([
+        "https://8.8.8.8/app.js?first=1",
+        "https://8.8.8.8/styles.css?second=2"
+      ])
+    );
     requestContinues.forEach((continueRequest) => expect(continueRequest).toHaveBeenCalledTimes(1));
     requestAborts.forEach((abort) => expect(abort).not.toHaveBeenCalled());
     expect(mockLaunch).toHaveBeenCalledTimes(1);
@@ -1708,10 +1722,10 @@ describe("lighthouse runner", () => {
     let launchTemp: string | undefined;
     let launchTmp: string | undefined;
     let launchUserDataDir: string | undefined;
-    mockLaunch.mockImplementation(async () => {
-      launchLocalDataRoot = process.env[LOCAL_DATA_ENV_KEY];
-      launchTemp = process.env.TEMP;
-      launchTmp = process.env.TMP;
+    mockLaunch.mockImplementation(async (options) => {
+      launchLocalDataRoot = options.envVars?.[LOCAL_DATA_ENV_KEY];
+      launchTemp = options.envVars?.TEMP;
+      launchTmp = options.envVars?.TMP;
       return { port: 9222, kill };
     });
     mockLighthouse.mockResolvedValue({
@@ -1751,6 +1765,9 @@ describe("lighthouse runner", () => {
           )
         );
         expect(launchTmp).toBe(launchTemp);
+        expect(process.env[LOCAL_DATA_ENV_KEY]).toBeUndefined();
+        expect(process.env.TEMP).toBeUndefined();
+        expect(process.env.TMP).toBeUndefined();
         expect(launchUserDataDir).toMatch(
           new RegExp(
             `^${outDir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/\\.lighthouse-runtime-[^/]+/profile$`
@@ -1778,6 +1795,109 @@ describe("lighthouse runner", () => {
       await rm(outDir, { recursive: true, force: true });
     }
   });
+
+  it.skipIf(process.platform === "win32")(
+    "gives overlapping audits independent portable Chrome environments",
+    async () => {
+      const outDir = await mkdtemp(path.join(process.cwd(), ".tmp-lh-runtime-test-"));
+      const previousLocalDataRoot = process.env[LOCAL_DATA_ENV_KEY];
+      const previousTemp = process.env.TEMP;
+      const previousTmp = process.env.TMP;
+      delete process.env[LOCAL_DATA_ENV_KEY];
+      delete process.env.TEMP;
+      delete process.env.TMP;
+
+      mockLaunch.mockImplementation(async () => ({
+        port: 9222,
+        kill: vi.fn().mockResolvedValue(undefined)
+      }));
+      mockLighthouse.mockResolvedValue({
+        lhr: {
+          categories: { performance: { score: 0.95 } },
+          audits: {
+            "largest-contentful-paint": { id: "largest-contentful-paint", numericValue: 1500 },
+            "cumulative-layout-shift": { id: "cumulative-layout-shift", numericValue: 0.01 },
+            "total-blocking-time": { id: "total-blocking-time", numericValue: 100 }
+          }
+        }
+      });
+
+      try {
+        const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+        await Promise.all([
+          runLighthouseAudit(
+            "https://first.example.com",
+            outDir,
+            createBaseConfig() as never,
+            { debug: vi.fn() } as never
+          ),
+          runLighthouseAudit(
+            "https://second.example.com",
+            outDir,
+            createBaseConfig() as never,
+            { debug: vi.fn() } as never
+          )
+        ]);
+
+        const launchOptions = mockLaunch.mock.calls.map(([options]) => options);
+        expect(launchOptions).toHaveLength(2);
+        expect(launchOptions[0].envVars[LOCAL_DATA_ENV_KEY]).not.toBe(
+          launchOptions[1].envVars[LOCAL_DATA_ENV_KEY]
+        );
+        expect(launchOptions[0].envVars.TEMP).not.toBe(launchOptions[1].envVars.TEMP);
+        expect(process.env[LOCAL_DATA_ENV_KEY]).toBeUndefined();
+        expect(process.env.TEMP).toBeUndefined();
+        expect(process.env.TMP).toBeUndefined();
+        const entries = await readdir(outDir);
+        expect(entries.some((entry) => entry.startsWith(".lighthouse-runtime-"))).toBe(false);
+      } finally {
+        if (previousLocalDataRoot === undefined) {
+          delete process.env[LOCAL_DATA_ENV_KEY];
+        } else {
+          process.env[LOCAL_DATA_ENV_KEY] = previousLocalDataRoot;
+        }
+        if (previousTemp === undefined) {
+          delete process.env.TEMP;
+        } else {
+          process.env.TEMP = previousTemp;
+        }
+        if (previousTmp === undefined) {
+          delete process.env.TMP;
+        } else {
+          process.env.TMP = previousTmp;
+        }
+        await rm(outDir, { recursive: true, force: true });
+      }
+    }
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "cleans the portable runtime when initial target resolution fails",
+    async () => {
+      const outDir = await mkdtemp(path.join(process.cwd(), ".tmp-lh-runtime-test-"));
+      mockLookup.mockRejectedValue(new Error("DNS lookup failed"));
+
+      try {
+        const { runLighthouseAudit } = await import("../src/runner/lighthouse.js");
+        await expect(
+          runLighthouseAudit(
+            "https://example.com",
+            outDir,
+            createBaseConfig() as never,
+            { debug: vi.fn() } as never,
+            null,
+            { targetPolicy: { allowInternalTargets: false, blockInternalTargets: true } }
+          )
+        ).rejects.toThrow("Blocked unresolved Lighthouse target");
+
+        expect(mockLaunch).not.toHaveBeenCalled();
+        const entries = await readdir(outDir);
+        expect(entries.some((entry) => entry.startsWith(".lighthouse-runtime-"))).toBe(false);
+      } finally {
+        await rm(outDir, { recursive: true, force: true });
+      }
+    }
+  );
 
   it("does not fail a successful audit when Chrome cleanup fails", async () => {
     const kill = vi.fn().mockRejectedValue(new Error("kill failed"));

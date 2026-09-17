@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Withhold automatic artifact publication when audit URLs or browser requests contain query or fragment data, and redact URL payloads in report fields and diagnostics.
+- Isolate Lighthouse temporary environment settings per browser process and clean up when target resolution fails.
+
 ## [5.0.0]
 
 ### Removed

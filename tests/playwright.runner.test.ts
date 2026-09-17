@@ -93,6 +93,7 @@ function createRoutedBrowser() {
 
   return {
     browser: { newContext, close: closeBrowser },
+    page,
     closeBrowser,
     getRouteHandler: () => {
       if (!routeHandler) {
@@ -2312,6 +2313,83 @@ describe("playwright runner", () => {
     expect(results).toHaveLength(20);
     expect(results[19]!.name).toBe("Landing viewport 19");
     expect(results[19]!.path).toBe(path.join(outDir, "landing--vp-19.png"));
+  });
+
+  it("relaunches the full screenshot lifecycle after a later route discovers a public host", async () => {
+    const initialNavigation = createRoutedBrowser();
+    const firstScreenshotRun = createRoutedBrowser();
+    const recoveredScreenshotRun = createRoutedBrowser();
+    mockLaunch
+      .mockResolvedValueOnce(initialNavigation.browser)
+      .mockResolvedValueOnce(firstScreenshotRun.browser)
+      .mockResolvedValueOnce(recoveredScreenshotRun.browser);
+
+    const observedUrls: string[] = [];
+    const targetPolicy = {
+      ...strictTargetPolicy,
+      observeUrl: (url: string) => observedUrls.push(url)
+    };
+    firstScreenshotRun.page.goto.mockImplementation(async (url: string) => {
+      if (url.endsWith("/pricing")) {
+        await firstScreenshotRun.getRouteHandler()({
+          request: () => ({
+            isNavigationRequest: () => false,
+            url: () => "https://cdn.example.net/challenge.js?request=demo-value",
+            headers: () => ({})
+          }),
+          abort: vi.fn().mockResolvedValue(undefined),
+          continue: vi.fn().mockResolvedValue(undefined)
+        });
+      }
+      return undefined;
+    });
+
+    const logger = { debug: vi.fn(), warn: vi.fn() };
+    const { captureScreenshots, runPlaywrightLifecycle } = await import("../src/runner/playwright.js");
+    const result = await runPlaywrightLifecycle(
+      "https://example.com/",
+      {
+        ...(auditConfig() as object),
+        screenshots: [
+          { name: "Home", path: "/", fullPage: true },
+          { name: "Pricing", path: "/pricing", fullPage: true }
+        ]
+      } as never,
+      logger as never,
+      null,
+      { targetPolicy },
+      async (opened) =>
+        captureScreenshots(
+          opened.page,
+          opened.resolvedUrl,
+          {
+            ...(auditConfig() as object),
+            screenshots: [
+              { name: "Home", path: "/", fullPage: true },
+              { name: "Pricing", path: "/pricing", fullPage: true }
+            ]
+          } as never,
+          path.resolve(process.cwd(), "artifacts/screenshots"),
+          logger as never
+        )
+    );
+
+    expect(result).toHaveLength(2);
+    expect(mockLaunch).toHaveBeenCalledTimes(3);
+    expect(mockLaunch).toHaveBeenNthCalledWith(3, {
+      headless: true,
+      args: [
+        "--host-resolver-rules=MAP example.com 203.0.113.10, MAP cdn.example.net 203.0.113.10"
+      ]
+    });
+    expect(observedUrls).toEqual(
+      expect.arrayContaining([
+        "https://example.com/",
+        "https://example.com/pricing",
+        "https://cdn.example.net/challenge.js?request=demo-value"
+      ])
+    );
+    expect(recoveredScreenshotRun.closeBrowser).toHaveBeenCalledTimes(1);
   });
 
   it.each([false, true])(

@@ -20,14 +20,69 @@ export class UnresolvedTargetError extends UsageError {
 }
 
 function safeUrlForMessage(raw: string): string {
+  return sanitizeUrlForDisplay(raw);
+}
+
+/**
+ * Returns the URL form that is safe to place in tool-authored text and report
+ * fields. Navigation continues to use the original URL.
+ */
+export function sanitizeUrlForDisplay(raw: string): string {
   try {
     const parsed = new URL(raw);
     parsed.username = "";
     parsed.password = "";
+    parsed.search = "";
+    parsed.hash = "";
     return parsed.toString();
   } catch {
     return "<invalid URL>";
   }
+}
+
+/**
+ * Redacts absolute HTTP(S) URLs embedded in a diagnostic message. It does not
+ * attempt to sanitize arbitrary page or runtime payloads.
+ */
+export function sanitizeUrlsInText(value: string): string {
+  return value.replace(/https?:\/\/[^\s<>"'`]+/giu, (url) => sanitizeUrlForDisplay(url));
+}
+
+export function hasSensitiveUrlComponents(raw: string): boolean {
+  try {
+    const parsed = new URL(raw);
+    return Boolean(parsed.username || parsed.password || parsed.search || parsed.hash);
+  } catch {
+    return false;
+  }
+}
+
+export interface UrlPrivacyTracker {
+  readonly sensitive: boolean;
+  readonly urlSensitive: boolean;
+  observeUrl(raw: string): void;
+}
+
+/**
+ * Accumulates URL sensitivity for a complete audit run. Once an observed URL
+ * includes user info, a query, or a fragment, the run remains sensitive.
+ */
+export function createUrlPrivacyTracker(initialSensitive = false): UrlPrivacyTracker {
+  let sensitive = initialSensitive;
+  let urlSensitive = false;
+
+  return {
+    get sensitive(): boolean {
+      return sensitive;
+    },
+    get urlSensitive(): boolean {
+      return urlSensitive;
+    },
+    observeUrl(raw: string): void {
+      urlSensitive ||= hasSensitiveUrlComponents(raw);
+      sensitive ||= urlSensitive;
+    }
+  };
 }
 
 function invalidUrlMessage(raw: string): string {
@@ -116,6 +171,7 @@ export interface TargetClassification {
 export interface TargetResolutionPolicy {
   allowInternalTargets: boolean;
   blockInternalTargets: boolean;
+  observeUrl?: (url: string) => void;
 }
 
 export interface WarningLogger {
@@ -227,6 +283,7 @@ export async function resolveAuditedTarget(
   hostResolverRules: string | null;
   classification: TargetClassification;
 }> {
+  policy.observeUrl?.(raw);
   const classification = await classifyTargetUrl(raw);
   const context = options.context ?? "target";
   const resolvedSuffix = formatResolvedSuffix(classification);
@@ -300,6 +357,8 @@ export class NavigationTargetVerifier {
     if (!this.policy) {
       return null;
     }
+
+    this.policy.observeUrl?.(targetUrl);
 
     const existing = this.verifiedTargets.get(targetUrl);
     if (existing) {
