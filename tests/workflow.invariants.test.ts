@@ -467,7 +467,7 @@ describe("workflow invariants", () => {
     expect(source).toContain(
       [
         "    - name: Setup Node",
-        "      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0",
+        "      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0",
         "      with:",
         "        node-version: 24"
       ].join("\n")
@@ -575,7 +575,7 @@ describe("workflow invariants", () => {
     expect(source).toContain("Upload publish evidence");
     expect(source).toContain("npm-release-evidence");
     expect(source).toContain("Verify npm package visibility");
-    expect(source).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c");
+    expect(source).toContain("actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333");
     expect(source).toContain("Configure npm registry");
     expect(source).toContain("needs: [validate-input, validate-package]");
     expect(source).toContain("Publish to npm with trusted publishing");
@@ -617,8 +617,8 @@ describe("workflow invariants", () => {
     expect(source).toContain("npm run release:dry-run");
     expect(source).toContain("npm run release:evidence");
     expect(source).toContain("--validation-profile release");
-    expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
-    expect(source).toContain("actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c");
+    expect(source).toContain("actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9");
+    expect(source).toContain("actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333");
     expect(source).toContain("release-provenance.json");
     expect(source).toContain("sbom.spdx.json");
     expect(source).not.toContain("npm publish --provenance --access public");
@@ -687,8 +687,8 @@ describe("workflow invariants", () => {
     expect(source).toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
     expect(source).toContain("# v6.0.3");
     expect(source).not.toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
-    expect(source).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
-    expect(source).toContain("# v7.0.1");
+    expect(source).toContain("actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9");
+    expect(source).toContain("# v7.0.2");
     expect(source).toContain("path: ${{ steps.wqg.outputs.artifact-paths }}");
     expect(source).toContain("steps.wqg.outputs.sensitive-audit == 'false'");
     expect(source).toContain("steps.wqg.outputs.bundle-complete == 'true'");

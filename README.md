@@ -49,7 +49,7 @@ jobs:
           baseline-dir: .github/web-quality/baselines
       - name: Upload audit artifacts
         if: always() && steps.wqg.outputs.bundle-complete == 'true' && (steps.wqg.outputs.sensitive-audit == 'false' || env.WQG_ALLOW_SENSITIVE_OUTPUTS == 'true')
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wqg-artifacts
           path: ${{ steps.wqg.outputs.artifact-paths }}

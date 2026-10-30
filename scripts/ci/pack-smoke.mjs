@@ -175,7 +175,7 @@ async function runPackSmoke() {
     );
     for (const expectedWorkflowText of [
       "actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
-      "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+      "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
       "WQG_SENSITIVE_AUDIT",
       "WQG_ALLOW_SENSITIVE_OUTPUTS",
       "id: wqg",
@@ -284,6 +284,7 @@ async function runPackSmoke() {
       configPath,
       JSON.stringify(
         {
+          extends: ["policy:docs"],
           timeouts: {
             navigationMs: 15000,
             actionMs: 10000,
@@ -310,6 +311,9 @@ async function runPackSmoke() {
           },
           visual: {
             threshold: 0.01
+          },
+          trends: {
+            enabled: false
           },
           toggles: {
             a11y: false,

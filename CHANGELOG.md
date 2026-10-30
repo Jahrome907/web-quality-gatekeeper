@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.2] - 2026-10-29
+
+### Fixed
+
+- Resolve built-in policy files inside the installed package when running the bundled CLI or API.
+- Allow npm registry processing to finish before the publication visibility check times out.
+
+### Changed
+
+- Update the pinned Node, Python, and artifact Actions in workflows and consumer examples.
+
 ## [5.0.1] - 2026-10-29
 
 ### Fixed
