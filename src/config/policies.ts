@@ -1,8 +1,9 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const THIS_DIR = path.dirname(fileURLToPath(import.meta.url));
-const POLICY_DIR = path.resolve(THIS_DIR, "../../configs/policies");
+const POLICY_DIR = path.dirname(
+  fileURLToPath(import.meta.resolve("web-quality-gatekeeper/configs/policies/docs.json"))
+);
 
 const BUILTIN_POLICIES = ["marketing", "docs", "ecommerce", "saas"] as const;
 

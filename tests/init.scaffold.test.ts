@@ -31,13 +31,13 @@ describe("consumer init scaffold", () => {
       ).resolves.toContain("actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
-      ).resolves.toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
+      ).resolves.toContain("actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
       ).resolves.toContain("# v6.0.3");
       await expect(
         readFile(path.join(cwd, ".github/workflows/web-quality.yml"), "utf8")
-      ).resolves.toContain("# v7.0.1");
+      ).resolves.toContain("# v7.0.2");
       await expect(
         readFile(path.join(cwd, ".github/web-quality/README.md"), "utf8")
       ).resolves.toContain("Profile: `marketing`");
