@@ -185,28 +185,23 @@ describe.skipIf(!HAS_BASH)("composite action output completion receipt", () => {
     }
   }, 15000);
 
-  it("does not publish stale or incomplete output", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "wqg-action-receipt-"));
-    try {
-      for (const scenario of [
-        "stale",
-        "incomplete",
-        "absent",
-        "fatal",
-        "missing-sensitivity",
-        "invalid-sensitivity"
-      ]) {
+  it.each(["stale", "incomplete", "absent", "fatal", "missing-sensitivity", "invalid-sensitivity"])(
+    "does not publish %s output",
+    async (scenario) => {
+      const root = await mkdtemp(path.join(tmpdir(), "wqg-action-receipt-"));
+      try {
         const result = await runReceiptScenario(root, scenario);
         expect(result.status).not.toBe(0);
         expect(result.outputs.get("sensitive-audit")).toBe("true");
         expect(result.outputs.get("bundle-complete")).toBe("false");
         expect(result.outputs.get("status")).toBeUndefined();
         expect(result.outputs.get("summary-path")).toBeUndefined();
+      } finally {
+        await rm(root, { recursive: true, force: true });
       }
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  }, 15000);
+    },
+    15000
+  );
 
   it("keeps completed authenticated audits marked sensitive", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "wqg-action-receipt-"));

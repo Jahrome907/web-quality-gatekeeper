@@ -7,7 +7,7 @@
 
 Web Quality Gatekeeper runs Playwright smoke checks, axe accessibility scans, Lighthouse budgets, and visual comparisons in one CI job. It produces an HTML report plus JSON and Markdown artifacts for automation.
 
-These instructions target 5.0.0. The npm and `@v5` examples require its publication; check [Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) and [npm](https://www.npmjs.com/package/web-quality-gatekeeper) before using them. For the published v4 line, use the [4.0.0 instructions](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v4.0.0/README.md). Read the [v5 migration guide](docs/migrations/v5.md) when upgrading a native visual-diff configuration.
+These instructions cover v5. Check [Releases](https://github.com/Jahrome907/web-quality-gatekeeper/releases) and [npm](https://www.npmjs.com/package/web-quality-gatekeeper) for published versions. For v4, use the [4.0.0 instructions](https://github.com/Jahrome907/web-quality-gatekeeper/blob/v4.0.0/README.md). Read the [v5 migration guide](docs/migrations/v5.md) when upgrading a native visual-diff configuration.
 
 Set up and review visual baselines before enabling the normal gate:
 
@@ -124,9 +124,9 @@ per-page trend comparisons are omitted to avoid matching distinct URLs after
 redaction; aggregate measurements remain available in the current report. These runs
 are not saved as future trend comparison snapshots.
 
-For an immutable Action reference, replace `@v5` with the verified v5.0.0 commit:
-`Jahrome907/web-quality-gatekeeper@56fa790ce098f82328d9c0cba475948445c9c239`.
-When updating a pin, verify the new release tag's commit and review its changes.
+For an immutable Action reference, replace `@v5` with the full commit SHA of the
+release you reviewed: `Jahrome907/web-quality-gatekeeper@<verified-commit-sha>`.
+Verify the release tag's signature and review its changes before updating the pin.
 
 ## What it checks
 

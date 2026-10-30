@@ -9,10 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.1] - 2026-10-29
+
 ### Fixed
 
 - Withhold automatic artifact publication when audit URLs or browser requests contain query or fragment data, and redact URL payloads in report fields and diagnostics.
 - Isolate Lighthouse temporary environment settings per browser process and clean up when target resolution fails.
+- Update runtime and toolchain dependencies to resolve current security advisories, removing the obsolete Axios override and redundant pixelmatch types.
+- Bound test workers and run Action receipt failure cases independently to prevent subprocess and filesystem timeouts.
+
+### Changed
+
+- Update the pinned Pages deployment and coverage upload Actions.
 
 ## [5.0.0]
 
